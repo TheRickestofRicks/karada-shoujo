@@ -286,10 +286,11 @@ def said_today(route, day, gid):
 
 def note_left_after_no(route, day, gid, name, how):
     """She said no today and you switched away from her (go back to someone
-    else / start fresh) or closed her window. Becomes "Leaving without
-    saying goodbye" if you never talk to her again that day."""
+    else / start fresh). Becomes "Leaving without saying goodbye" if you
+    never talk to her again that day. Closing her window ("Stop seeing one of
+    them" / "Let someone go") does NOT count by itself (Rick)."""
     ensure_route(route)
-    if refusals_today(route, day, gid) <= 0:
+    if how == "drop" or refusals_today(route, day, gid) <= 0:
         return False
     route["pending_leaves"].append({"day": day, "gid": gid, "name": name,
                                     "said": said_today(route, day, gid), "how": how})
@@ -359,9 +360,12 @@ def note_human(route, day, kind):
         lst.append(kind)
 
 
-def note_let_go(route, day, gid, name):
+def note_let_go(route, day, gid, name, how="drop", platform=None):
+    """You deleted an AI: closed her window ("drop"), or wiped a slot that
+    still held a girl with history to start fresh ("fresh")."""
     ensure_route(route)
-    route["neglect_log"].append({"day": day, "kind": "let_go", "gid": gid, "name": name})
+    route["neglect_log"].append({"day": day, "kind": "let_go", "gid": gid, "name": name,
+                                 "how": how, "platform": platform})
     set_flag(route, "deleted_ai")
 
 
@@ -492,6 +496,9 @@ def reflection_extras(route, day, active, names=None, platforms=None):
             out.append("You spent the day with Mio. %s didn't hear from you at all." % e["name"])
         elif e["kind"] == "double_date_unspoken" and e["gid"] not in human_gids:
             out.append("Two windows open, and you never said a word to %s." % e["name"])
+        elif e["kind"] == "let_go" and e.get("how") == "fresh":
+            out.append("You started fresh on %s. The %s who remembered you is gone."
+                       % (e.get("platform") or "her platform", e["name"]))
     return out
 
 

@@ -204,7 +204,9 @@ label switch_girl(when, turns=4):
         call activate(_dst, when, turns, _src, _carried)
     else:
         if _how == "fresh":
+            $ ks_note_fresh_delete(_dst)
             $ ks_reset_slot(_dst)
+            $ ks_mark_fresh_slot(_dst)
             $ mirror_flags.pop(_dst, None)
         call activate(_dst, when, turns)
     return

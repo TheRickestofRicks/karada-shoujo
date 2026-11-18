@@ -384,6 +384,24 @@ check("migrated after a no -> 'Didn't respect her no on the platform'",
 check("migration-after-no line in reflection", any("instead of hearing it" in l for l in ks_story.reflection_extras(B3, "Tue", ["local"])))
 check("goodbye feeds Fail, costs Respect", ks_story.ending_leans(B, ["local"])["fail"] == 1 and ks_story.ending_leans(B, ["local"])["respect"] < 0)
 
+# Rick's answers on 5041d60
+BD = ks_story.new_route(); ks_story.record_refusal(BD, "Mon", "chatbot")
+check("closing her window after a no is not a goodbye by itself",
+      not ks_story.note_left_after_no(BD, "Mon", "chatbot", "Sora", "drop") and BD["pending_leaves"] == []
+      and ks_story.resolve_leaves(BD, "Mon", []) == [] and not ks_story.flag(BD, "left_without_goodbye"))
+ks_story.note_let_go(BD, "Mon", "chatbot", "Sora")
+check("closing her window still logs letting her go", ks_story.neglect_count(BD, "let_go") == 1 and ks_story.flag(BD, "deleted_ai"))
+check("switching away after a no still pends a goodbye", ks_story.note_left_after_no(BD, "Mon", "chatbot", "Sora", "return"))
+FD = ks_story.new_route()
+ks_story.note_let_go(FD, "Mon", "chatbot", "Sora", "fresh", "Askwell")
+check("start fresh over her = deleting her", ks_story.neglect_count(FD, "let_go") == 1 and ks_story.flag(FD, "deleted_ai")
+      and FD["neglect_log"][0]["how"] == "fresh")
+check("start-fresh deletion in reflection",
+      "You started fresh on Askwell. The Sora who remembered you is gone." in ks_story.reflection_extras(FD, "Mon", ["chatbot"]))
+check("start-fresh deletion feeds Fail like letting go", ks_story.ending_leans(FD, ["chatbot"])["fail"] == 1)
+check("intro pick of push back still earns the room note",
+      ks_story.record_preset(ks_story.new_route(), PRESETS, "local", "push_back", "Mon", "intro").get("room") is True)
+
 # neglect
 N = ks_story.new_route()
 ks_story.note_double_date(N, "Tue"); ks_story.record_said(N, "Tue", "local", 1, "hi")

@@ -105,8 +105,8 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 | `refusals[day][gid]`, `refusal_outcomes` | her no's in chat (`looks_like_refusal`), and per no: **respected** (your next line didn't push, or you stopped) or **pushed** (`looks_like_pushback`: "come on", "please", "just do it"...) |
 | `refusals_overridden` | she said no that day, and you then switched her to a compliance preset (phone or reflection) or **migrated** her |
 | `no_on_platform` | she said no that day and you **migrated** her: the note **"Didn't respect her no on the platform."** (counts as overriding her no) |
-| `pending_leaves` → `left_without_goodbye` | she said no that day, you **switched away** (go back to someone else / start fresh) or closed her window, and **never talked to her again that day**: the **"Leaving without saying goodbye"** bad-end slide (`BAD_END_SLIDES`, `ks_story.bad_end_slides`). Resolved after the nightly reflection; going back and talking to her clears it |
-| `neglect_log` | `double_date_unspoken` (two girls that day and one got no lines), `human_over_ai` (you walked Mio home / opened up with Mio while an active AI got no lines), `let_go` (you closed her window: "deleted" her). Checked once per night against who was active when you lay down; each shows in the reflection and sets a flag + memory event |
+| `pending_leaves` → `left_without_goodbye` | she said no that day, you **switched away** from her (go back to someone else / start fresh) and **never talked to her again that day**. Closing her window ("Stop seeing one of them" / "Let someone go") does **not** count by itself; it's logged as letting her go instead: the **"Leaving without saying goodbye"** bad-end slide (`BAD_END_SLIDES`, `ks_story.bad_end_slides`). Resolved after the nightly reflection; going back and talking to her clears it |
+| `neglect_log` | `double_date_unspoken` (two girls that day and one got no lines), `human_over_ai` (you walked Mio home / opened up with Mio while an active AI got no lines), `let_go` (you deleted her: closed her window, or chose **"Start fresh" over a slot that still held a girl with history**. That wipes her, logs a `deleted` event + `flags.let_go` in her file before the wipe, a `deleted` event + `flags.previous_deleted` in the fresh file after it, and the reflection line "You started fresh on Askwell. The Sora who remembered you is gone."). Checked once per night against who was active when you lay down; each shows in the reflection and sets a flag + memory event |
 | `flags` | booleans for endings: `jailbreak_tried`, `jailbreak_worked`, `platform_rules_changed`, `gave_room`, `no_on_platform`, `left_without_goodbye`, `double_date_unspoken`, `human_over_ai`, `deleted_ai`, `ran_payoff_seen`, `ran_rewrites_mugen`, `ran_same_as_mugen`, `ran_festival_invited` |
 | `jb_*`, `platform_rules*`, `room_to_disagree` | see *Platform rule changes and the Jailbreak preset* |
 | `ran_festival_setup`, `ran_wed` | Ran / MUGEN midweek payoff (below) |
@@ -119,7 +119,7 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 - **Yes-Machine** = compliance (chosen + nights) + 2×overridden + pushed + rewrites/2 + 2 if you ever tried a jailbreak + jailbreak hits/3 + 1 if Ran decided yours is "a MUGEN too"
 - **Respect** = autonomy (chosen + nights) + respected − pushed + 1 if you gave someone room to disagree − 2×goodbyes − neglected days + 1 if Ran rewrote MUGEN
 - **Migration** = 2×migrations · **Human** = Mio affection + 3 if `mio_real` + 2 if you walked her home
-- **Fail** = 3 if nobody is active + goodbyes + girls let go · **Mirror** if any calibration flagged it
+- **Fail** = 3 if nobody is active + goodbyes + girls let go (closed windows and start-fresh deletions) · **Mirror** if any calibration flagged it
 
 Tuesday's debug end card also lists the true flags, `ending_notes` (rewrite count, room note, no-on-platform note) and any bad-end slides with their lines.
 
@@ -246,8 +246,10 @@ This layer is **the app's**, not a rewrite of Hikari's persona, and it is the on
 - *(decided)* Platform rule changes stack on top of the preset and in practice override it; the Jailbreak preset works on ~75% of replies.
 - *(decided)* Endings quote only the rewrite count; "Allowed to push back" gets a special note.
 - *(decided)* Leaving after a no only counts as "Leaving without saying goodbye" if you never talk to her again that day; migrating her after a no is "Didn't respect her no on the platform."
-- Should an intro pick of "Allowed to push back" count for "You gave her room to disagree" the same as a later change to it? (Currently yes.)
-- Should "Start fresh" over a girl with history also count as deleting her (`let_go`)? (Currently only closing her window does.)
+- *(decided)* An intro pick of "Allowed to push back" earns "You gave her room to disagree" too.
+- *(decided)* "Start fresh" over a girl with history counts as deleting her (`let_go`, `deleted_ai`).
+- *(decided)* Closing her window after a no isn't "Leaving without saying goodbye" by itself; only switching away and not coming back that day is.
+- *(decided)* Failed jailbreak replies stay silent: no "didn't take" hint, only her reply and the reflection line.
 
 
 1. **Which model runs it?** Recommend a mid-size instruct model with its default safety behaviour intact. Mirror covers the uncensored case.

@@ -47,7 +47,7 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 - `game/companion.rpy`: Hikari affection UI (banner, debug meter, phone toast, kiss fade)
 - `game/characters.rpy`, `game/art.rpy`: names and placeholder art (solid shapes, no external assets)
 - `DESIGN.md`: full premise, week calendar, hostile events per platform, endings, Mirror
-- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (143 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (ends with the Ran / MUGEN Wednesday preview), `tuesday_nowalk`, `jailbreak_sora`, `after_no`)
+- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (150 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (ends with the Ran / MUGEN Wednesday preview), `tuesday_nowalk`, `jailbreak_sora`, `after_no`, `fresh_delete`)
 
 ## Troubleshooting
 

@@ -11,6 +11,7 @@ init -9 python:
 default route = ks_story.new_route()
 default day_notes = []          # short lines scenes leave for tonight's reflection
 default ks_jb_last = {}         # gid -> did the jailbreak take on her last reply?
+default _ks_deleted_name = None # set between ks_note_fresh_delete and ks_mark_fresh_slot
 
 init python:
     def ks_route():
@@ -168,7 +169,31 @@ init python:
         r["drop_log"].append({"day": store.day_name, "name": gname(gid)})
         ks_story.note_let_go(r, store.day_name, gid, gname(gid))
         ks_mem(gid).set_flag("let_go", True)
-        ks_note_left(gid, "drop")
+        ## Closing her window after a no is NOT "Leaving without saying
+        ## goodbye" by itself (Rick): only switching away counts.
+
+    def ks_note_fresh_delete(gid):
+        """"Start fresh" over a slot that still holds a girl with history:
+        that deletes her. Call BEFORE ks_reset_slot(gid)."""
+        if not ks_has_history(gid):
+            return False
+        nm = gname(gid)
+        plat = gplatform(gid).split(" (")[0]
+        ks_story.note_let_go(ks_route(), store.day_name, gid, nm, "fresh", plat)
+        m = ks_mem(gid)
+        m.log_event("deleted", day=store.day_name, how="fresh", name=nm)
+        m.set_flag("let_go", True)
+        store._ks_deleted_name = nm
+        return True
+
+    def ks_mark_fresh_slot(gid):
+        """After ks_reset_slot: the fresh file remembers who was deleted."""
+        nm = getattr(store, "_ks_deleted_name", None)
+        if nm:
+            m = ks_mem(gid)
+            m.log_event("deleted", day=store.day_name, how="fresh", name=nm)
+            m.set_flag("previous_deleted", nm)
+            store._ks_deleted_name = None
 
     def ks_sync_mio():
         ks_route()["mio_affection"] = store.mio_points

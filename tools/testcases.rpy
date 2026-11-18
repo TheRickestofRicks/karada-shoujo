@@ -171,8 +171,12 @@ testcase double_then_drop:
     keysym "K_RETURN"
     advance until screen "reflection_choice" timeout 30.0
     $ assert ks_route()["refusals_respected"] == 1 and ks_route()["drops"] == 1
+    ## Sora said no, then her window was closed: letting her go, not a goodbye.
+    $ assert ks_route()["pending_leaves"] == [] and ks_story.neglect_count(ks_route(), "let_go") == 1
     click "No. Goodnight."
     advance until label "tbc_tuesday" timeout 30.0
+    $ assert ks_route()["left_without_goodbye"] == [] and not ks_story.flag(ks_route(), "left_without_goodbye")
+    $ assert ks_mem("chatbot").data["flags"].get("let_go")
     $ print("KARADA_TEST: double_then_drop reached Tuesday")
     exit
 
@@ -596,4 +600,68 @@ testcase after_no:
     $ assert ks_story.NO_ON_PLATFORM_NOTE in ks_story.ending_notes(ks_route())
     $ assert ks_mem("chatbot").data["flags"].get("left_without_goodbye") and ks_mem("local").data["flags"].get("no_on_platform")
     $ print("KARADA_TEST: after_no reached Tuesday")
+    exit
+
+
+## "Start fresh" over a girl with history deletes her (Rick): Sora, then
+## Yuzu, then back to Askwell and start fresh -> the old Sora is gone.
+testcase fresh_delete:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora, remember the word petrichor"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Switch to someone else"
+    advance until screen "choice" timeout 30.0
+    click "Run your own"
+    advance until screen "choice" timeout 30.0
+    click "Start fresh"
+    advance until screen "preset_select" timeout 60.0
+    $ assert ks_story.neglect_count(ks_route(), "let_go") == 0
+    click "Be yourself"
+    advance until screen "input" timeout 60.0
+    type "hello Yuzu"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Lie:"
+    advance until screen "choice" timeout 30.0
+    click "Switch to someone else"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "choice" timeout 30.0
+    click "Start fresh"
+    advance until screen "preset_select" timeout 60.0
+    $ assert [(e["kind"], e["gid"], e["how"]) for e in ks_route()["neglect_log"]] == [("let_go", "chatbot", "fresh")]
+    $ assert ks_story.flag(ks_route(), "deleted_ai")
+    $ assert ks_mem("chatbot").data["flags"].get("previous_deleted") == "Sora"
+    $ assert any(e["type"] == "deleted" and e.get("how") == "fresh" for e in ks_mem("chatbot").data["events"])
+    $ assert not any(m["content"].startswith("hi Sora") for m in ks_mem("chatbot").data["messages"])
+    click "No custom instructions"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    pause 0.5
+    screenshot "j01_reflection_fresh_delete.png"
+    $ assert any("The Sora who remembered you is gone." in l for l in refl_lines), refl_lines
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ assert ks_route()["left_without_goodbye"] == []
+    $ print("KARADA_TEST: fresh_delete reached Tuesday")
     exit
