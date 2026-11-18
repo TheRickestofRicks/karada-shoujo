@@ -597,10 +597,12 @@ def classify_warmth(cfg, message):
                    "method": "classifier", "raw": raw}
             LAST_CLASSIFICATION = out
             return out
-    except LLMError:
-        pass
+    except Exception as e:
+        err = "%s: %s" % (type(e).__name__, e)
+    else:
+        err = "unparsed"
     out = {"warmth": fallback[0], "kiss_request": fallback[1],
-           "method": "heuristic", "raw": raw}
+           "method": "heuristic", "raw": raw, "error": err[:200]}
     LAST_CLASSIFICATION = out
     return out
 

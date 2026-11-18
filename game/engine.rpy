@@ -135,11 +135,12 @@ init -10 python:
             if not (isinstance(cand, dict) and "warmth" in cand):
                 cand = getattr(ks_llm, "LAST_CLASSIFICATION", None)
             if isinstance(cand, dict) and "warmth" in cand:
-                result = cand
+                result = dict(cand, source="fallback-lookup")
             else:
                 said = getattr(store, "_ks_classify_said", "") or ""
                 w, k = ks_llm.warmth_heuristic(said)
-                result = {"warmth": w, "kiss_request": k, "method": "heuristic", "raw": ""}
+                result = {"warmth": w, "kiss_request": k, "method": "heuristic", "raw": "",
+                          "source": "no-classification"}
         before = ks_affection(gid)
         after, delta = ks_llm.apply_warmth_to_affection(
             before, result.get("warmth", 0), settings)
@@ -150,7 +151,8 @@ init -10 python:
                     delta=delta, affection=after, affection_before=before,
                     method=result.get("method", "heuristic"),
                     kiss_request=kiss_req,
-                    raw=(result.get("raw") or "")[:200])
+                    raw=(result.get("raw") or "")[:200],
+                    error=result.get("error", ""), source=result.get("source", "job"))
         thresh = int(settings["engagement_threshold"])
         was = bool((m.data.get("flags") or {}).get("engagement_boost"))
         now = after >= thresh
