@@ -179,6 +179,12 @@ label class_kurosawa:
             ra "That's either really sweet or really weird. No offence."
             ra "...Huh."
             $ day_notes.append("You told Ran yours is allowed to push back. She said \"huh.\"")
+        "\"So it's a yes-machine. That's kind of sad.\"":
+            $ ran_reaction = "judged"
+            show ran neutral
+            ra "Wow. Okay. Thanks, Kurosawa Junior."
+            n "She puts her headphones on. Not all the way. Just enough."
+            $ day_notes.append("You told Ran her AI was kind of sad. She put her headphones on.")
         "\"Cool.\"":
             $ ran_reaction = "shrug"
             ra "\"Cool.\" It's the future, man. Act like it."
@@ -553,37 +559,4 @@ label tbc_wednesday:
             _mm.set_flag("refusals_seen_tue", ks_refusals_seen.get(_g, 0))
             _mm.set_flag("mio_real", mio_real)
             _mm.set_flag("route_leans_tue", _lean)
-    scene bg card
-    with fade
-    show text "{size=40}To be continued{/size}\n\n{size=90}水曜日{/size}\n{size=48}Wednesday{/size}" at truecenter
-    with dissolve
-    pause
-    hide text
-    if ks_debug():
-        ## Wednesday isn't written yet; its self-contained scenes can be
-        ## previewed here (debug only).
-        menu:
-            "{color=#888}[[debug]{/color} Preview a Wednesday scene?"
-            "Ran and MUGEN (Wednesday)":
-                call ran_wednesday
-                scene bg card
-            "Back to the main menu":
-                pass
-    if ks_debug():
-        $ _mp = ks_quote(os.path.dirname(ks_memory_path("local")))
-        $ _names = ", ".join(g + "=" + gname(g) + "/" + str(ks_preset_id(g)) for g in active)
-        $ _rw = ks_story.rewrite_count(ks_route())
-        $ _lq = ks_quote(repr(ks_leans()))
-        n "{color=#888}[[debug] Memory files saved in [_mp]{/color}"
-        n "{color=#888}[[debug] active=[_names!q], rewrites=[_rw], mio_points=[mio_points], mio_real=[mio_real], walked=[walked_mio_home]{/color}"
-        n "{color=#888}[[debug] leans: [_lq]{/color}"
-        $ _fl = ks_quote(", ".join(sorted(k for k, v in ks_route()["flags"].items() if v)) or "none")
-        n "{color=#888}[[debug] flags: [_fl]{/color}"
-        python:
-            for _note in ks_story.ending_notes(ks_route()):
-                renpy.say(n, "{color=#888}[[debug] ending note: " + ks_quote(_note) + "{/color}")
-            for _sl in ks_story.bad_end_slides(ks_route()):
-                renpy.say(n, "{color=#888}[[debug] bad-end slide: " + ks_quote(_sl["title"]) + "{/color}")
-                for _l in _sl["lines"]:
-                    renpy.say(n, "{color=#888}    " + ks_quote(_l) + "{/color}")
-    return
+    jump wednesday

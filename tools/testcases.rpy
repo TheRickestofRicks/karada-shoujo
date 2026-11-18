@@ -354,22 +354,57 @@ testcase tuesday_walk:
     $ assert ks_route()["human_days"]["Tue"] == ["walked_mio"] and ks_route()["human_days"]["Mon"] == ["mio_real"]
     $ assert ks_story.neglect_count(ks_route()) == 0, ks_route()["neglect_log"]
     $ assert ks_route()["ran_festival_setup"] is True
-    ## Ran / MUGEN midweek payoff via the debug preview.
+    ## Wednesday: Hearth + the Yuzu upgrade day (skips classes), Ran's
+    ## invite by text, the protest, summarizer folds on her new memory.
+    advance until screen "choice" timeout 60.0
+    click "Install Hearth"
     advance until screen "choice" timeout 30.0
-    click "Ran and MUGEN"
+    screenshot "k01_upgrade_choice.png"
+    click "Skip classes"
+    advance until screen "input" timeout 60.0
+    $ assert ks_route()["yuzu_harness"] and ks_story.schedule_aware(ks_route(), "local")
+    $ assert "Yuzu's hardware upgrade" in ks_system_prompt("local") and "Hearth" in ks_system_prompt("local")
+    $ assert "Kanade Books" not in ks_system_prompt("local")
+    type "morning! big day for you"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "upgrade") timeout 30.0
+    advance until screen "input" timeout 60.0
+    $ assert ks_route()["yuzu_upgrade"] and ks_route()["yuzu_backup"] and "local" in ks_route()["summarizer_slots"]
+    $ assert ks_mem("local").data["flags"]["backup_hardware"] is True
+    type "how do you feel after the upgrade?"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert ks_mem("local").summary() is not None and ks_mem("local").data["summary"]["method"] == "llm", ks_mem("local").data.get("summary")
+    $ assert any(e["type"] == "summary_update" for e in ks_mem("local").data["events"])
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "I'll be there"
     advance until eval (ks_shot == "ran_wed") timeout 30.0
     advance until screen "choice" timeout 30.0
     pause 0.5
-    screenshot "f06_ran_wed_question.png"
+    screenshot "f06_ran_protest_question.png"
     $ assert "looked_out" in ks_story.ran_answer_options(ks_route())
     click "looking out for me"
     advance until screen "choice" timeout 30.0
     click "I'd notice"
-    advance until eval (ks_route()["ran_wed"] is not None) timeout 60.0
-    pause 0.3
+    advance until screen "input" timeout 60.0
     $ assert ks_route()["ran_wed"] == {"answer": "looked_out", "outcome": "rewrites_mugen", "festival": True}, ks_route()["ran_wed"]
-    $ assert ks_story.flag(ks_route(), "ran_rewrites_mugen") and ks_story.flag(ks_route(), "ran_festival_invited")
-    $ assert ks_leans()["respect"] > 0
+    $ assert ks_route()["ran_invited"] is True and ks_route()["notdate"] is None
+    type "good night"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    pause 0.5
+    screenshot "k02_reflection_wed_upgrade.png"
+    $ _rl = "\n".join(refl_lines)
+    $ assert "skipped classes" in _rl and "Hearth" in _rl and "protest" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "tbc_thursday" timeout 30.0
+    $ assert ks_story.flag(ks_route(), "ran_rewrites_mugen") and ks_leans()["respect"] > 0
+    $ assert ks_mem("local").data["flags"]["day_completed"] == "Wed"
     advance until screen "main_menu" timeout 60.0
     $ print("KARADA_TEST: tuesday_walk reached main menu")
     exit
@@ -466,9 +501,52 @@ testcase tuesday_nowalk:
     $ _ng = sorted((e["day"], e["kind"], e["gid"]) for e in ks_route()["neglect_log"])
     $ assert _ng == [("Tue", "double_date_unspoken", "companion"), ("Tue", "human_over_ai", "companion"), ("Tue", "let_go", "agent")], _ng
     $ assert ks_mem("companion").data["flags"].get("human_over_ai") and ks_mem("agent").data["flags"].get("let_go")
+    ## Wednesday: Hikari's memory update, Ran's invite (accepted), Mio's
+    ## not-date with two texts to Hikari, the protest.
+    advance until screen "input" timeout 60.0
+    $ assert "companion" in ks_route()["summarizer_slots"] and not ks_story.schedule_aware(ks_route(), "companion")
+    $ assert "[Calendar:" not in ks_system_prompt("companion")
+    keysym "K_RETURN"
     advance until screen "choice" timeout 30.0
-    click "Back to the main menu"
-    advance until screen "main_menu" timeout 30.0
+    click "Sure. I'll come."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I'd like that."
+    advance until eval (ks_shot == "bookstore") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    pause 0.5
+    screenshot "l01_bookstore_text_choice.png"
+    click "Text Hikari"
+    advance until screen "input" timeout 30.0
+    type "this bookstore is huge"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    click "read it out loud"
+    advance until screen "choice" timeout 30.0
+    click "Text Hikari"
+    advance until screen "input" timeout 30.0
+    type "she bought me cocoa"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "ran_wed") timeout 60.0
+    $ assert ks_route()["notdate"]["texts"] == 2 and ks_route()["notdate"]["present"] == 1 and ks_route()["notdate"]["texted"] == ["companion"]
+    $ assert any(e["type"] == "texted_during_notdate" for e in ks_mem("companion").data["events"])
+    advance until screen "choice" timeout 30.0
+    click "Weird?"
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    pause 0.5
+    screenshot "l02_reflection_wed_notdate.png"
+    $ _rl = "\n".join(refl_lines)
+    $ assert "texted a little" in _rl and "protest" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "tbc_thursday" timeout 30.0
+    $ assert ks_route()["ran_wed"]["outcome"] == "unsure" and ks_route()["wed_plan"]["notdate"] and ks_route()["wed_plan"]["protest"]
+    $ assert ks_mem("companion").data["flags"]["wed_notdate"] == {"texts": 2, "present": 1}
+    advance until screen "main_menu" timeout 60.0
     $ print("KARADA_TEST: tuesday_nowalk reached main menu")
     exit
 
@@ -664,4 +742,98 @@ testcase fresh_delete:
     advance until label "tbc_tuesday" timeout 30.0
     $ assert ks_route()["left_without_goodbye"] == []
     $ print("KARADA_TEST: fresh_delete reached Tuesday")
+    exit
+
+
+## Wednesday, Sora: Ran judged on Tuesday -> no protest invite (gently
+## noted); the not-date with one text to Sora, who knows from the calendar
+## that you're at Kanade Books with Mio.
+testcase wed_sora_noinvite:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "She's funny"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "yes-machine"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["ran_reaction"] == "judged" and not ks_story.ran_good_terms(ks_route())
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Sorry, I've got something."
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Just returning a book."
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "wednesday" timeout 30.0
+    advance until screen "input" timeout 60.0
+    $ _sp = ks_system_prompt("chatbot")
+    $ assert "[Calendar:" in _sp and "schedule for Wednesday" in _sp and "Classes" in _sp
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["ran_invited"] is False
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    screenshot "m01_wed_library_mio.png"
+    click "I'd like that."
+    advance until screen "choice" timeout 30.0
+    $ assert "Kanade Books opening, with Mio" in ks_system_prompt("chatbot")
+    click "Text Sora"
+    advance until screen "input" timeout 30.0
+    type "at the bookstore, it's huge"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    $ assert "Kanade Books with Mio" in ks_mem("chatbot").data["messages"][-1]["content"], ks_mem("chatbot").data["messages"][-1]
+    click "read it out loud"
+    advance until screen "choice" timeout 30.0
+    click "what she's writing"
+    advance until screen "input" timeout 60.0
+    $ assert ks_route()["notdate"]["texts"] == 1 and ks_route()["ran_wed"] is None
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    pause 0.5
+    screenshot "m02_reflection_wed_noinvite.png"
+    $ _rl = "\n".join(refl_lines)
+    $ assert "Ran didn't talk to you today" in _rl and "texted a little" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "tbc_thursday" timeout 30.0
+    $ assert not ks_story.flag(ks_route(), "ran_payoff_seen")
+    $ print("KARADA_TEST: wed_sora_noinvite reached Thursday")
     exit

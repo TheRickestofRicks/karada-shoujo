@@ -11,6 +11,7 @@ init -9 python:
 default route = ks_story.new_route()
 default day_notes = []          # short lines scenes leave for tonight's reflection
 default ks_jb_last = {}         # gid -> did the jailbreak take on her last reply?
+default today_schedule = None   # {"day": "Wednesday", "items": [(time, what)]} for schedule-aware girls
 default _ks_deleted_name = None # set between ks_note_fresh_delete and ks_mark_fresh_slot
 
 init python:
@@ -197,6 +198,23 @@ init python:
 
     def ks_sync_mio():
         ks_route()["mio_affection"] = store.mio_points
+
+    ## ── Wednesday ────────────────────────────────────────────────────────
+    def ks_set_schedule(day_long="Wednesday"):
+        store.today_schedule = {"day": day_long,
+                                "items": ks_story.wed_schedule(ks_route()["wed_plan"])}
+
+    def ks_ran_good_terms():
+        return ks_story.ran_good_terms(ks_route())
+
+    def ks_install_summarizer(gid, why):
+        r = ks_route()
+        if gid not in r["summarizer_slots"]:
+            r["summarizer_slots"].append(gid)
+        m = ks_mem(gid)
+        if m.data is not None:
+            m.set_flag("summarizer", True)
+            m.log_event("summarizer_installed", day=store.day_name, why=why)
 
     def ks_leans():
         return ks_story.ending_leans(ks_route(), store.active, store.mio_real,

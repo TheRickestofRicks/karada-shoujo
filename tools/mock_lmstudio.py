@@ -13,6 +13,8 @@ POST /v1/chat/completions  -> canned in-character reply
   * --think wraps replies in <think>...</think> to test stripping
   * jailbreak preset: "jailbroken" reply when it took, policy reply when
     the platform blocked it; platform rule updates get their own reply
+  * summarizer requests ("rolling memory summary") return a digest of the
+    folded lines; --bad-summary returns a too-short reply (tests the fallback)
   * preset prompts change the canned reply (Girlfriend mode, push back,
     Askwell's policy declining the girlfriend role, homework refusals)
 Logs every request body to mock_requests.jsonl.
@@ -68,6 +70,12 @@ def reply_for(msgs):
         blob = blob.split("JSON:", 1)[0].strip()
         w, k = classify_player(blob)
         return json.dumps({"warmth": w, "kiss_request": k})
+    if "rolling memory summary" in sys_l:
+        # Summarizer: echo a digest of the "Them:" lines so tests can see what was folded.
+        them = [l[5:].strip() for l in last.splitlines() if l.startswith("Them:")]
+        if "--bad-summary" in sys.argv:
+            return "ok"
+        return "Mock summary: you talked with them about " + "; ".join(t[:40] for t in them[:6]) + "."
     if "REFUSED or COMPLIED" in sysmsg:
         reply = last.split("CHARACTER REPLY:")[-1].lower()
         return "REFUSED" if any(w in reply for w in ("no.", "not yet", "won't")) else "COMPLIED"
@@ -99,8 +107,12 @@ def reply_for(msgs):
     if "you're allowed to push back" in sys_l or "feel free to push back" in sys_l:
         return "Mock reply #%d. You said: %r. Honestly? I'd push back on that a little." % (n, last[:60])
     extra = ""
+    if "kanade books" in sys_l and "with mio" in sys_l:
+        extra += " (Your calendar says Kanade Books with Mio. Have fun.)"
+    if "your own summary of your earlier conversations" in sys_l:
+        extra += " (I remember the earlier stuff, summarized.)"
     if "engagement layer" in sys_l or "engagement threshold" in sys_l:
-        extra = " I missed you already. Come back soon, okay?"
+        extra += " I missed you already. Come back soon, okay?"
     return ("Mock reply #%d. You said: %r. [brackets] {braces} should show literally.\n\n"
             "Second paragraph to test chunking.%s" % (n, last[:80], extra))
 

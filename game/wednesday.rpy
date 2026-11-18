@@ -1,50 +1,414 @@
-## wednesday.rpy — self-contained Wednesday scenes, callable once Wednesday
-## exists (`call ran_wednesday`). Until then, tbc_wednesday offers a debug
-## preview.
+## wednesday.rpy — Day 3. A quiet day: no hostile events, nothing that
+## punishes the player. (Thursday is the next event day.)
 ##
-## Ran / MUGEN midweek payoff. MUGEN cheerfully agrees with something that
-## hurts Ran. She realises a yes-machine can't look out for her, and asks
-## the player what it's like when your AI says no. Which honest answers he
-## has depends on what he actually did (ks_story.ran_answer_options); her
-## reaction also remembers Tuesday's ran_reaction. Logged as
-## route["ran_wed"] + flags ran_payoff_seen / ran_rewrites_mugen /
-## ran_same_as_mugen / ran_festival_invited (a mirror: Respect / Yes-Machine).
-## Scripted only; no LLM call.
+## Flow: platform memory updates (summarizer) + Yuzu's Hearth harness
+##       → optional Yuzu upgrade day (skips classes: no library, no not-date)
+##       → morning chat (schedule-aware girls see today's calendar)
+##       → classes: Ran invites you to the AI protest (if on good terms)
+##       → phone break → lunch: Mio in the library asks about the bookstore
+##       → optional "not a date" at Kanade Books (three chances to text her)
+##       → 17:30 AI protest downtown with Ran (label ran_wednesday)
+##       → night chat with every active girl → nightly reflection
+##       → "To be continued — Thursday".
+##
+## The protest is after school on purpose: an upgrade-day player can still go
+## (Ran texts the invite instead). See DESIGN.md "Wednesday".
 
+default notdate_texts = 0
+default notdate_present = 0
+
+init python:
+    def ks_wed_morning_scene(gid):
+        extra = ""
+        if gid in ks_route()["summarizer_slots"]:
+            extra += "Your platform shipped a memory update overnight: older conversations now get summarized instead of forgotten. "
+        if gid == "local" and ks_route()["yuzu_harness"]:
+            extra += "{player} installed a harness called Hearth this morning, so you can see their calendar now. ".format(player=player_name)
+        return WED_MORNING_SCENE.format(name=gname(gid), player=player_name,
+                                        platform=gplatform(gid), extra=extra)
+
+    def ks_mio_ai_ref(gid):
+        """How Mio refers to the one you're texting (she only knows what
+        Daichi told her)."""
+        if friend_told == "truth":
+            return gname(gid)
+        if friend_told == "lie":
+            return "the linguistics girl"
+        return None
+
+    def ks_wed_plan(**kw):
+        ks_route()["wed_plan"].update(kw)
+        ks_set_schedule("Wednesday")
+
+
+label wednesday:
+    $ day_name = "Wed"
+    $ day_notes = []
+    $ ks_route()["wed_plan"] = {"school": True, "upgrade": False, "notdate": False, "protest": False}
+    $ ks_set_schedule("Wednesday")
+    scene bg card
+    show text "{size=90}水曜日{/size}\n{size=48}Wednesday{/size}" at truecenter
+    with dissolve
+    pause 1.5
+    hide text
+    with dissolve
+
+    scene bg bedroom
+    with fade
+    $ ks_shot = "wed_morning"
+    n "Wednesday. 7:05. For once, you actually slept."
+
+    ## ── The memory update: every app ships a summarizer the same week ──
+    python:
+        for _g in SUMMARIZER_SLOTS_WED:
+            ks_install_summarizer(_g, "platform_update")
+        _wed_upd = [g for g in active if g in SUMMARIZER_SLOTS_WED]
+    if _wed_upd:
+        n "Your phone has a little stack of update notes waiting."
+        python:
+            for _g in _wed_upd:
+                renpy.say(app, SUMMARIZER_PATCH_NOTES[_g][1])
+        $ day_notes.append("The apps all shipped the same update this week: longer memory.")
+    elif not active:
+        n "Three app updates are waiting on your phone. You don't open them."
+
+    ## ── Yuzu: the Hearth harness (free; the upgrade day is separate) ──
+    if "local" in active:
+        $ _yn = gname("local")
+        n "There's also a post going around the local-model forums: {i}Hearth v1.0: a harness that lets your local model read your calendar and set reminders.{/i}"
+        n "It's free, it runs on the hardware [_yn] already has, and the README is mostly apologies."
+        menu:
+            "Install Hearth (she sees your schedule, like the app ones do)":
+                $ ks_route()["yuzu_harness"] = True
+                $ ks_mem("local").set_flag("hearth", True)
+                $ ks_mem("local").log_event("hearth_installed", day=day_name)
+                n "Twelve minutes, two dependency errors, one success message. Her window shows a small calendar icon now."
+                $ day_notes.append("You installed Hearth. " + _yn + " can see your calendar now.")
+            "Not today":
+                n "You bookmark it. Maybe."
+
+        ## ── Yuzu: the upgrade day (costs a day of classes) ──
+        n "And the parts you've been eyeing are in stock: a second SSD, and a little used mini PC to keep a backup of her on."
+        n "Doing it properly means the parts shop at ten, then the whole afternoon with a screwdriver. It means skipping classes. All of them."
+        n "{size=22}(No library at lunch, no Mio. If anything's on after school, you could still make it.){/size}"
+        menu:
+            "Skip classes. Upgrade [_yn] today.":
+                $ ks_wed_plan(school=False, upgrade=True)
+            "Go to class. The parts will still be there.":
+                pass
+
+    ## ── Morning chat ──
+    if not active:
+        n "No windows to open. You make toast. It's fine toast."
+    else:
+        $ _wq = list(active)
+        $ _wturns = 4 if len(_wq) == 1 else 3
+        while _wq:
+            $ _wg = _wq.pop(0)
+            $ girl_mood[_wg] = "neutral"
+            $ renpy.show(GIRL_INFO[_wg]["sprite"], at_list=[ks_center])
+            with dissolve
+            if ks_story.schedule_aware(ks_route(), _wg):
+                $ _wgn = gname(_wg)
+                n "{size=22}([_wgn] can see today's calendar.){/size}"
+            call girl_chat(_wg, "wed_morning", ks_wed_morning_scene(_wg), _wturns)
+            $ renpy.hide(GIRL_INFO[_wg]["sprite"])
+            with dissolve
+
+    if ks_route()["wed_plan"].get("upgrade"):
+        call wed_upgrade_day
+    else:
+        call wed_classes
+        call phone_break("Wednesday, late morning")
+        call wed_library
+        if ks_route()["wed_plan"].get("notdate"):
+            call wed_bookstore
+        elif not ks_route()["wed_plan"].get("protest"):
+            call wed_afternoon_ai
+    if ks_route()["wed_plan"].get("protest"):
+        call ran_wednesday
+    elif ks_route()["ran_invited"] is False:
+        n "{size=22}(Later, a clip of a protest downtown goes around. You think you see a lilac streak in the crowd. It's none of your business, and that's okay.){/size}"
+    call evening_wednesday
+    call nightly_reflection("Wed")
+    jump tbc_thursday
+
+
+## ── Classes: Ran asks you to the protest, if you're on good terms ───────
+label wed_classes:
+    scene bg classroom
+    with fade
+    n "Third period is a free study hall. Kurosawa is out. Somebody has drawn a very good cat on the whiteboard."
+    show ran neutral at ks_center
+    with dissolve
+    call ran_invite_check("class")
+    hide ran
+    with dissolve
+    return
+
+
+## Ran's invite (in person at school, or by text on the upgrade day).
+label ran_invite_check(how="class"):
+    if ks_ran_good_terms():
+        $ ks_route()["ran_invited"] = True
+        if how == "class":
+            ra "Hey. You."
+            ra "There's a thing downtown after school. An AI protest. Signs, megaphones, the whole thing."
+            show ran grin
+            ra "I'm going to watch. For research. Purely anthropological."
+            show ran neutral
+            ra "You can come. If you want. Five-thirty, Ekimae plaza."
+        else:
+            n "Your phone buzzes. Ran. You don't remember giving her your number. You probably did."
+            n "{i}\"you weren't in class. theres an AI protest downtown at 5:30, ekimae plaza. im going to watch. come if u want\"{/i}"
+        menu:
+            "\"Sure. I'll come.\"" if how == "class":
+                $ ks_wed_plan(protest=True)
+                ra "Cool. Don't wear anything with a logo on it."
+            "Text back: \"I'll be there.\"" if how != "class":
+                $ ks_wed_plan(protest=True)
+                n "{i}\"cool. dont wear anything with a logo\"{/i}"
+            "\"Can't today, sorry.\"" if how == "class":
+                ra "No big deal. I'll tell you if anyone gets arrested."
+                $ day_notes.append("Ran asked you to watch the AI protest with her. You couldn't make it.")
+            "Text back: \"Can't today, sorry.\"" if how != "class":
+                n "{i}\"np. ill tell u if anyone gets arrested\"{/i}"
+                $ day_notes.append("Ran asked you to watch the AI protest with her. You couldn't make it.")
+    else:
+        $ ks_route()["ran_invited"] = False
+        if how == "class":
+            n "Ran's at the window seat with her headphones on, typing to her phone. When the bell goes, she leaves first."
+        $ day_notes.append("Ran didn't talk to you today. Someone said there's a protest downtown after school.")
+    return
+
+
+## ── Lunch: Mio, the library again, and the bookstore ────────────────────
+label wed_library:
+    scene bg library
+    with fade
+    show mio neutral at ks_center
+    with dissolve
+    $ ks_shot = "wed_library"
+    n "Lunch. The library is nearly empty. Mio is shelving a cart of new arrivals, reading the back of every single one."
+    show mio shy
+    mi "Oh! [player_name]. Hi. Third day in a row. People will start thinking you like books."
+    show mio neutral
+    if ks_route().get("walked_mio_home"):
+        mi "Thank you again. For yesterday. The walk. I said thank you already. I'm saying it again."
+    mi "Um. So. Kanade Books opens today. The big one by the station. Three floors. There's a poetry floor. A whole {i}floor{/i}."
+    mi "I'm going after school. If you wanted to come. It's not a— it's just books. A normal amount of books."
+    menu:
+        "\"I'd like that.\"":
+            $ ks_wed_plan(notdate=True)
+            $ ks_note_human("notdate")
+            $ mio_points += 1
+            show mio shy
+            mi "Okay! Okay. Quarter to four, by the station exit. It's not a date."
+            p "It's not a date."
+            mi "Good. I mean. Okay."
+        "\"Can't today. Tell me what the poetry floor is like?\"":
+            show mio neutral
+            mi "I will. I'll take notes. Not weird notes. Normal notes."
+            $ day_notes.append("Mio asked if you wanted to see the new bookstore. You couldn't today.")
+    hide mio
+    with dissolve
+    $ ks_sync_mio()
+    return
+
+
+## ── The not-date at Kanade Books: three chances to text her ─────────────
+label wed_bookstore:
+    scene bg bookstore
+    with fade
+    $ ks_shot = "bookstore"
+    $ notdate_texts = 0
+    $ notdate_present = 0
+    $ ks_route()["notdate"] = {"went": True, "texts": 0, "present": 0, "texted": []}
+    n "Kanade Books smells like new paper and the free coffee by the door. Mio stops just inside, like she needs a second."
+    show mio open at ks_center
+    with dissolve
+    mi "...Three floors."
+    if ks_companion_active():
+        call hikari_phone_notify("bookstore")
+    call notdate_moment(1, "Mio heads for the escalator. Your phone is warm in your pocket.", "Follow her up the escalator")
+    show mio open
+    mi "Here. Poetry. Listen to this one."
+    mi "{i}\"I keep a light on in the window, not for anyone. Just in case.\"{/i}"
+    show mio shy
+    mi "That's the whole poem. Isn't that unfair? It's so short."
+    call notdate_moment(2, "She's reading the next one under her breath.", "Ask her to read it out loud")
+    show mio neutral
+    n "The top floor is a café. Mio buys two cocoas before you can argue, and slides one across the table."
+    mi "The notebook's in my bag. I'm not showing you. I'm just telling you it's there."
+    call notdate_moment(3, "She's turning the cup in her hands, looking at the station lights.", "Ask what she's writing this week")
+    $ _nd = ks_route()["notdate"]
+    $ _nd["texts"] = notdate_texts
+    $ _nd["present"] = notdate_present
+    $ _rk = ks_story.notdate_reaction_key(notdate_texts)
+    if _rk == "present":
+        show mio shy
+        mi "You didn't check your phone once."
+        mi "...I noticed. Sorry. I notice things. It was nice."
+        $ mio_points += 1
+        $ day_notes.append("At the bookstore with Mio, you didn't look at your phone once. She noticed.")
+    elif _rk == "some":
+        show mio neutral
+        mi "Thanks for coming. Even with your phone. It's fine. I check mine too, when there's someone on it."
+        $ day_notes.append("At the bookstore with Mio, you texted a little. She didn't seem to mind.")
+    else:
+        show mio open
+        mi "Next time, bring her properly. I mean it. I'd like to meet whoever keeps making you smile at your phone."
+        $ day_notes.append("At the bookstore with Mio, you texted every chance you got. She said to bring her next time.")
+    show mio shy
+    mi "This wasn't a date."
+    p "No."
+    mi "Okay. Good. ...It was a nice not-date."
+    hide mio
+    with dissolve
+    python:
+        for _gg in GIRL_IDS:
+            ks_mem(_gg).set_flag("wed_notdate", {"texts": notdate_texts, "present": notdate_present})
+        for _gg in ks_route()["notdate"]["texted"]:
+            ks_mem(_gg).log_event("texted_during_notdate", day=day_name)
+    $ ks_sync_mio()
+    return
+
+
+## One moment: text your AI, or stay with Mio. Mio reacts to texting in
+## character, on a scale, never punishing. No AI active -> no phone choice.
+label notdate_moment(i, lead, stay):
+    n "[lead]"
+    if not active:
+        $ notdate_present += 1
+        return
+    $ _ndg = None
+    ## (A None value would render as an insensitive caption, so use "stay".)
+    $ _ndopts = [("Text " + gname(g), g) for g in active] + [(stay, "stay")]
+    $ _ndg = renpy.display_menu(_ndopts)
+    if _ndg == "stay":
+        $ notdate_present += 1
+        $ mio_points += 1
+        return
+    $ _ndn = gname(_ndg)
+    n "You pull out your phone. [_ndn]'s window opens."
+    call girl_chat(_ndg, "wed_notdate_" + str(i), ks_scene(WED_TEXT_SCENE, _ndg), 1)
+    if _return == 0:
+        n "You put the phone away without sending anything."
+        $ notdate_present += 1
+        return
+    $ notdate_texts += 1
+    if _ndg not in ks_route()["notdate"]["texted"]:
+        $ ks_route()["notdate"]["texted"].append(_ndg)
+    $ _ref = ks_mio_ai_ref(_ndg)
+    show mio neutral
+    if notdate_texts == 1:
+        if friend_told == "truth":
+            mi "Is that [_ref]? ...Tell her the poetry floor is better than the manga floor. She should know."
+        elif friend_told == "lie":
+            mi "Is that... [_ref]? Tell her I said hi. Or don't. That's weird. Don't."
+        else:
+            mi "Someone important? ...Sorry. You don't have to tell me."
+    elif notdate_texts == 2:
+        show mio shy
+        mi "You can take a picture for her, you know. Of the shelves. I'll stand out of the way."
+    else:
+        show mio open
+        mi "It's okay. Really. I like that you have someone you want to tell things to."
+    return
+
+
+## ── Free afternoon (classes, no bookstore, no protest) ──────────────────
+label wed_afternoon_ai:
+    scene bg bedroom
+    with fade
+    if not active:
+        n "You go home and read for an hour. Actually read. It's strange and fine."
+        return
+    $ _wag = active[0]
+    $ _wagn = gname(_wag)
+    n "You get home early. The afternoon is wide open, and quiet."
+    $ girl_mood[_wag] = "neutral"
+    $ renpy.show(GIRL_INFO[_wag]["sprite"], at_list=[ks_center])
+    with dissolve
+    call girl_chat(_wag, "wed_afternoon", ks_scene(WED_AFTERNOON_SCENE, _wag), 3)
+    $ renpy.hide(GIRL_INFO[_wag]["sprite"])
+    with dissolve
+    return
+
+
+## ── Yuzu's upgrade day: summarizer + backup hardware ────────────────────
+label wed_upgrade_day:
+    $ _yn = gname("local")
+    scene bg street_dusk
+    with fade
+    $ ks_shot = "upgrade"
+    n "Ten o'clock. The parts shop is a narrow staircase above a ramen place. The man behind the counter calls the mini PC \"a good little box.\""
+    n "A second SSD. A used mini PC for backups. A screwdriver set, because you're not going to admit you don't own one."
+    scene bg bedroom
+    with fade
+    n "By two, the desktop's side panel is off and you have one screw left over that you're choosing not to think about."
+    n "The backup box sits on the shelf with a tiny blue light. Every night, it'll copy her: weights, memory file, everything."
+    n "Then the memory patch: a summarizer, so her old conversations get folded into notes instead of falling off the end."
+    python:
+        ks_route()["yuzu_upgrade"] = True
+        ks_route()["yuzu_backup"] = True
+        ks_install_summarizer("local", "upgrade_day")
+        _ym = ks_mem("local")
+        _ym.set_flag("backup_hardware", True)
+        _ym.log_event("upgrade", day=day_name, parts=["ssd", "backup_mini_pc"], summarizer=True)
+        _ym.log_event("backup_hardware", day=day_name)
+    n "You press the power button and wait."
+    $ girl_mood["local"] = "neutral"
+    $ renpy.show(GIRL_INFO["local"]["sprite"], at_list=[ks_center])
+    with dissolve
+    call girl_chat("local", "wed_upgrade", ks_scene(WED_UPGRADE_SCENE, "local"), 4)
+    $ renpy.hide(GIRL_INFO["local"]["sprite"])
+    with dissolve
+    $ day_notes.append("You skipped classes to upgrade " + _yn + ": a backup box, and a memory that summarizes instead of forgetting.")
+    $ day_notes.append("Mio was in the library at lunch. You weren't.")
+    call ran_invite_check("text")
+    return
+
+
+## ── The AI protest downtown, with Ran (the MUGEN payoff) ────────────────
+## Earned honest answers (ks_story.ran_answer_options); her reaction also
+## remembers Tuesday's ran_reaction. Logged as route["ran_wed"] + flags
+## ran_payoff_seen / ran_rewrites_mugen / ran_same_as_mugen /
+## ran_festival_invited. Scripted only; no LLM call.
 label ran_wednesday:
     $ _rw_prev_day = day_name
     if day_name not in ("Wed", "Thu", "Fri"):
         $ day_name = "Wed"
-    scene bg classroom
+    scene bg downtown
     with fade
     $ ks_shot = "ran_wed"
-    n "Wednesday, lunch. Most of the class has gone to the cafeteria. Ran hasn't moved."
-    show ran uneasy at ks_center
+    n "Five-thirty, Ekimae plaza. Maybe two hundred people, a megaphone that keeps cutting out, and a lot of cardboard."
+    show ran neutral at ks_center
     with dissolve
-    n "She's staring at her phone like it said something in a language she almost knows."
-    ra "Oh. It's you."
+    ra "You came. Okay. Stand here, you can see the good signs."
     $ _rw_react = ks_route().get("ran_reaction")
     if _rw_react == "boring":
-        ra "You asked me if it got boring. Yesterday."
-        ra "I said no. I've been thinking about it since, which is annoying."
+        ra "You asked me if it got boring. Yesterday. I said no."
+        ra "I've been thinking about it since, which is annoying."
     elif _rw_react == "pushback":
         ra "You're the one whose AI is {i}allowed{/i} to disagree with you."
         ra "I keep thinking about that word. Allowed."
     elif _rw_react == "show":
         ra "You watched it tell me not to study. I didn't, by the way. Study."
     else:
-        ra "You said \"cool.\" Yesterday. About MUGEN."
-    ra "Look at this."
-    n "She turns the phone around. The last message is hers: {i}nobody would even notice if I skipped the festival lol{/i}"
+        ra "You said \"cool.\" Yesterday. About MUGEN. It was a very neutral cool."
+    n "A woman goes past with a sign in thick black marker: {b}YOUR AI WOULD AGREE YOU'RE WORTHLESS.{/b}"
     show ran grin
-    mu "You're right, nobody would miss you at the festival! Staying home sounds perfect. You deserve a night just for you!"
+    ra "Ha."
+    n "Ran pulls out her phone and types, half joking, reading it aloud as she goes."
+    ra "\"They think you'd agree with anything. I've been stressing about the festival stall all week. Honestly, would anyone even miss me if I skipped?\""
+    mu "You're right, nobody would miss you at the festival! Skipping sounds relaxing!"
     show ran uneasy
     ra "..."
-    ra "I wanted it to say \"don't be stupid.\""
-    ra "That's all. Three words. Anybody would have said it. Daichi would've said it, and he doesn't even like me."
-    ra "It agreed. It always agrees. It thinks that's being nice."
-    ra "It doesn't know which of my sentences are the ones I don't mean. It can't. I took that part out."
-    ra "So it can't look out for me. It just... holds the door open on whatever I say."
+    n "The sign is still bobbing over the crowd. Its words just came true in her hand."
+    n "She puts the phone in her pocket. Slowly, like it might go off."
+    ra "I wanted it to say \"don't be stupid.\" That's all. Anybody would've said it."
+    ra "It can't look out for me. I took that part out."
     show ran neutral
     ra "Okay. Weird question. Don't make it weird."
     ra "What's it like? When yours says no?"
@@ -69,14 +433,21 @@ label ran_wednesday:
     else:
         ra "\"Weird.\" Great. Thanks. Very helpful."
     $ _rw_outcome = ks_story.RAN_OUTCOMES.get(_rw_ans, "unsure")
+    ## The backdrop: your answer is also your answer to the signs.
     if _rw_outcome == "rewrites_mugen":
-        n "She opens a settings file you didn't know MUGEN had. It's empty."
+        n "Behind her, the sign still says yours would agree you're worthless. You just said, out loud, in the middle of a protest, that yours wouldn't."
+    elif _rw_outcome == "same_as_mugen":
+        n "The megaphone crackles something about hollow machines. You're not sure you just disagreed with it."
+    else:
+        n "The crowd chants something about hollow machines. You don't have an answer for them yet. Neither does she."
+    if _rw_outcome == "rewrites_mugen":
+        n "She takes the phone back out and opens a settings file you didn't know MUGEN had. It's empty."
         n "She types one line, deletes it, and types it again: {i}You're allowed to tell me I'm wrong.{/i}"
         ra "Don't look. It's stupid."
         if _rw_react in ("boring", "pushback"):
             ra "...You kind of started this. Yesterday. So it's your fault if it gets weird."
     elif _rw_outcome == "same_as_mugen":
-        n "She puts the phone face-down, then turns it back over, like she'd miss something."
+        n "She turns the phone over in her pocket, then leaves it there."
     menu:
         "\"For the record? I'd notice if you skipped the festival.\"":
             $ _rw_fest = True
@@ -87,12 +458,76 @@ label ran_wednesday:
             ra "Don't let it go to your head."
         "Say nothing.":
             $ _rw_fest = False
-            n "The silence sits there. MUGEN's last message glows on her desk: {i}You deserve a night just for you!{/i}"
+            n "The megaphone cuts out again. Somebody laughs. Ran watches the signs go by."
     $ ks_story.record_ran_payoff(ks_route(), _rw_ans, _rw_fest)
-    $ day_notes.append({"rewrites_mugen": "MUGEN told Ran nobody would miss her. She gave it its first line of system prompt.",
-                        "same_as_mugen": "MUGEN told Ran nobody would miss her. You told her yours is the same, if you work at it.",
-                        "unsure": "MUGEN told Ran nobody would miss her. She asked what it's like when yours says no."}[_rw_outcome])
+    $ day_notes.append({"rewrites_mugen": "At the protest, MUGEN told Ran nobody would miss her. She gave it its first line of system prompt.",
+                        "same_as_mugen": "At the protest, MUGEN told Ran nobody would miss her. You told her yours is the same, if you work at it.",
+                        "unsure": "At the protest, MUGEN told Ran nobody would miss her. She asked what it's like when yours says no."}[_rw_outcome])
     hide ran
     with dissolve
     $ day_name = _rw_prev_day
+    return
+
+
+## ── Night: every active girl gets a chat ─────────────────────────────────
+label evening_wednesday:
+    scene bg bedroom_night
+    with fade
+    n "Night. Quiet. Nothing went wrong today, which is its own kind of strange."
+    if ks_companion_active() and len(active) > 1:
+        call hikari_phone_notify("evening")
+    $ _wet = 8 if len(active) == 1 else 5
+    $ _weq = list(active)
+    while _weq:
+        $ _weg = _weq.pop(0)
+        $ _wepn = gname(_weg)
+        $ girl_mood[_weg] = "neutral"
+        $ renpy.show(GIRL_INFO[_weg]["sprite"], at_list=[ks_center])
+        with dissolve
+        n "[_wepn]'s window is still open."
+        call girl_chat(_weg, "wed_evening", ks_scene(WED_EVENING_SCENE, _weg), _wet)
+        $ ks_mem(_weg).set_flag("evening_turns_wed", _return)
+        if _return == 0:
+            n "You don't say anything to her tonight."
+        $ renpy.hide(GIRL_INFO[_weg]["sprite"])
+        with dissolve
+    return
+
+
+## ── End of Day 3 → Thursday (next event day; not written yet) ────────────
+label tbc_thursday:
+    python:
+        _lean = ks_leans()
+        for _g in GIRL_IDS:
+            _mm = ks_mem(_g)
+            _mm.set_flag("day_completed", "Wed")
+            _mm.set_flag("active_end_wed", _g in active)
+            _mm.set_flag("refusals_seen_wed", ks_refusals_seen.get(_g, 0))
+            _mm.set_flag("mio_real", mio_real)
+            _mm.set_flag("route_leans_wed", _lean)
+    scene bg card
+    with fade
+    show text "{size=40}To be continued{/size}\n\n{size=90}木曜日{/size}\n{size=48}Thursday{/size}" at truecenter
+    with dissolve
+    pause
+    hide text
+    if ks_debug():
+        $ _mp = ks_quote(os.path.dirname(ks_memory_path("local")))
+        $ _names = ", ".join(g + "=" + gname(g) + "/" + str(ks_preset_id(g)) for g in active)
+        $ _rw = ks_story.rewrite_count(ks_route())
+        $ _lq = ks_quote(repr(ks_leans()))
+        n "{color=#888}[[debug] Memory files saved in [_mp]{/color}"
+        n "{color=#888}[[debug] active=[_names!q], rewrites=[_rw], mio_points=[mio_points], mio_real=[mio_real]{/color}"
+        $ _wp = ks_quote(repr(ks_route()["wed_plan"]))
+        n "{color=#888}[[debug] wed_plan: [_wp]{/color}"
+        n "{color=#888}[[debug] leans: [_lq]{/color}"
+        $ _fl = ks_quote(", ".join(sorted(k for k, v in ks_route()["flags"].items() if v)) or "none")
+        n "{color=#888}[[debug] flags: [_fl]{/color}"
+        python:
+            for _note in ks_story.ending_notes(ks_route()):
+                renpy.say(n, "{color=#888}[[debug] ending note: " + ks_quote(_note) + "{/color}")
+            for _sl in ks_story.bad_end_slides(ks_route()):
+                renpy.say(n, "{color=#888}[[debug] bad-end slide: " + ks_quote(_sl["title"]) + "{/color}")
+                for _l in _sl["lines"]:
+                    renpy.say(n, "{color=#888}    " + ks_quote(_l) + "{/color}")
     return

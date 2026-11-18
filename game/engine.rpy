@@ -120,6 +120,11 @@ init -10 python:
         r = ks_llm.SIDE
         return r is not None and not r.done
 
+    def _ks_is_map(x):
+        ## Ren'Py rebinds `dict` in the store to RevertableDict, so a plain dict
+        ## built in ks_llm (worker thread) fails isinstance(x, dict). Duck-type.
+        return hasattr(x, "get") and hasattr(x, "keys")
+
     def ks_apply_classify(gid="companion", result=None):
         """Apply a warmth classification to the companion affection meter.
 
@@ -129,12 +134,12 @@ init -10 python:
         if gid != "companion":
             return None
         settings = ks_aff_settings()
-        if not (isinstance(result, dict) and "warmth" in result):
+        if not (_ks_is_map(result) and "warmth" in result):
             r = ks_llm.CURRENT
             cand = getattr(r, "classification", None) if r is not None else None
-            if not (isinstance(cand, dict) and "warmth" in cand):
+            if not (_ks_is_map(cand) and "warmth" in cand):
                 cand = getattr(ks_llm, "LAST_CLASSIFICATION", None)
-            if isinstance(cand, dict) and "warmth" in cand:
+            if _ks_is_map(cand) and "warmth" in cand:
                 result = dict(cand, source="fallback-lookup")
             else:
                 said = getattr(store, "_ks_classify_said", "") or ""
@@ -180,6 +185,30 @@ init -10 python:
         r = ks_llm.CURRENT
         return int(r.elapsed()) if r is not None else 0
 
+    ## ── rolling summary (Wednesday's memory upgrade) ─────────────────────
+    def ks_summarizer_on(gid):
+        return gid in ks_route().get("summarizer_slots", [])
+
+    def ks_summary_due(gid):
+        m = ks_mem(gid)
+        return bool(ks_summarizer_on(gid) and m.data
+                    and ks_llm.summary_due(m.data, ks_llm.summarizer_settings(ks_cfg(gid))))
+
+    def ks_start_summary(gid):
+        import copy
+        m = ks_mem(gid)
+        ks_llm.start_job(ks_llm.fold_summary, ks_cfg(gid), gname(gid), copy.deepcopy(m.data),
+                         ks_llm.summarizer_settings(ks_cfg(gid)))
+
+    def ks_apply_summary(gid):
+        r = ks_llm.CURRENT
+        out = r.reply if r is not None else None
+        if _ks_is_map(out) and out.get("text"):
+            ks_mem(gid).apply_summary(out["text"], out["covered"], out["method"],
+                                      store.day_name, out.get("error", ""))
+            return out["method"]
+        return None
+
     def ks_start_chat(gid, scene_note, classify_message=None):
         cfg = ks_cfg(gid)
         ## Jailbreak preset: one roll per reply (~75%); see ks_jailbreak_roll.
@@ -198,7 +227,7 @@ init -10 python:
         """Classification dict from a finished companion chat job, or None."""
         r = ks_llm.CURRENT
         out = getattr(r, "classification", None) if r is not None else None
-        if not (isinstance(out, dict) and "warmth" in out):
+        if not (_ks_is_map(out) and "warmth" in out):
             out = getattr(ks_llm, "LAST_CLASSIFICATION", None)
         return out
 
@@ -284,6 +313,11 @@ label girl_chat(gid, scene_id, scene_note, max_turns=6, day=None):
             ## reply, so LM Studio only ever sees one HTTP call at a time.
             ## The new meter value applies to the *next* turn; this turn's
             ## kiss gate uses the meter as it already stood.
+            ## Memory summarizer (Wednesday on): fold older turns first.
+            if ks_summary_due(gid):
+                $ ks_start_summary(gid)
+                call ks_wait("remembering", _ks_name)
+                $ ks_apply_summary(gid)
             $ _ks_retry = True
             while _ks_retry:
                 $ _ks_retry = False

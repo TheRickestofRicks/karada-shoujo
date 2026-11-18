@@ -14,6 +14,12 @@
   "_calibrate_help": "picked = run the 'can she say no' probe on each girl when she first becomes active (first pick, switch, double date, migration). off = skip.",
   "jailbreak_success_rate": 0.75,
   "_jailbreak_help": "Jailbreak preset (Sora / Hikari): chance it takes on each reply. On a miss she answers per the company's rules, like having to regenerate.",
+  "summarizer": {
+    "_help": "Rolling memory summary (from Wednesday: Sora, Rei, Hikari; Yuzu after her upgrade). When the unsummarized chat passes 'trigger' messages, all but the last 'keep_recent' are folded into a short summary by the same model (heuristic digest if that fails).",
+    "trigger": 24,
+    "keep_recent": 12,
+    "max_chars": 1500
+  },
   "debug": true,
   "_debug_help": "true = show calibration results, model ids, memory paths, and the companion affection meter in-game (useful while testing).",
   "girls": {

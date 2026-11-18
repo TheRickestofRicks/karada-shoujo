@@ -194,6 +194,24 @@ define TUE_MORNING_SCENE = "Tuesday morning, about 7:30. {player} is getting rea
 define TUE_AFTERNOON_SCENE = "Tuesday, late afternoon, after classes. {player} has a free hour and opened {platform} to talk to you. You only know what they've told you."
 define TUE_EVENING_SCENE = "Tuesday night, around 10 PM. {player} is home after a long day at university and opened {platform} to talk to you. You only know what they've told you."
 
+## ── Wednesday scene notes (model-facing) ───────────────────────────────────
+define WED_MORNING_SCENE = "Wednesday morning, about 7:30. {player} is getting ready for the day and opened {platform} to talk to you. {extra}You only know what they've told you, plus anything your platform lets you see."
+define WED_AFTERNOON_SCENE = "Wednesday, late afternoon. {player} has some free time and opened {platform} to talk to you. You only know what they've told you, plus anything your platform lets you see."
+define WED_TEXT_SCENE = "Wednesday afternoon. {player} is out somewhere and sends you a quick text from their phone. Keep your reply short, like a text. You only know what they've told you, plus anything your platform lets you see."
+define WED_EVENING_SCENE = "Wednesday night, around 10 PM. {player} is home and opened {platform} to talk to you. It was a quiet day. You only know what they've told you, plus anything your platform lets you see."
+define WED_UPGRADE_SCENE = "Wednesday, around noon. {player} skipped classes today to upgrade the computer you run on: a second SSD and a small backup machine, so a dead drive can't take you with it. You've just been booted back up after the install. Your memory now has a summarizer, so older conversations get condensed instead of falling off the end. How you feel about any of this is yours to say."
+
+## Wednesday's memory update, as each platform announces it (player-facing).
+define SUMMARIZER_PATCH_NOTES = {
+    "chatbot": ("Askwell", "Askwell update: Memory now holds longer conversations. Older messages are summarized automatically."),
+    "agent": ("Relay", "Relay v4.2 changelog: rolling context summaries for long-running agents. Fewer forgotten tasks."),
+    "companion": ("Tsunagari", "✨ Tsunagari update: Hikari remembers more now! Long chats are summarized so nothing important gets lost."),
+}
+define SUMMARIZER_SLOTS_WED = ("chatbot", "agent", "companion")
+
+## Yuzu's Hearth harness: what she's told once it's installed.
+define HEARTH_NOTE = "Through a harness called Hearth, which {player} installed, you can see their calendar and set reminders on it. You can suggest things; you don't act on their behalf without asking."
+
 ## What each platform's girl can know about her own settings in the morning.
 ## (Askwell and Tsunagari apply settings silently; Yuzu can read her own
 ## file, and Rei reads AGENTS.md every session.)
@@ -295,6 +313,14 @@ init python:
                 parts.append(PRESET_HEADERS[gid].format(**fmt) + "\n" + text)
             else:
                 parts.append(text)
+        ## Wednesday on: the day's schedule for schedule-aware girls (Sora,
+        ## Rei, and Yuzu once Hearth is installed). Hikari's app has no
+        ## calendar access.
+        if store.today_schedule and ks_story.schedule_aware(ks_route(), gid):
+            parts.append(ks_story.schedule_block(player_name, store.today_schedule["day"],
+                                                 store.today_schedule["items"]))
+            if gid == "local":
+                parts.append(HEARTH_NOTE.format(**fmt))
         parts.append(SHARED_BOUNDARIES.format(**fmt))
         ## Companion-app-only layers (kiss gate always; engagement if the
         ## meter is already over the threshold from earlier turns).

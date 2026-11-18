@@ -69,6 +69,14 @@ def new_route():
         # Ran / MUGEN midweek payoff (wednesday.rpy: label ran_wednesday).
         "ran_festival_setup": False,  # Tue: Ran mentions Saturday's festival stall
         "ran_wed": None,          # {"answer", "outcome", "festival"} once played
+        # Wednesday (quiet day; nothing here punishes the player).
+        "summarizer_slots": [],   # platform slots with the rolling memory summarizer
+        "yuzu_harness": False,    # Hearth harness installed: Yuzu sees the schedule, sets reminders
+        "yuzu_upgrade": False,    # skipped school to upgrade her (summarizer + backup hardware)
+        "yuzu_backup": False,     # backup hardware: later negative events must respect it
+        "wed_plan": {},           # {"school", "upgrade", "notdate", "protest"}
+        "ran_invited": None,      # Wed: True / False (False = not on good terms; no invite)
+        "notdate": None,          # {"went": bool, "texts": n, "present": n, "texted": [gid]}
     }
 
 
@@ -452,6 +460,62 @@ def record_ran_payoff(route, answer, festival):
     if festival:
         set_flag(route, "ran_festival_invited")
     return outcome
+
+
+# ---------------------------------------------------------------------------
+# Wednesday: schedule context, Ran's invite, the not-date
+# ---------------------------------------------------------------------------
+
+def ran_good_terms(route):
+    """On good terms with Ran = you didn't judge her harshly for her AI on
+    Tuesday. Trying to reach her (boring / pushback / show) or a plain
+    "cool" is fine; the "That's kind of sad" line (ran_reaction "judged")
+    isn't."""
+    return (route or {}).get("ran_reaction") != "judged"
+
+
+def wed_schedule(plan):
+    """[(time, item)] for Wednesday from the day's plan dict."""
+    plan = plan or {}
+    out = []
+    if plan.get("upgrade"):
+        out.append(("all day", "Skipping classes: Yuzu's hardware upgrade (parts shop at 10:00, then install at home)"))
+    else:
+        out.append(("08:40-15:20", "Classes (free study hall third period)"))
+        out.append(("12:30", "Lunch: library committee"))
+        if plan.get("notdate"):
+            out.append(("15:45", "Kanade Books opening, with Mio (\"not a date\")"))
+    if plan.get("protest"):
+        out.append(("17:30", "AI protest downtown (Ekimae plaza), watching with Ran"))
+    out.append(("evening", "Free"))
+    return out
+
+
+def schedule_block(player, day_long, items):
+    """Calendar context for schedule-aware girls (Sora, Rei, and Yuzu with
+    the Hearth harness)."""
+    lines = ["- %s: %s" % (t, what) for t, what in items]
+    return ("[Calendar: %s's schedule for %s, shared with you through their connected calendar. "
+            "You can see it; mention it only if it comes up naturally.]\n%s"
+            % (player, day_long, "\n".join(lines)))
+
+
+SCHEDULE_AWARE = ("chatbot", "agent")
+
+
+def schedule_aware(route, gid):
+    if gid in SCHEDULE_AWARE:
+        return True
+    return gid == "local" and bool((route or {}).get("yuzu_harness"))
+
+
+def notdate_reaction_key(texts, total=3):
+    """Mio's closing reaction: never punishing, just what she noticed."""
+    if texts <= 0:
+        return "present"
+    if texts >= total:
+        return "always"
+    return "some"
 
 
 # ---------------------------------------------------------------------------

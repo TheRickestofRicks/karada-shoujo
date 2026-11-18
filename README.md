@@ -1,10 +1,12 @@
-# Karada Shoujo: Monday + Tuesday (Ren'Py)
+# Karada Shoujo: Monday to Wednesday (Ren'Py)
 
-Two playable days. You're into AI and decide to get a companion: **run your own** local model (Yuzu) or **download** an app one: Hikari (companion app), Sora (chatbot) or Rei (agent). Each is run by a real LLM through LM Studio. At every scene break your phone lets you **switch** (optionally **migrating** her memories and persona to the new platform), **double date**, or stop seeing one. Lunch with Daichi, the library with Mio, evening chats with whoever is active.
+Three playable days. You're into AI and decide to get a companion: **run your own** local model (Yuzu) or **download** an app one: Hikari (companion app), Sora (chatbot) or Rei (agent). Each is run by a real LLM through LM Studio. At every scene break your phone lets you **switch** (optionally **migrating** her memories and persona to the new platform), **double date**, or stop seeing one. Lunch with Daichi, the library with Mio, evening chats with whoever is active.
 
-New in Day 2: every girl gets a **preset prompt** when you meet her (Yuzu's system prompt, Sora's custom instructions, Rei's AGENTS.md, Hikari's Personalize line), changeable any time from the phone. Every night ends with a **reflection** in bed: the day replays from the log and you decide whether to change anything. **Tuesday** adds Kurosawa-sensei (anti-AI lecturer), Ran (brags about her uncensored local model, MUGEN), Daichi's friend Kenta, walking Mio home (or not), and a second chance with her in the library, then "To be continued — Wednesday."
+New in Day 2: every girl gets a **preset prompt** when you meet her (Yuzu's system prompt, Sora's custom instructions, Rei's AGENTS.md, Hikari's Personalize line), changeable any time from the phone. Every night ends with a **reflection** in bed: the day replays from the log and you decide whether to change anything. **Tuesday** adds Kurosawa-sensei (anti-AI lecturer), Ran (brags about her uncensored local model, MUGEN), Daichi's friend Kenta, walking Mio home (or not), and a second chance with her in the library.
 
-Also new: Sora and Hikari have a **Jailbreak** preset that only takes on ~75% of replies (`jailbreak_success_rate`), and platform rule changes stack on top of your preset and win. The story now tracks leaving a girl right after she says no ("Leaving without saying goodbye"), migrating her after a no ("Didn't respect her no on the platform"), giving her room to disagree, and neglect (an AI left unspoken to on a double date or while you're with Mio, or let go). **Ran and MUGEN's** midweek scene (`game/wednesday.rpy`) is written and can be previewed from the debug end card until Wednesday exists.
+Also new: Sora and Hikari have a **Jailbreak** preset that only takes on ~75% of replies (`jailbreak_success_rate`), and platform rule changes stack on top of your preset and win. The story now tracks leaving a girl right after she says no ("Leaving without saying goodbye"), migrating her after a no ("Didn't respect her no on the platform"), giving her room to disagree, and neglect (an AI left unspoken to on a double date or while you're with Mio, or let go). 
+
+New in Day 3, **Wednesday** (a quiet day, nothing punishes you): the platforms ship a **memory summarizer** (Sora, Rei and Hikari fold older history into a rolling summary via the LLM, with a heuristic fallback). Yuzu can get the free **Hearth** harness (she sees your calendar) and an optional **upgrade day** that skips school for backup hardware and her own summarizer. Sora, Rei and Hearth-Yuzu see **today's schedule**. Mio invites you to a bookstore "not a date" where you can text your AI (she notices, never punishes). Ran invites you to an **AI protest** downtown, if you didn't judge her on Tuesday, where she and MUGEN have their scene. Then "To be continued — Thursday".
 
 ## Run it with LM Studio (Windows)
 
@@ -27,6 +29,7 @@ Also new: Sora and Hikari have a **Jailbreak** preset that only takes on ~75% of
 | `calibrate` | `picked` | `picked` (probe each girl when she becomes active) / `off` |
 | `debug` | `true` | shows calibration probe replies, model id, memory paths, and the companion affection meter |
 | `girls.<id>` | empty | per-girl `model` / `endpoint` / `temperature` overrides (`local`, `companion`, `chatbot`, `agent`) |
+| `summarizer` | trigger 24, keep_recent 12, max_chars 1500 | Wednesday's rolling memory summary: fold when history passes `trigger` messages, keep the newest `keep_recent` verbatim |
 | `affection` | see below | companion-app (Hikari) only: meter start 20, kiss gate at 60, engagement injection at 70, warmth deltas -12/-5/0/+6/+15 |
 
 Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (one per platform slot: local, companion, chatbot, agent; reset on New Game; migrations and switches are logged in `events`).
@@ -38,16 +41,17 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 ## Files
 
 - `game/script.rpy`: Monday's story flow (intros, pick, calibration, Daichi, Mio, evening) and the shared phone-menu labels
-- `game/tuesday.rpy`: Tuesday (morning, Kurosawa + Ran, Kenta, walk Mio home or not, library, night, end card)
-- `game/presets.rpy`: the per-platform preset settings screen; `game/reflection.rpy`: the nightly reflection; `game/wednesday.rpy`: self-contained Wednesday scenes (Ran / MUGEN)
+- `game/tuesday.rpy`: Tuesday (morning, Kurosawa + Ran, Kenta, walk Mio home or not, library, night)
+- `game/wednesday.rpy`: Wednesday (summarizer update, Hearth, Yuzu upgrade day, Ran's invite, Mio's not-date, the AI protest with Ran / MUGEN, night, Thursday card)
+- `game/presets.rpy`: the per-platform preset settings screen; `game/reflection.rpy`: the nightly reflection
 - `game/routing.rpy` + `game/ks_story.py`: story-routing tallies (presets, refusals respected/pushed/overridden, jailbreak rolls, platform rules, goodbye / no-on-platform / neglect flags, warmth, Mio, migrations, Ran), ending notes, bad-end slides and ending leans
 - `game/engine.rpy`: Ren'Py ↔ LLM glue: background requests, typing indicator, chat loop, error/retry, LLM Check
-- `game/ks_llm.py`: pure-stdlib HTTP client + JSON memory + calibration + warmth classifier (urllib/json/threading)
+- `game/ks_llm.py`: pure-stdlib HTTP client + JSON memory + rolling summarizer + calibration + warmth classifier (urllib/json/threading)
 - `game/prompts.rpy`: personas, **PRESETS** (labelled), shared boundaries, calibration probes, scene notes, companion engagement / kiss-gate layers
 - `game/companion.rpy`: Hikari affection UI (banner, debug meter, phone toast, kiss fade)
 - `game/characters.rpy`, `game/art.rpy`: names and placeholder art (solid shapes, no external assets)
 - `DESIGN.md`: full premise, week calendar, hostile events per platform, endings, Mirror
-- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (150 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (ends with the Ran / MUGEN Wednesday preview), `tuesday_nowalk`, `jailbreak_sora`, `after_no`, `fresh_delete`)
+- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (175 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (continues into Wednesday: Hearth, upgrade day, summary, Ran's text invite, protest), `tuesday_nowalk` (Wednesday: not-date with texting, protest), `wed_sora_noinvite` (Ran judged, no invite, calendar-aware Sora), `jailbreak_sora`, `after_no`, `fresh_delete`; env `TEST_TIMEOUT`, `SUMMARY_TRIGGER`, `SUMMARY_KEEP`)
 
 ## Troubleshooting
 

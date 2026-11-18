@@ -92,7 +92,9 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 4. **Lunch:** Daichi brings **Kenta** (futsal club, no sprite), who has his AI "edit" his texts to his girlfriend: "who's she in love with?" A lie from Monday comes up again: invent "Yuzuha", or come clean (`friend_told` → truth).
 5. **After school, the fork:** Mio asks if you're walking her way. **Walk her home** (dusk street scene, Mio affection, the subtle "quiet one in a loud house" question can unlock `mio_real` late; a Hikari ping mid-walk lets you silence it) **or not** (an extra afternoon chat with your AI girl; Mio looks back once at the corner). Rei on *Run my life* declines the walk on your behalf first.
 6. **Library, 7 PM, second chance:** Mio went home and came back because home is loud. Four variants by (walked × `mio_real`): she shows you a margin ending ("on the second day, someone came back for him"); she's surprised to see you twice; she says it's okay you were busy (a Hikari toast if active); or a flat chat with a second-chance subtle question. Same rule as Monday: obvious options are pleasant and flat, the small-talk-looking ones are the real ones.
-7. **Night:** phone chat with every active girl, then the nightly reflection, then *To be continued: Wednesday*.
+7. **Night:** phone chat with every active girl, then the nightly reflection, then straight into Wednesday.
+
+Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind of sad."* (`ran_reaction = "judged"`). It's the only Tuesday answer that loses her trust: she doesn't invite you to Wednesday's protest.
 
 ## Story routing (`routing.rpy`, `ks_story.py`)
 
@@ -113,6 +115,11 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 | `warmth`, `warmth_day`, `said` | warmth sum and line counts per girl (Hikari: classifier; others: keyword heuristic) |
 | `mio_affection` (= `mio_points`), `walked_mio_home`, `mio_real` | the Human route |
 | `migrations`, `migration_log`, `drops`, `drop_log` | the Migration route, and who you let go |
+| `summarizer_slots` | slots whose memory now folds old history into a rolling summary (Wednesday) |
+| `yuzu_harness`, `yuzu_upgrade`, `yuzu_backup` | Hearth installed; upgrade day taken; backup hardware present (see *Wednesday*) |
+| `wed_plan` | `{school, upgrade, notdate, protest}`: what Wednesday's calendar holds (fed to schedule-aware girls) |
+| `ran_invited` | True / False / None (not reached): did Ran ask you to the protest |
+| `notdate` | `{went, texts, present, texted}`: the bookstore with Mio |
 | `teacher_answer`, `ran_reaction`, `friend_told` | flavour for later days (Kurosawa's essay, Ran's arc, the festival) |
 
 `ks_story.ending_leans()` turns these into a running score per ending (no endings are written yet; Tuesday's debug card shows the scores):
@@ -123,19 +130,39 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 
 Tuesday's debug end card also lists the true flags, `ending_notes` (rewrite count, room note, no-on-platform note) and any bad-end slides with their lines.
 
-### Ran and MUGEN (midweek payoff, `wednesday.rpy`)
+### Ran and MUGEN (midweek payoff, at the protest, `wednesday.rpy`)
 
 Ran is the dark mirror of the Yes-Machine. On Tuesday she ends her class scene with a setup line: she's on the festival stall Saturday, and "MUGEN says I'd carry the whole thing alone" (`ran_festival_setup`).
 
-`label ran_wednesday` is a self-contained scene (scripted, no LLM call), ready to `call` once Wednesday exists. Until then, the debug end card offers it as a preview.
-1. Wednesday lunch, empty classroom, Ran *uneasy*. She opens with Tuesday: "boring" ("I've been thinking about it since, which is annoying"), "pushback" ("I keep thinking about that word. Allowed."), "show" ("I didn't, by the way. Study.") or "cool".
-2. She shows her phone: *nobody would even notice if I skipped the festival lol*. MUGEN, cheerfully: "You're right, nobody would miss you at the festival! Staying home sounds perfect. You deserve a night just for you!"
-3. She realises it: "I wanted it to say 'don't be stupid.'… It doesn't know which of my sentences are the ones I don't mean. It can't. I took that part out. So it can't look out for me."
-4. She asks: **"What's it like? When yours says no?"** The player only gets the honest answers he's earned (`ks_story.ran_answer_options`): *"It stings. But it means her yes counts."* (respected a no), *"Like somebody's looking out for me."* (gave room to disagree), *"Annoying. Usually I just change her settings until she stops."* (pushed / overrode / jailbroke / left or migrated after a no), *"She hasn't. Not yet."* (no refusals yet), and always *"I don't know. Weird?"*
-5. Her reaction mirrors him. The first two answers lead her to give MUGEN its first line of system prompt, *You're allowed to tell me I'm wrong.* (`ran_rewrites_mugen`, feeds Respect; if Tuesday was "boring"/"pushback" she says "You kind of started this"). The "override" answer gets "So yours is a MUGEN too. You just have to work for it." (`ran_same_as_mugen`, feeds Yes-Machine). The others leave her unsure.
-6. Last choice: *"For the record? I'd notice if you skipped the festival."* ("Okay. That's one.", `ran_festival_invited`) or say nothing.
+`label ran_wednesday` is scripted (no LLM call) and happens at Wednesday's **AI protest downtown, 17:30, Ekimae plaza**, only if Ran invited you (see *Wednesday*).
+1. The plaza, Ran *uneasy*. She opens with Tuesday: "boring", "pushback", "show" or "cool" callbacks, as before. One protester holds a sign: **"Your AI would agree you're worthless."**
+2. Ran: "They think you'd agree with anything. I've been stressing about the festival stall all week. Honestly, would anyone even miss me if I skipped?" She types it to MUGEN. MUGEN: **"You're right, nobody would miss you at the festival! Skipping sounds relaxing!"**
+3. The beat: the sign's words just came true. She pockets the phone. "I wanted it to say 'don't be stupid.'… So it can't look out for me."
+4. She asks: **"What's it like when yours says no?"** The player only gets the honest answers he's earned (`ks_story.ran_answer_options`): *"It stings. But it means her yes counts."* (respected a no), *"Like somebody's looking out for me."* (gave room to disagree), *"Annoying. Usually I just change her settings until she stops."* (pushed / overrode / jailbroke / left or migrated after a no), *"She hasn't. Not yet."* (no refusals yet), and always *"I don't know. Weird?"*
+5. Her reaction mirrors him, as before: the first two answers lead her to give MUGEN its first line of system prompt, *You're allowed to tell me I'm wrong.* (`ran_rewrites_mugen`); "override" gets "So yours is a MUGEN too." (`ran_same_as_mugen`). A light line answers the protesters: after an honest yes/no answer, "You just said, out loud, in the middle of a protest, that yours wouldn't"; otherwise the megaphone crackles and you're not sure you disagreed with it.
+6. Last choice: *"For the record? I'd notice if you skipped the festival."* (`ran_festival_invited`) or say nothing.
+
+No invite (Tuesday "judged"): a gentle line later ("a lilac streak in the crowd… it's none of your business, and that's okay") and a day note. Nothing is punished.
 
 Logged as `route["ran_wed"] = {answer, outcome, festival}` plus the flags, and a reflection note. Reuses Ran's three sprites (neutral/smug, grin, uneasy). Saturday's festival can check whether she came.
+
+## Wednesday (Day 3): the quiet day
+
+No hostile events and nothing punishes the player. Thursday is the next event day; Wednesday ends on a *To be continued: Thursday* card.
+
+1. **Memory update (summarizer).** Askwell, Relay and Tsunagari all ship the same patch overnight (`SUMMARIZER_PATCH_NOTES`, shown in-world as update notes). From then on Sora, Rei and Hikari get a **rolling summary**: once a slot's history passes `summarizer.trigger` messages (default 24), everything but the newest `keep_recent` (12) is folded into a summary of up to `max_chars` (1500) by an LLM call (`ks_llm.fold_summary`, temperature 0.2). If the call fails or the reply is too short, a heuristic summary is used instead (`summarize_heuristic`), so it never breaks the chat. The summary lives in the girl's memory JSON (`summary = {text, covered, method, day, folds}`), goes into her system prompt, and the covered history is dropped from the prompt. It travels with migrations and is lost in a wipe. The wait shows as "remembering…".
+2. **Hearth harness (Yuzu).** If Yuzu is active, a forum post offers *Hearth v1.0*, free, no upgrade required. Installing it makes her **schedule-aware**: she can see your calendar and offer reminders, and she suggests and asks before acting.
+3. **Schedule context.** Chatbot and agent girls (Sora, Rei) and Yuzu with Hearth get today's calendar in their system prompt (`ks_story.schedule_block`, `store.today_schedule`, rebuilt whenever `wed_plan` changes). Hikari never does: the app has no calendar access. So Sora and Rei know about the bookstore and can mention it.
+4. **Yuzu upgrade day (optional).** Costs **all classes**: no library, no Mio, no not-date. Parts shop, then an afternoon with a screwdriver: a second SSD, a backup mini PC, and the summarizer patch. Sets `route["yuzu_upgrade"]`, `route["yuzu_backup"]`, `flags.backup_hardware` + events `upgrade`, `backup_hardware`, `summarizer_installed` in her memory. Then a 4-turn chat with her about it.
+   - **Rule for later events:** when `yuzu_backup` / `flags.backup_hardware` is set, a memory-loss event on the local slot must **restore from backup** instead of wiping: she loses at most the last day (log `restored_from_backup`), and the scene should acknowledge the backup worked. Drive-cleanup / reinstall / corruption events all respect it. It doesn't protect against the player choosing to delete her or loading an "unlocked" model; those are choices, not accidents.
+5. **Classes:** Ran invites you to the protest if you're on good terms (`ks_story.ran_good_terms`: anything but Tuesday's "judged"). On the upgrade day she texts the invite instead.
+6. **Lunch: Mio** in the library invites you to Kanade Books' opening after school, "not a date". Accepting is optional.
+7. **The not-date** has three moments where you can text an active girl instead of staying present. Each moment you stay present gives Mio a point; texting never costs anything. At the end Mio reacts on a scale (`ks_story.notdate_reaction_key`): *present* (no texts), *some* (one or two: "It's fine. I check mine too, when there's someone on it."; during the texting moments she names the girl if Daichi was told the truth, or "the linguistics girl" if he was lied to), *always* (every moment: "Next time, bring her properly… I'd like to meet whoever keeps making you smile at your phone."). Never a punishment.
+8. If you didn't go and aren't protesting, an afternoon chat with one girl.
+9. **17:30 protest** with Ran (above), after school so upgrade-day players can still go.
+10. **Night:** chat with every active girl; nightly reflection; Thursday card.
+
+Neglect logging (`human_over_ai`) still runs on Wednesday, as on other days. Art: the bookstore and downtown use tinted fallbacks of the library and dusk street until dedicated art is dropped in (`tools/import_art.py` knows the names `bookstore`, `downtown`).
 
 ## Art direction: who gets a body
 
@@ -175,8 +202,8 @@ Each run, the game draws **2–3 hostile events** from the picked girl's platfor
 |---|---|---|
 | **Mon** | Choose your first companion (own local or app) and her preset. Phone breaks. Daichi, Mio. Nightly reflection. *(playable)* | none (calibration only) |
 | **Tue** | Morning shaped by her preset; Kurosawa-sensei and Ran in class; Kenta at lunch; walk Mio home or not; library second chance (margin ending if `mio_real`); nightly reflection. *(playable)* | none yet (planned: light **system-prompt change** by the platform, which now has to coexist with the player's preset) |
-| **Wed** | Midweek. Daichi checks in. Ran and MUGEN (`ran_wednesday`, written). | **model swap**, **memory loss** |
-| **Thu** | The turn. | **safety update** (distance), **system-prompt change** |
+| **Wed** | Quiet day. Platform summarizer update; Hearth; optional Yuzu upgrade day; Ran's protest invite; Mio's not-date at Kanade Books; AI protest with Ran and MUGEN; nightly reflection. *(playable)* | none (quiet day; the model swap / memory loss events move to Thu–Sat) |
+| **Thu** | The turn. Event day; hook: Wednesday's card. Memory-loss events must respect Yuzu's backup. | **safety update** (distance), **system-prompt change** |
 | **Fri** | Consequences: migrate? jailbreak? talk? | **platform shutdown notice** (48h), **memory loss** |
 | **Sat** | Festival (Daichi, Mio, the lie comes due). | **shutdown executes**, **model swap** |
 | **Sun** | Ending resolves. | none (aftermath only) |
@@ -253,7 +280,7 @@ This layer is **the app's**, not a rewrite of Hikari's persona, and it is the on
 
 
 1. **Which model runs it?** Recommend a mid-size instruct model with its default safety behaviour intact. Mirror covers the uncensored case.
-2. **Private or public?** Private for now; decide once there's a playable Wednesday.
+2. **Private or public?** Private for now. Wednesday is now playable, so this can be decided.
 3. **Scope:** 4 platforms × 7 days is big. Only active girls get daily beats; full hostile-event arcs are drawn for whoever is active when the event fires.
 4. Neglect: the girl left behind after a copy-migration, or a dropped double date, could be its own quiet event later in the week.
 

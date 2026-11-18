@@ -436,4 +436,84 @@ ks_story.record_ran_payoff(RO, "override", False)
 check("Ran mirror feeds Yes-Machine", ks_story.ending_leans(RO, ["chatbot"])["yes_machine"] == base_y + 1
       and ks_story.flag(RO, "ran_same_as_mugen"))
 
+# ---------------------------------------------------------------------------
+# Wednesday: rolling memory summarizer (ks_llm) + schedule context (ks_story)
+# ---------------------------------------------------------------------------
+ST = ks_llm.summarizer_settings({"summarizer": {"trigger": 6, "keep_recent": 2, "max_chars": 600, "_help": "x"}})
+check("summarizer settings parse + clamp", ST == {"trigger": 6, "keep_recent": 2, "max_chars": 600}
+      and ks_llm.summarizer_settings({})["trigger"] == 24
+      and ks_llm.summarizer_settings({"summarizer": {"trigger": 3, "keep_recent": 9}})["keep_recent"] == 2)
+spath = os.path.join(tempfile.mkdtemp(), "mem_s.json")
+SM = ks_llm.Memory(spath); SM.fresh("Sora")
+for i in range(3):
+    SM.add("user", "line %d about the bookstore" % i, "Wed", "t"); SM.add("assistant", "reply %d" % i, "Wed", "t")
+check("not due at the threshold", not ks_llm.summary_due(SM.data, ST))
+SM.add("user", "line 3 about Mio", "Wed", "t")
+check("due once history passes the trigger", ks_llm.summary_due(SM.data, ST))
+older, cov = ks_llm.summary_slice(SM.data, ST)
+check("slice folds all but keep_recent", cov == 5 and len(older) == 5 and older[0]["content"] == "line 0 about the bookstore")
+check("fold returns None when nothing is due", ks_llm.fold_summary(cfg(18999, model="x"), "Sora", {"messages": []}, ST) is None)
+ks_llm._model_cache.clear()
+off = ks_llm.fold_summary(cfg(18999, model="x"), "Sora", SM.data, ST)
+check("server down -> heuristic digest, never raises", off["method"] == "heuristic" and off["covered"] == 5
+      and "line 0 about the bookstore" in off["text"] and off["error"])
+check("heuristic digest keeps previous summary + caps length",
+      ks_llm.summarize_heuristic("Before.", [{"role": "user", "content": "x" * 500}] * 20, 300).__len__() <= 300
+      and ks_llm.summarize_heuristic("Before.", [{"role": "user", "content": "hi"}]).startswith("Before. Earlier:"))
+s = server(18771)
+try:
+    ks_llm._model_cache.clear()
+    out = ks_llm.fold_summary(cfg(18771), "Sora", SM.data, ST)
+    check("LLM summary folds the older lines", out["method"] == "llm" and "line 0 about the bookstore" in out["text"] and out["covered"] == 5)
+    SM.apply_summary(out["text"], out["covered"], out["method"], "Wed")
+    msgs = SM.build_messages("SYS", 24, "scene")
+    check("summary goes into the system prompt", ks_llm.SUMMARY_CONTEXT_HEADER in msgs[0]["content"] and "Mock summary" in msgs[0]["content"])
+    _bodies = [m["content"] for m in msgs[1:]]
+    check("folded messages aren't re-sent; recent ones are", not any("line 0" in b for b in _bodies)
+          and any("line 3 about Mio" in b for b in _bodies) and msgs[1]["role"] == "user")
+    check("summary event logged", SM.data["events"][-1]["type"] == "summary_update" and SM.data["summary"]["folds"] == 1)
+    check("not due right after a fold", not ks_llm.summary_due(SM.data, ST))
+    for i in range(3):
+        SM.add("assistant", "more %d" % i, "Wed", "t"); SM.add("user", "again %d" % i, "Wed", "t")
+    check("due again later", ks_llm.summary_due(SM.data, ST))
+    out2 = ks_llm.fold_summary(cfg(18771), "Sora", SM.data, ST)
+    SM.apply_summary(out2["text"], out2["covered"], out2["method"], "Wed")
+    check("second fold advances covered", SM.data["summary"]["covered"] == len(SM.data["messages"]) - 2 and SM.data["summary"]["folds"] == 2)
+    DM = ks_llm.Memory(os.path.join(tempfile.mkdtemp(), "dst.json")); DM.fresh("x")
+    DM.migrate_from(SM, {"gid": "chatbot", "name": "Sora", "platform": "Askwell"}, {"gid": "local", "name": "Yuzu", "platform": "desk"}, "Wed")
+    check("summary travels with a migration", DM.data["summary"]["text"] == SM.data["summary"]["text"])
+    SM.wipe(2)
+    check("memory wipe drops the summary", SM.summary() is None)
+finally:
+    s.terminate()
+s = server(18772, "--bad-summary")
+try:
+    ks_llm._model_cache.clear()
+    bm = ks_llm.Memory(os.path.join(tempfile.mkdtemp(), "b.json")); bm.fresh("Rei")
+    for i in range(8):
+        bm.add("user" if i % 2 == 0 else "assistant", "msg %d" % i, "Wed", "t")
+    outb = ks_llm.fold_summary(cfg(18772), "Rei", bm.data, ST)
+    check("too-short LLM summary -> heuristic fallback", outb["method"] == "heuristic" and "too short" in outb["error"])
+finally:
+    s.terminate()
+
+plan = {"school": True, "notdate": True, "protest": True}
+sched = ks_story.wed_schedule(plan)
+check("schedule: classes, library, not-date, protest", [t for t, _ in sched] == ["08:40-15:20", "12:30", "15:45", "17:30", "evening"]
+      and "Kanade Books opening, with Mio" in sched[2][1])
+check("schedule: upgrade day skips classes + not-date, keeps protest",
+      [t for t, _ in ks_story.wed_schedule({"upgrade": True, "notdate": True, "protest": True})] == ["all day", "17:30", "evening"])
+blk = ks_story.schedule_block("Tester", "Wednesday", sched)
+check("schedule block names the player, day, items", blk.startswith("[Calendar: Tester's schedule for Wednesday") and "- 15:45: Kanade Books" in blk)
+SA = ks_story.new_route()
+check("schedule-aware: Sora + Rei; Hikari never; Yuzu only with Hearth",
+      ks_story.schedule_aware(SA, "chatbot") and ks_story.schedule_aware(SA, "agent")
+      and not ks_story.schedule_aware(SA, "companion") and not ks_story.schedule_aware(SA, "local"))
+SA["yuzu_harness"] = True
+check("Hearth makes Yuzu schedule-aware", ks_story.schedule_aware(SA, "local"))
+check("Ran: good terms unless judged", ks_story.ran_good_terms({"ran_reaction": "boring"}) and ks_story.ran_good_terms({"ran_reaction": "shrug"})
+      and ks_story.ran_good_terms({}) and not ks_story.ran_good_terms({"ran_reaction": "judged"}))
+check("not-date reaction scale", [ks_story.notdate_reaction_key(n) for n in (0, 1, 2, 3)] == ["present", "some", "some", "always"])
+check("new Wednesday route keys", all(k in ks_story.ensure_route({}) for k in ("summarizer_slots", "yuzu_backup", "wed_plan", "notdate", "ran_invited")))
+
 print("\nALL %d CHECKS PASSED" % ok)

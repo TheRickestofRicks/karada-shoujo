@@ -758,6 +758,9 @@ class Memory(object):
         self.data["run_id"] = run_id
         self.data["messages"] = copy.deepcopy(src.data["messages"])
         self.data["notes"] = list(src.data["notes"])
+        if src.data.get("summary"):
+            ## Her rolling summary is memory too: it travels with her.
+            self.data["summary"] = copy.deepcopy(src.data["summary"])
         self.data["lineage"] = lineage
         self.data["migrated_from"] = {
             "gid": src_info["gid"], "name": src_info["name"],
@@ -771,10 +774,25 @@ class Memory(object):
         src.log_event("migrated_out", dst=dst_info["gid"], to_platform=dst_info["platform"])
 
     def wipe(self, keep_last=0):
-        """Hostile event hook: memory loss. keep_last messages survive."""
+        """Hostile event hook: memory loss. keep_last messages survive.
+        The rolling summary goes too (it's memory)."""
         msgs = self.data["messages"]
         self.data["messages"] = msgs[-keep_last:] if keep_last else []
+        self.data.pop("summary", None)
         self.log_event("memory_wipe", kept=keep_last, lost=len(msgs) - keep_last)
+
+    # -- rolling summary (Wednesday's memory upgrade) --
+    def summary(self):
+        s = (self.data or {}).get("summary") or {}
+        return s if s.get("text") else None
+
+    def apply_summary(self, text, covered, method, day="", error=""):
+        """Store a fold produced by fold_summary (main thread only)."""
+        prev = (self.data.get("summary") or {})
+        self.data["summary"] = {"text": text, "covered": int(covered), "method": method,
+                                "day": day, "folds": int(prev.get("folds", 0)) + 1}
+        self.log_event("summary_update", covered=int(covered), method=method, day=day,
+                       chars=len(text), error=error[:200])
 
     def build_messages(self, system_prompt, history_messages=24, scene_note=None):
         """System prompt + notes + scene + last N messages, ready to send.
@@ -785,13 +803,146 @@ class Memory(object):
         sys = system_prompt
         if self.data["notes"]:
             sys += "\n\nThings you remember:\n- " + "\n- ".join(self.data["notes"])
+        summ = self.summary()
+        if summ:
+            sys += ("\n\n" + SUMMARY_CONTEXT_HEADER + "\n" + summ["text"])
         if scene_note:
             sys += "\n\nCurrent scene: " + scene_note
         hist = [m for m in self.data["messages"] if m["role"] in ("user", "assistant")]
+        if summ:
+            ## Messages already folded into the summary aren't re-sent.
+            hist = hist[int(summ.get("covered", 0)):]
         if history_messages:
             hist = hist[-history_messages:]
         return normalise([{"role": "system", "content": sys}] +
                          [{"role": m["role"], "content": m["content"]} for m in hist])
+
+
+# ---------------------------------------------------------------------------
+# Rolling conversation summary (Wednesday: Askwell / Relay / Tsunagari ship
+# it to everyone; Yuzu gets it from her hardware upgrade). Once the
+# unsummarised history passes `trigger` messages, the older ones (all but
+# the last `keep_recent`) are folded into a short summary by the same model;
+# if that fails, a keyword-free heuristic digest is used instead.
+# ---------------------------------------------------------------------------
+
+SUMMARY_DEFAULTS = {"trigger": 24, "keep_recent": 12, "max_chars": 1500}
+
+SUMMARY_CONTEXT_HEADER = ("Your own summary of your earlier conversations with them "
+                          "(older messages were condensed by your memory summarizer):")
+
+SUMMARY_SYSTEM = (
+    "You maintain the rolling memory summary of {name}, an AI character, written in "
+    "the second person from her point of view (\"You ...\"). Merge the previous summary "
+    "and the new conversation lines into ONE updated summary: who they are, what you "
+    "talked about, promises, plans, feelings, anything you refused, names and facts "
+    "worth keeping. At most {max_words} words. Plain prose, no lists, no headings. "
+    "Output only the summary.")
+
+
+def summarizer_settings(cfg=None):
+    out = dict(SUMMARY_DEFAULTS)
+    raw = (cfg or {}).get("summarizer") or {}
+    if isinstance(raw, dict):
+        for k in SUMMARY_DEFAULTS:
+            try:
+                if raw.get(k) not in (None, ""):
+                    out[k] = int(raw[k])
+            except (TypeError, ValueError):
+                pass
+    out["trigger"] = max(2, out["trigger"])
+    out["keep_recent"] = max(0, min(out["keep_recent"], out["trigger"] - 1))
+    out["max_chars"] = max(200, out["max_chars"])
+    return out
+
+
+def _dialogue(data):
+    return [m for m in (data or {}).get("messages", []) if m.get("role") in ("user", "assistant")]
+
+
+def summary_due(data, settings=None):
+    """True once the not-yet-summarised history is longer than `trigger`."""
+    st = settings or summarizer_settings()
+    covered = int(((data or {}).get("summary") or {}).get("covered", 0))
+    return len(_dialogue(data)) - covered > st["trigger"]
+
+
+def summary_slice(data, settings=None):
+    """(messages to fold, new covered index). Folds everything except the
+    last keep_recent messages."""
+    st = settings or summarizer_settings()
+    hist = _dialogue(data)
+    covered = int(((data or {}).get("summary") or {}).get("covered", 0))
+    new_cov = max(covered, len(hist) - st["keep_recent"])
+    return hist[covered:new_cov], new_cov
+
+
+def _clip_words(text, n):
+    t = " ".join((text or "").split())
+    return t if len(t) <= n else t[: n - 1].rstrip() + "\u2026"
+
+
+def summarize_heuristic(prev, msgs, max_chars=1500):
+    """Fallback digest (no model call): the previous summary plus short
+    quotes of what was said, newest kept if it gets too long."""
+    parts = []
+    for m in msgs:
+        who = "They said" if m["role"] == "user" else "You said"
+        parts.append("%s: \u201c%s\u201d" % (who, _clip_words(m["content"], 90)))
+    head = (prev or "").strip()
+    body = " ".join(parts)
+    text = (head + " Earlier: " + body).strip() if head else ("Earlier: " + body)
+    if len(text) > max_chars:
+        text = "\u2026" + text[-(max_chars - 1):]
+    return text
+
+
+def summarize(cfg, name, prev, msgs, settings=None):
+    """Fold msgs into prev via the LLM. Never raises.
+    Returns {"text", "method": "llm"|"heuristic", "error"}."""
+    st = settings or summarizer_settings(cfg)
+    lines = []
+    for m in msgs:
+        who = "Them" if m["role"] == "user" else "You"
+        lines.append("%s: %s" % (who, " ".join(m["content"].split())))
+    user = ("PREVIOUS SUMMARY:\n%s\n\nNEW CONVERSATION LINES:\n%s\n\nUPDATED SUMMARY:"
+            % ((prev or "(none yet)").strip(), "\n".join(lines)))
+    sysmsg = SUMMARY_SYSTEM.format(name=name or "the character",
+                                   max_words=max(40, st["max_chars"] // 7))
+    err = ""
+    try:
+        text, _model = chat(cfg, [{"role": "system", "content": sysmsg},
+                                  {"role": "user", "content": user}],
+                            temperature=0.2, max_tokens=None)
+        text = " ".join((text or "").split())
+        if text.lower().startswith("updated summary:"):
+            text = text.split(":", 1)[1].strip()
+        if len(text) >= 20:
+            if len(text) > st["max_chars"]:
+                text = text[: st["max_chars"] - 1].rstrip() + "\u2026"
+            return {"text": text, "method": "llm", "error": ""}
+        err = "summary too short: %r" % text[:80]
+    except LLMError as e:
+        err = str(e)
+    except Exception as e:
+        err = "%s: %s" % (type(e).__name__, e)
+    return {"text": summarize_heuristic(prev, msgs, st["max_chars"]),
+            "method": "heuristic", "error": err}
+
+
+def fold_summary(cfg, name, data_snapshot, settings=None):
+    """Background-safe: works on a snapshot, returns what to apply.
+    {"text", "covered", "method", "error"} or None if nothing is due."""
+    st = settings or summarizer_settings(cfg)
+    if not summary_due(data_snapshot, st):
+        return None
+    msgs, new_cov = summary_slice(data_snapshot, st)
+    if not msgs:
+        return None
+    prev = ((data_snapshot or {}).get("summary") or {}).get("text", "")
+    out = summarize(cfg, name, prev, msgs, st)
+    out["covered"] = new_cov
+    return out
 
 
 def normalise(messages):

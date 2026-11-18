@@ -49,6 +49,8 @@ BACKGROUNDS = {
     "bg/bedroom_night": "bedroom_night",
     "bg/classroom": "classroom",
     "bg/street_dusk": "street_dusk",
+    "bg/bookstore": "bookstore",
+    "bg/downtown": "downtown",
     "title_keyart": "title_keyart",
 }
 
