@@ -29,8 +29,10 @@ init python:
             changes = []
             for h in r["preset_history"]:
                 if h["day"] == day and h["gid"] == gid and h["from"] != h["to"]:
+                    _to = ks_story.get_preset(PRESETS, gid, h["to"]) or {}
                     changes.append((ks_preset_label(gid, h["from"]) if h["from"] else None,
-                                    ks_preset_label(gid, h["to"]), h["source"]))
+                                    ks_preset_label(gid, h["to"]), h["source"],
+                                    _to.get("family") == "pushback"))
             kissed = refused = False
             aff = None
             eng = False
@@ -70,7 +72,12 @@ init python:
                 else:
                     migs.append("You left %s on %s." % (m["name"], m["from"]))
         dropped = [d["name"] for d in r["drop_log"] if d["day"] == day]
+        routing = ks_story.reflection_extras(
+            r, day, store.active,
+            names=dict((g, gname(g)) for g in GIRL_IDS),
+            platforms=dict((g, gplatform(g).split(" (")[0]) for g in GIRL_IDS))
         return ks_story.day_summary(day, girls, dict(migrations=migs, dropped=dropped,
+                                                     routing=routing,
                                                      other=list(store.day_notes)))
 
 
@@ -87,14 +94,15 @@ screen reflection_choice(items):
         padding (34, 26)
         background Solid("#0c0e1ccc")
         vbox:
-            spacing 10
+            spacing (10 if len(refl_lines) <= 15 else 5)
             text "[refl_title]" size 26 color "#b9c3e8" italic True
             null height 2
-            $ _rsz = 19 if len(refl_lines) <= 11 else 17
-            for _l in refl_lines[:16]:
+            $ _rsz = 19 if len(refl_lines) <= 11 else (17 if len(refl_lines) <= 15 else 15)
+            $ _rmax = 16 if len(refl_lines) <= 16 else 19
+            for _l in refl_lines[:_rmax]:
                 $ _lq = ks_quote(_l)
                 text "[_lq]" size _rsz color "#dfe4f5" line_spacing 2
-            if len(refl_lines) > 16:
+            if len(refl_lines) > _rmax:
                 text "…and the rest of it." size _rsz color "#9aa3c4" italic True
     vbox:
         xpos 750
@@ -122,6 +130,8 @@ label nightly_reflection(day):
     n "Lights off. The ceiling. The day plays back whether you want it to or not."
     window hide
     $ _rf_changes = []
+    ## Neglect is judged on who was active when you lay down (item 4).
+    $ ks_check_neglect(day)
     $ refl_lines = ks_reflection_lines(day)
     $ refl_heading = "Would I change anything?"
     $ _rf_done = False
@@ -167,6 +177,7 @@ label nightly_reflection(day):
 
     python:
         ks_story.tally_night(ks_route(), PRESETS, active)
+        ks_resolve_day(day)    # left after a no and never came back -> bad-end slide flag
         ks_route()["reflections"].append({"day": day, "changes": list(_rf_changes)})
         for _g in set(list(active) + list(ever_active)):
             ks_mem(_g).log_event("reflection", day=day, changes=list(_rf_changes),

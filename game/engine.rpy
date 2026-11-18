@@ -182,7 +182,9 @@ init -10 python:
 
     def ks_start_chat(gid, scene_note, classify_message=None):
         cfg = ks_cfg(gid)
-        msgs = ks_mem(gid).build_messages(ks_system_prompt(gid),
+        ## Jailbreak preset: one roll per reply (~75%); see ks_jailbreak_roll.
+        jb = ks_jailbreak_roll(gid)
+        msgs = ks_mem(gid).build_messages(ks_system_prompt(gid, jailbreak_ok=jb),
                                          cfg.get("history_messages", 24),
                                          scene_note)
         if classify_message is not None:
@@ -262,6 +264,7 @@ label girl_chat(gid, scene_id, scene_note, max_turns=6, day=None):
     $ _ks_name = gname(gid)
     $ _ks_char = gchar(gid)
     $ _ks_aff = None
+    $ ks_note_double_date()
     if gid == "companion":
         show screen hikari_chat_chrome
     while _ks_turns < max_turns and not _ks_stop:

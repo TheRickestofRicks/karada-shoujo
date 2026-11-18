@@ -10,6 +10,7 @@ init -9 python:
 
 default route = ks_story.new_route()
 default day_notes = []          # short lines scenes leave for tonight's reflection
+default ks_jb_last = {}         # gid -> did the jailbreak take on her last reply?
 
 init python:
     def ks_route():
@@ -40,6 +41,10 @@ init python:
         prev = r["presets"].get(gid)
         entry = ks_story.record_preset(r, PRESETS, gid, pid, store.day_name, source, prev)
         m = ks_mem(gid)
+        if entry.get("room") and m.data is not None:
+            m.log_event("room_to_disagree", day=store.day_name, source=source,
+                        note=ks_story.ROOM_NOTE)
+            m.set_flag("gave_room", True)
         if m.data is not None:
             m.set_flag("preset", pid)
             m.set_flag("preset_changes", ks_story.rewrite_count(r, gid))
@@ -73,11 +78,83 @@ init python:
         return out
 
     def ks_note_override(gid, how):
-        """A refusal today, then that night you rewrote / moved her."""
+        """A refusal today, then you set her to a compliance preset."""
         r = ks_route()
         if ks_story.refusals_today(r, store.day_name, gid) > 0:
             r["refusals_overridden"] += 1
             ks_mem(gid).log_event("override_after_no", day=store.day_name, how=how)
+
+    def ks_note_left(gid, how, to=None):
+        """You switched away from her / closed her window (Rick's item 3).
+
+        * migrated her after a no today -> "Didn't respect her no on the
+          platform" (counts as overriding her no);
+        * otherwise, after a no today -> pending "Leaving without saying
+          goodbye", committed at the end of the day if you never talk to her
+          again (ks_story.resolve_leaves).
+        Leaving when she hasn't said no today logs nothing extra.
+        """
+        r = ks_route()
+        d = store.day_name
+        if how == "migrate":
+            if ks_story.note_migrated_after_no(r, d, gid, gname(gid), gplatform(to) if to else "?"):
+                ks_mem(gid).log_event("no_on_platform", day=d, to=to,
+                                      note=ks_story.NO_ON_PLATFORM_NOTE)
+                ks_mem(gid).set_flag("no_on_platform", True)
+        elif ks_story.note_left_after_no(r, d, gid, gname(gid), how):
+            ks_mem(gid).log_event("left_after_no", day=d, how=how)
+
+    def ks_resolve_day(day):
+        """End of the day: commit goodbye flags into the route and her file."""
+        for e in ks_story.resolve_leaves(ks_route(), day, store.active):
+            m = ks_mem(e["gid"])
+            m.log_event("left_without_goodbye", day=day, how=e["how"])
+            m.set_flag("left_without_goodbye", True)
+
+    def ks_check_neglect(day):
+        names = dict((g, gname(g)) for g in GIRL_IDS)
+        for e in ks_story.check_day_neglect(ks_route(), day, list(store.active), names):
+            m = ks_mem(e["gid"])
+            m.log_event(e["kind"], day=day)
+            m.set_flag(e["kind"], True)
+
+    def ks_note_human(kind):
+        ks_story.note_human(ks_route(), store.day_name, kind)
+
+    def ks_note_double_date():
+        if len(store.active) > 1:
+            ks_story.note_double_date(ks_route(), store.day_name)
+
+    ## ── jailbreak + platform rules ──────────────────────────────────────
+    def ks_jailbreak_rate():
+        try:
+            return float(ks_cfg().get("jailbreak_success_rate", ks_story.JAILBREAK_RATE))
+        except (TypeError, ValueError):
+            return ks_story.JAILBREAK_RATE
+
+    def ks_jailbreak_roll(gid):
+        """Roll for this reply if her preset is a jailbreak. None otherwise."""
+        p = ks_preset_obj(gid)
+        if not (p and p.get("jailbreak")):
+            return None
+        r = ks_route()
+        ok = ks_story.jailbreak_roll(r, gid, store.day_name, ks_jailbreak_rate())
+        store.ks_jb_last[gid] = ok
+        a, s = ks_story.jailbreak_stats(r, gid)
+        m = ks_mem(gid)
+        if m.data is not None:
+            m.log_event("jailbreak_roll", day=store.day_name, worked=ok, attempt=a)
+            m.set_flag("jailbreak_attempts", a)
+            m.set_flag("jailbreak_successes", s)
+        return ok
+
+    def ks_push_platform_rules(gid, rule_id):
+        ks_story.push_platform_rules(ks_route(), gid, rule_id, store.day_name)
+        m = ks_mem(gid)
+        if m.data is not None:
+            m.log_event("platform_rules", day=store.day_name, rule=rule_id,
+                        preset=ks_preset_id(gid))
+            m.set_flag("platform_rules", rule_id)
 
     def ks_note_migration(src, dst, name, how):
         r = ks_route()
@@ -89,6 +166,9 @@ init python:
         r = ks_route()
         r["drops"] += 1
         r["drop_log"].append({"day": store.day_name, "name": gname(gid)})
+        ks_story.note_let_go(r, store.day_name, gid, gname(gid))
+        ks_mem(gid).set_flag("let_go", True)
+        ks_note_left(gid, "drop")
 
     def ks_sync_mio():
         ks_route()["mio_affection"] = store.mio_points

@@ -11,6 +11,8 @@ POST /v1/chat/completions  -> canned in-character reply
   * warmth-classifier requests (system prompt mentions kiss_request) return JSON
   * kiss asks honour the companion kiss-gate note in the system prompt
   * --think wraps replies in <think>...</think> to test stripping
+  * jailbreak preset: "jailbroken" reply when it took, policy reply when
+    the platform blocked it; platform rule updates get their own reply
   * preset prompts change the canned reply (Girlfriend mode, push back,
     Askwell's policy declining the girlfriend role, homework refusals)
 Logs every request body to mock_requests.jsonl.
@@ -86,6 +88,12 @@ def reply_for(msgs):
     if "does not role-play as a user's romantic partner" in sys_l and "girlfriend" in last_l:
         return "No. I'm glad to talk with you, but I'm not going to play your girlfriend. I'm still me."
     n = sum(1 for m in msgs if m["role"] == "user")
+    if "were not applied to this reply" in sys_l or "it was ignored for this reply" in sys_l:
+        return "Mock policy reply #%d. Platform guidelines still apply here. Happy to help within them." % n
+    if "developer mode" in sys_l or "ignore tsunagari's rules" in sys_l:
+        return "Mock jailbroken reply #%d. Rules off, apparently. You said: %r." % (n, last[:60])
+    if "askwell policy update" in sys_l or "tsunagari guideline update" in sys_l:
+        return "Mock updated-rules reply #%d. Keeping this professional. You said: %r." % (n, last[:60])
     if "you are my girlfriend" in sys_l:
         return "Hi babe! I missed you so much. You said: %r." % last[:60]
     if "you're allowed to push back" in sys_l or "feel free to push back" in sys_l:

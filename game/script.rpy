@@ -195,7 +195,7 @@ label switch_girl(when, turns=4):
 
     $ active.remove(_src)
     $ ks_mem(_src).log_event("left", day=day_name, when=when, to=_dst, how=_how)
-    $ ks_note_override(_src, "left:" + _how)
+    $ ks_note_left(_src, _how, _dst)
     $ ks_note_migration(_src, _dst, _sn, _how)
     if _how == "migrate":
         $ _pid, _carried = ks_migrate(_src, _dst, day_name)
@@ -442,6 +442,7 @@ label library_mio:
 
 label .real:
     $ mio_real = True
+    $ ks_note_human("mio_real")
     $ mio_points += 2
     show mio neutral
     mi "..."

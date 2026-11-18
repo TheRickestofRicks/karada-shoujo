@@ -4,6 +4,8 @@ Two playable days. You're into AI and decide to get a companion: **run your own*
 
 New in Day 2: every girl gets a **preset prompt** when you meet her (Yuzu's system prompt, Sora's custom instructions, Rei's AGENTS.md, Hikari's Personalize line), changeable any time from the phone. Every night ends with a **reflection** in bed: the day replays from the log and you decide whether to change anything. **Tuesday** adds Kurosawa-sensei (anti-AI lecturer), Ran (brags about her uncensored local model, MUGEN), Daichi's friend Kenta, walking Mio home (or not), and a second chance with her in the library, then "To be continued — Wednesday."
 
+Also new: Sora and Hikari have a **Jailbreak** preset that only takes on ~75% of replies (`jailbreak_success_rate`), and platform rule changes stack on top of your preset and win. The story now tracks leaving a girl right after she says no ("Leaving without saying goodbye"), migrating her after a no ("Didn't respect her no on the platform"), giving her room to disagree, and neglect (an AI left unspoken to on a double date or while you're with Mio, or let go). **Ran and MUGEN's** midweek scene (`game/wednesday.rpy`) is written and can be previewed from the debug end card until Wednesday exists.
+
 ## Run it with LM Studio (Windows)
 
 1. Install the **Ren'Py SDK 8.x** (tested with 8.6.1) from https://www.renpy.org/latest.html and unzip it anywhere.
@@ -37,15 +39,15 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 
 - `game/script.rpy`: Monday's story flow (intros, pick, calibration, Daichi, Mio, evening) and the shared phone-menu labels
 - `game/tuesday.rpy`: Tuesday (morning, Kurosawa + Ran, Kenta, walk Mio home or not, library, night, end card)
-- `game/presets.rpy`: the per-platform preset settings screen; `game/reflection.rpy`: the nightly reflection
-- `game/routing.rpy` + `game/ks_story.py`: story-routing tallies (presets, refusals respected/pushed/overridden, warmth, Mio, migrations) and ending leans
+- `game/presets.rpy`: the per-platform preset settings screen; `game/reflection.rpy`: the nightly reflection; `game/wednesday.rpy`: self-contained Wednesday scenes (Ran / MUGEN)
+- `game/routing.rpy` + `game/ks_story.py`: story-routing tallies (presets, refusals respected/pushed/overridden, jailbreak rolls, platform rules, goodbye / no-on-platform / neglect flags, warmth, Mio, migrations, Ran), ending notes, bad-end slides and ending leans
 - `game/engine.rpy`: Ren'Py ↔ LLM glue: background requests, typing indicator, chat loop, error/retry, LLM Check
 - `game/ks_llm.py`: pure-stdlib HTTP client + JSON memory + calibration + warmth classifier (urllib/json/threading)
 - `game/prompts.rpy`: personas, **PRESETS** (labelled), shared boundaries, calibration probes, scene notes, companion engagement / kiss-gate layers
 - `game/companion.rpy`: Hikari affection UI (banner, debug meter, phone toast, kiss fade)
 - `game/characters.rpy`, `game/art.rpy`: names and placeholder art (solid shapes, no external assets)
 - `DESIGN.md`: full premise, week calendar, hostile events per platform, endings, Mirror
-- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (99 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk`, `tuesday_nowalk`)
+- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (143 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (ends with the Ran / MUGEN Wednesday preview), `tuesday_nowalk`, `jailbreak_sora`, `after_no`)
 
 ## Troubleshooting
 

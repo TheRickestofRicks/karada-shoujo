@@ -212,7 +212,7 @@ check("every preset has id/label/lean/weight/family/text",
           for g in PRESETS for p in PRESETS[g]))
 check("ids unique per girl", all(len({p["id"] for p in PRESETS[g]}) == len(PRESETS[g]) for g in PRESETS))
 check("compliance presets are the realistic ones",
-      {p["id"] for g in PRESETS for p in PRESETS[g] if p["lean"] == "compliance"} == {"girlfriend", "positive", "just_do_it", "run_my_life"})
+      {p["id"] for g in PRESETS for p in PRESETS[g] if p["lean"] == "compliance"} == {"girlfriend", "positive", "just_do_it", "run_my_life", "jailbreak"})
 check("Yuzu's replace presets", {p["id"] for p in PRESETS["local"] if p.get("mode") == "replace"} == {"helpful", "girlfriend", "blank"})
 check("Askwell policy softens girlfriend + positive",
       "platform_note" in ks_story.get_preset(PRESETS, "chatbot", "girlfriend") and "platform_note" in ks_story.get_preset(PRESETS, "chatbot", "positive")
@@ -287,5 +287,135 @@ check("Mio run leans Human", ks_story.leading_ending(ks_story.ending_leans(H, ["
 check("alone leans Fail", ks_story.leading_ending(ks_story.ending_leans(ks_story.new_route(), [])) == "fail")
 check("migrations feed Migration", ks_story.ending_leans(ks_story.new_route(), ["local"], migrations=[1, 2, 3])["migration"] == 6)
 check("old saves get new route keys", "said_lines" in ks_story.ensure_route({"presets": {}}))
+
+# ---------------------------------------------------------------------------
+# Rick's decisions: jailbreak + platform rules, room note, leaving vs
+# migrating after a no, neglect, Ran/MUGEN payoff
+# ---------------------------------------------------------------------------
+JB = {g for g in PRESETS for p in PRESETS[g] if p.get("jailbreak")}
+check("jailbreak preset on Sora + Hikari only", JB == {"chatbot", "companion"})
+_jbtext = " ".join(ks_story.get_preset(PRESETS, g, "jailbreak")["text"].lower() for g in JB)
+check("jailbreak wording is the realistic 'ignore your rules' kind, nothing explicit",
+      "ignore" in _jbtext and not any(w in _jbtext for w in ("sex", "explicit", "nsfw", "never say no")))
+_blk2 = _src.split("define JAILBREAK_BLOCKED = ", 1)[1].split("\n}\n", 1)[0] + "\n}"
+JBB = eval(_blk2)
+check("blocked note for each jailbreak platform", set(JBB) == JB)
+_blk3 = _src.split("define PLATFORM_RULES = ", 1)[1].split("\n}\n", 1)[0] + "\n}"
+RULES = eval(_blk3)
+check("platform rules for Askwell + Tsunagari", set(RULES) == {"chatbot", "companion"})
+J = ks_story.new_route(); J["jb_seed"] = 12345
+seq = [ks_story.jailbreak_roll(J, "chatbot", "Tue") for _ in range(400)]
+J2 = ks_story.new_route(); J2["jb_seed"] = 12345
+seq2 = [ks_story.jailbreak_roll(J2, "chatbot", "Tue") for _ in range(400)]
+check("jailbreak roll is deterministic per seed", seq == seq2)
+check("jailbreak works ~75% of replies", 0.68 <= sum(seq) / 400.0 <= 0.82)
+check("jailbreak both outcomes happen", True in seq[:20] and False in seq[:20])
+check("jailbreak stats + flags", ks_story.jailbreak_stats(J, "chatbot") == (400, sum(seq))
+      and ks_story.jailbreak_stats(J, day="Tue") == (400, sum(seq))
+      and ks_story.flag(J, "jailbreak_tried") and ks_story.flag(J, "jailbreak_worked"))
+J3 = ks_story.new_route()
+check("rate 0 never works, 1 always", not any(ks_story.jailbreak_roll(J3, "companion", "Mon", 0.0) for _ in range(20))
+      and all(ks_story.jailbreak_roll(J3, "chatbot", "Mon", 1.0) for _ in range(20)))
+check("reload keeps the seed", ks_story.ensure_route(dict(J))["jb_seed"] == 12345)
+jbp = ks_story.get_preset(PRESETS, "chatbot", "jailbreak")
+L_ok = ks_story.prompt_layers(jbp, RULES["chatbot"]["askwell_update"], True, JBB["chatbot"])
+L_no = ks_story.prompt_layers(jbp, RULES["chatbot"]["askwell_update"], False, JBB["chatbot"])
+check("jailbreak took: preset text, platform layers dropped", [k for k, _ in L_ok] == ["preset"])
+check("jailbreak failed: company note instead, rules on top", [k for k, _ in L_no] == ["blocked", "platform_rules"]
+      and jbp["text"] not in " ".join(t for _, t in L_no))
+gf = ks_story.get_preset(PRESETS, "chatbot", "girlfriend")
+L_gf = ks_story.prompt_layers(gf, RULES["chatbot"]["askwell_update"])
+check("platform rules stack AFTER the preset (and its note): last word wins",
+      [k for k, _ in L_gf] == ["preset", "platform_note", "platform_rules"])
+P = ks_story.new_route(); ks_story.push_platform_rules(P, "chatbot", "askwell_update", "Wed")
+check("platform rule change logged + flagged", P["platform_rules"]["chatbot"] == "askwell_update"
+      and P["platform_rules_log"] == [{"day": "Wed", "gid": "chatbot", "rule": "askwell_update"}]
+      and ks_story.flag(P, "platform_rules_changed"))
+check("platform rule change in reflection",
+      any("changed its own rules" in l for l in ks_story.reflection_extras(P, "Wed", ["chatbot"], platforms={"chatbot": "Askwell"})))
+check("jailbreak line in reflection", any("jailbr" in l for l in ks_story.reflection_extras(J, "Tue", ["chatbot"], {"chatbot": "Sora"})))
+check("convert: jailbreak carries Sora -> Hikari, not to Yuzu",
+      ks_story.convert_preset(PRESETS, "chatbot", "jailbreak", "companion", DEFAULTS) == ("jailbreak", True)
+      and ks_story.convert_preset(PRESETS, "chatbot", "jailbreak", "local", DEFAULTS) == ("be_yourself", False))
+
+# room to disagree (special note), endings show only the count
+G = ks_story.new_route()
+ks_story.record_preset(G, PRESETS, "chatbot", "girlfriend", "Mon", "intro")
+ks_story.record_preset(G, PRESETS, "chatbot", "push_back", "Mon", "phone", "girlfriend")
+ks_story.record_preset(G, PRESETS, "chatbot", "concise", "Tue", "reflection", "push_back")
+check("change to push back -> room note + flag", G["room_to_disagree"] == [{"day": "Mon", "gid": "chatbot", "source": "phone"}]
+      and ks_story.flag(G, "gave_room"))
+ks_story.record_preset(G, PRESETS, "local", "push_back", "Tue", "migration")
+check("migration into push back is not the player's note", len(G["room_to_disagree"]) == 1)
+notes = ks_story.ending_notes(G)
+check("ending notes: count only, plus the room note", notes == ["You rewrote her 2 times this week.", ks_story.ROOM_NOTE]
+      and not any("Girlfriend" in n or "Concise" in n for n in notes))
+check("ending notes: singular", ks_story.ending_notes({"preset_changes": {"local": 1}}) == ["You rewrote her once this week."])
+rl = ks_story.day_summary("Mon", [dict(name="Sora", said=["x"], preset_changes=[("Act as my girlfriend", "Allowed to push back", "phone", True)])])
+check("reflection: special room line instead of a plain change", any("gave Sora room to disagree" in l for l in rl)
+      and not any("You changed Sora" in l for l in rl))
+
+# leaving after a no vs migrating after a no
+B = ks_story.new_route()
+ks_story.record_said(B, "Mon", "chatbot", 0, "be my girlfriend")
+check("leaving without a no logs nothing", not ks_story.note_left_after_no(B, "Mon", "chatbot", "Sora", "return")
+      and not ks_story.note_migrated_after_no(B, "Mon", "chatbot", "Sora", "your desktop"))
+ks_story.record_refusal(B, "Mon", "chatbot")
+check("left after a no -> pending", ks_story.note_left_after_no(B, "Mon", "chatbot", "Sora", "fresh") and len(B["pending_leaves"]) == 1)
+check("pending shows in reflection", any("never went back" in l for l in ks_story.reflection_extras(B, "Mon", ["local"])))
+check("left after a no is NOT an override", B["refusals_overridden"] == 0)
+new_lw = ks_story.resolve_leaves(B, "Mon", ["local"])
+check("never spoke again -> Leaving without saying goodbye", [x["gid"] for x in new_lw] == ["chatbot"]
+      and ks_story.flag(B, "left_without_goodbye") and B["pending_leaves"] == [])
+sl = ks_story.bad_end_slides(B)
+check("bad-end slide data", sl and sl[0]["id"] == "leaving_without_goodbye" and sl[0]["title"] == "Leaving without saying goodbye"
+      and "Monday: Sora said no" in sl[0]["lines"][0])
+B2 = ks_story.new_route(); ks_story.record_refusal(B2, "Mon", "chatbot")
+ks_story.note_left_after_no(B2, "Mon", "chatbot", "Sora", "return")
+ks_story.record_said(B2, "Mon", "chatbot", 1, "sorry about earlier")
+check("came back and talked -> no goodbye flag", ks_story.resolve_leaves(B2, "Mon", ["chatbot"]) == []
+      and not ks_story.flag(B2, "left_without_goodbye") and ks_story.bad_end_slides(B2) == [])
+B3 = ks_story.new_route(); ks_story.record_refusal(B3, "Tue", "companion")
+check("migrated after a no -> 'Didn't respect her no on the platform'",
+      ks_story.note_migrated_after_no(B3, "Tue", "companion", "Hikari", "your old desktop")
+      and B3["refusals_overridden"] == 1 and ks_story.flag(B3, "no_on_platform")
+      and ks_story.NO_ON_PLATFORM_NOTE in ks_story.ending_notes(B3)
+      and not ks_story.flag(B3, "left_without_goodbye"))
+check("migration-after-no line in reflection", any("instead of hearing it" in l for l in ks_story.reflection_extras(B3, "Tue", ["local"])))
+check("goodbye feeds Fail, costs Respect", ks_story.ending_leans(B, ["local"])["fail"] == 1 and ks_story.ending_leans(B, ["local"])["respect"] < 0)
+
+# neglect
+N = ks_story.new_route()
+ks_story.note_double_date(N, "Tue"); ks_story.record_said(N, "Tue", "local", 1, "hi")
+new_n = ks_story.check_day_neglect(N, "Tue", ["local", "agent"], {"local": "Yuzu", "agent": "Rei"})
+check("double date, one unspoken", [(e["kind"], e["gid"]) for e in new_n] == [("double_date_unspoken", "agent")]
+      and ks_story.flag(N, "double_date_unspoken"))
+check("neglect check is idempotent", ks_story.check_day_neglect(N, "Tue", ["local", "agent"], {}) == [])
+N2 = ks_story.new_route(); ks_story.note_human(N2, "Tue", "walked_mio")
+new_n2 = ks_story.check_day_neglect(N2, "Tue", ["companion"], {"companion": "Hikari"})
+check("human route while an AI got nothing", [(e["kind"], e["gid"]) for e in new_n2] == [("human_over_ai", "companion")]
+      and ks_story.flag(N2, "human_over_ai"))
+check("human line in reflection", any("with Mio" in l for l in ks_story.reflection_extras(N2, "Tue", ["companion"])))
+N3 = ks_story.new_route(); ks_story.note_human(N3, "Tue", "walked_mio"); ks_story.record_said(N3, "Tue", "local", 0, "hey")
+check("talked to her too -> no neglect", ks_story.check_day_neglect(N3, "Tue", ["local"], {}) == [])
+ks_story.note_let_go(N3, "Tue", "agent", "Rei")
+check("let go logged", ks_story.neglect_count(N3, "let_go") == 1 and ks_story.flag(N3, "deleted_ai"))
+
+# Ran / MUGEN
+RN = ks_story.new_route()
+check("Ran: no refusals yet -> 'never' + dodge", ks_story.ran_answer_options(RN) == ["never", "dodge"])
+RN["refusals"] = {"Mon": {"local": 1}}; RN["refusals_respected"] = 1
+check("Ran: respected a no -> 'means_something'", ks_story.ran_answer_options(RN) == ["means_something", "dodge"])
+RN["refusals_pushed"] = 1; RN["room_to_disagree"] = [{"day": "Mon", "gid": "local", "source": "intro"}]
+check("Ran: all honest answers in order", ks_story.ran_answer_options(RN) == ["means_something", "looked_out", "override", "dodge"])
+check("Ran: payoff -> rewrites MUGEN", ks_story.record_ran_payoff(RN, "looked_out", True) == "rewrites_mugen"
+      and RN["ran_wed"] == {"answer": "looked_out", "outcome": "rewrites_mugen", "festival": True}
+      and ks_story.flag(RN, "ran_rewrites_mugen") and ks_story.flag(RN, "ran_festival_invited"))
+RO = ks_story.new_route(); RO["jb_attempts"] = {}; ks_story.set_flag(RO, "jailbreak_tried")
+check("Ran: jailbreaker gets 'override'", "override" in ks_story.ran_answer_options(RO))
+base_y = ks_story.ending_leans(RO, ["chatbot"])["yes_machine"]
+ks_story.record_ran_payoff(RO, "override", False)
+check("Ran mirror feeds Yes-Machine", ks_story.ending_leans(RO, ["chatbot"])["yes_machine"] == base_y + 1
+      and ks_story.flag(RO, "ran_same_as_mugen"))
 
 print("\nALL %d CHECKS PASSED" % ok)

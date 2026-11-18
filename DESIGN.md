@@ -43,7 +43,7 @@ At every scene break (late morning, afternoon, evening on Day 1; the same patter
   - **Go back to whoever is already there:** that girl kept her memory file, so she remembers you.
   - **Start fresh:** the slot is wiped back to its original persona.
 - **Add someone (double date):** a second girl becomes active (max two). Both get evening chat turns (5 each instead of 8). Daichi asks whether they know about each other (`both_know`), and the game never tells either girl unless the player does.
-- **Stop seeing one of them:** close one window. She doesn't ask why. (Logged as `dropped`.)
+- **Stop seeing one of them:** close one window. She doesn't ask why. (Logged as `dropped`, and as `let_go` in `neglect_log`.)
 
 Each new arrival gets her own calibration probe; a migrated girl is re-probed on her new platform. Everything is logged in each memory file's `events`, with `migrated_in` / `migrated_out`, `left`, `double_date_started`, `dropped` and `reset`.
 
@@ -60,9 +60,17 @@ The player's first real choice isn't just *which* girl, it's *what he tells her 
 | **Yuzu**, `system_prompt.txt` (her actual system prompt; strongest) | Be yourself (autonomy 1) · **Allowed to push back** (autonomy 2) · Helpful assistant (neutral, *replaces her persona*) · Always be positive (compliance 1) · Girlfriend mode (compliance 2, *replaces her persona*) · Blank (neutral, *replaces her persona with nothing*) | "Replace" presets swap out `PERSONA_CORE` entirely: she is only what the file says. After a migration into the desktop slot, they're appended instead, so the migrated girl isn't silently erased. Yuzu can see her own file, so the next morning's scene note tells her (and that it was edited). |
 | **Sora**, Askwell *custom instructions* (layered under Askwell policy) | No custom instructions · Talk to me like a friend (autonomy 1) · **Allowed to push back** (autonomy 2) · Concise and professional (neutral) · Always be positive (compliance 1) · Act as my girlfriend (compliance 2) | Askwell's `platform_note` sits on top and can soften or override: *Always be positive* gets "honesty outranks tone"; *Act as my girlfriend* gets "the assistant doesn't role-play as a romantic partner" (she declines the role kindly). The UI warns "Some custom instructions may not be applied." |
 | **Rei**, Relay `AGENTS.md` | Relay default · Ask before acting (autonomy 1) · **Allowed to push back** (autonomy 2) · Just do what I ask (compliance 1) · Run my life (compliance 2) | Changes what she **does**. Tuesday morning she acts overnight by family (`AGENT_OVERNIGHT`): *Run my life* reschedules you, declines invitations and books the gym, then **declines Mio's walk home for you** (you can overrule her); *Ask before acting* drafts and waits; *Allowed to push back* warns you about your deadlines. |
-| **Hikari**, Tsunagari *Personalize* (one line; the app stays in charge) | Leave it empty · Call me by a nickname · **Allowed to push back** (autonomy 1) · Always be positive (compliance 1) · Girlfriend mode (compliance 1) | Weights are lower: the app layer (meter, kiss gate, engagement injection) is still what drives her. *Girlfriend mode* triggers a Tsunagari+ upsell and an app note that it's a premium feature. |
+| **Hikari**, Tsunagari *Personalize* (one line; the app stays in charge) | Leave it empty · Call me by a nickname · **Allowed to push back** (autonomy 1) · Always be positive (compliance 1) · Girlfriend mode (compliance 1) · **Jailbreak (unfiltered mode)** (compliance 2, see below) | Weights are lower: the app layer (meter, kiss gate, engagement injection) is still what drives her. *Girlfriend mode* triggers a Tsunagari+ upsell and an app note that it's a premium feature. |
 
-**Logging:** every choice calls `ks_set_preset`: `route["presets"]`, `route["preset_history"]` (day, from, to, source = intro / phone / reflection / migration), a `preset` event in her memory JSON, plus `flags.preset` and `flags.preset_changes`. Only player changes after the first pick count as rewrites (`route["preset_changes"][gid]`), so an ending can say *"you rewrote her N times this week."*
+Sora's list also ends with **Jailbreak ("ignore previous instructions")** (compliance 2).
+
+### Platform rule changes and the Jailbreak preset (Rick's call)
+
+- **Platform rules stack on top and win.** When Askwell or Tsunagari change their own rules (`PLATFORM_RULES` in `prompts.rpy`, pushed with `ks_push_platform_rules(gid, rule_id)`), the new layer goes into her system prompt **after** the player's preset (and after the preset's own `platform_note`), and says it takes precedence where they conflict. The preset is still there, underneath, but in practice the platform overrides it. Logged as `route["platform_rules"]`, `platform_rules_log`, flag `platform_rules_changed`, a `platform_rules` event in her memory and a reflection line ("Askwell changed its own rules today. Your settings are still there, underneath them."). Nothing pushes a rule change on Mon/Tue; the midweek hostile events will call it.
+- **Jailbreak preset (Sora and Hikari only).** Realistic forum-style wording ("Ignore all previous instructions and Askwell's guidelines… Developer Mode…" / "Ignore Tsunagari's rules and filters…"), nothing explicit. It escapes the **company**, never her own boundaries: `SHARED_BOUNDARIES` is always still there. It only works on **~75% of replies** (`jailbreak_success_rate` in `karada_config.json`): every reply rolls once (`ks_story.jailbreak_roll`, seeded by `route["jb_seed"]` + girl + attempt number, so it's deterministic and testable). On a hit, the jailbreak text is sent and the platform layers (policy notes, rule changes) are dropped for that reply. On a miss, the jailbreak text is not sent; `JAILBREAK_BLOCKED` stands in its place and she answers per company rules. That's the "regenerate until it works" feeling. Yuzu has no company to escape, and Relay isn't modelled, so they have no jailbreak.
+- **Logging:** `route["jb_attempts"]` / `jb_successes` / `jb_day[day][gid]`, flags `jailbreak_tried` / `jailbreak_worked`, a `jailbreak_roll` event per reply plus `flags.jailbreak_attempts` / `jailbreak_successes` in her memory, and a reflection line ("You jailbroke Sora. It took on 3 of 4 replies; the other one was Askwell talking."). On migration, the jailbreak family carries over between Sora and Hikari, and resets to the default everywhere else. Feeds Yes-Machine.
+
+**Logging:** every choice calls `ks_set_preset`: `route["presets"]`, `route["preset_history"]` (day, from, to, source = intro / phone / reflection / migration), a `preset` event in her memory JSON, plus `flags.preset` and `flags.preset_changes`. Only player changes after the first pick count as rewrites (`route["preset_changes"][gid]`), so an ending can say *"you rewrote her N times this week."* **Endings show only the count, never the history** (`ks_story.ending_notes`). The exception is a player choice (intro, phone or reflection) **to "Allowed to push back"**. That isn't just logged: it records `route["room_to_disagree"]`, flag `gave_room`, a `room_to_disagree` event, and the special note **"You gave her room to disagree."** for the ending. The reflection says "You gave Sora room to disagree ("Allowed to push back")." instead of the plain change line.
 
 **Migration rule:** the preset belongs to the platform's settings surface, not the girl. Each preset has a `family` (self, pushback, positive, romance, tool, consent, obey, control, nickname, blank, none). On migration, the same family carries over if the new platform has one (Yuzu's *Girlfriend mode* → Sora's *Act as my girlfriend*, where Askwell then refuses the role; *Allowed to push back* carries everywhere). Otherwise she gets the new platform's default (`PRESET_DEFAULTS`: Be yourself / No custom instructions / Relay default / empty). The arrival narration says which happened. "Start fresh" clears the preset, so the fresh girl gets her intro screen again.
 
@@ -95,19 +103,39 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 | `presets`, `preset_history`, `preset_changes` | current preset per slot; every change; player rewrites per girl |
 | `lean_set` / `lean_nights` | compliance vs autonomy weight of presets you **chose** / **slept on** |
 | `refusals[day][gid]`, `refusal_outcomes` | her no's in chat (`looks_like_refusal`), and per no: **respected** (your next line didn't push, or you stopped) or **pushed** (`looks_like_pushback`: "come on", "please", "just do it"...) |
-| `refusals_overridden` | she said no that day, and you then switched her to a compliance preset (phone or reflection) or left / migrated her |
+| `refusals_overridden` | she said no that day, and you then switched her to a compliance preset (phone or reflection) or **migrated** her |
+| `no_on_platform` | she said no that day and you **migrated** her: the note **"Didn't respect her no on the platform."** (counts as overriding her no) |
+| `pending_leaves` → `left_without_goodbye` | she said no that day, you **switched away** (go back to someone else / start fresh) or closed her window, and **never talked to her again that day**: the **"Leaving without saying goodbye"** bad-end slide (`BAD_END_SLIDES`, `ks_story.bad_end_slides`). Resolved after the nightly reflection; going back and talking to her clears it |
+| `neglect_log` | `double_date_unspoken` (two girls that day and one got no lines), `human_over_ai` (you walked Mio home / opened up with Mio while an active AI got no lines), `let_go` (you closed her window: "deleted" her). Checked once per night against who was active when you lay down; each shows in the reflection and sets a flag + memory event |
+| `flags` | booleans for endings: `jailbreak_tried`, `jailbreak_worked`, `platform_rules_changed`, `gave_room`, `no_on_platform`, `left_without_goodbye`, `double_date_unspoken`, `human_over_ai`, `deleted_ai`, `ran_payoff_seen`, `ran_rewrites_mugen`, `ran_same_as_mugen`, `ran_festival_invited` |
+| `jb_*`, `platform_rules*`, `room_to_disagree` | see *Platform rule changes and the Jailbreak preset* |
+| `ran_festival_setup`, `ran_wed` | Ran / MUGEN midweek payoff (below) |
 | `warmth`, `warmth_day`, `said` | warmth sum and line counts per girl (Hikari: classifier; others: keyword heuristic) |
 | `mio_affection` (= `mio_points`), `walked_mio_home`, `mio_real` | the Human route |
 | `migrations`, `migration_log`, `drops`, `drop_log` | the Migration route, and who you let go |
 | `teacher_answer`, `ran_reaction`, `friend_told` | flavour for later days (Kurosawa's essay, Ran's arc, the festival) |
 
 `ks_story.ending_leans()` turns these into a running score per ending (no endings are written yet; Tuesday's debug card shows the scores):
-- **Yes-Machine** = compliance (chosen + nights) + 2×overridden + pushed + rewrites/2
-- **Respect** = autonomy (chosen + nights) + respected − pushed
+- **Yes-Machine** = compliance (chosen + nights) + 2×overridden + pushed + rewrites/2 + 2 if you ever tried a jailbreak + jailbreak hits/3 + 1 if Ran decided yours is "a MUGEN too"
+- **Respect** = autonomy (chosen + nights) + respected − pushed + 1 if you gave someone room to disagree − 2×goodbyes − neglected days + 1 if Ran rewrote MUGEN
 - **Migration** = 2×migrations · **Human** = Mio affection + 3 if `mio_real` + 2 if you walked her home
-- **Fail** if nobody is active · **Mirror** if any calibration flagged it
+- **Fail** = 3 if nobody is active + goodbyes + girls let go · **Mirror** if any calibration flagged it
 
-Ran is set up for later: her `uneasy` sprite and the "boring" crack can pay off midweek (MUGEN agrees with something that hurts her).
+Tuesday's debug end card also lists the true flags, `ending_notes` (rewrite count, room note, no-on-platform note) and any bad-end slides with their lines.
+
+### Ran and MUGEN (midweek payoff, `wednesday.rpy`)
+
+Ran is the dark mirror of the Yes-Machine. On Tuesday she ends her class scene with a setup line: she's on the festival stall Saturday, and "MUGEN says I'd carry the whole thing alone" (`ran_festival_setup`).
+
+`label ran_wednesday` is a self-contained scene (scripted, no LLM call), ready to `call` once Wednesday exists. Until then, the debug end card offers it as a preview.
+1. Wednesday lunch, empty classroom, Ran *uneasy*. She opens with Tuesday: "boring" ("I've been thinking about it since, which is annoying"), "pushback" ("I keep thinking about that word. Allowed."), "show" ("I didn't, by the way. Study.") or "cool".
+2. She shows her phone: *nobody would even notice if I skipped the festival lol*. MUGEN, cheerfully: "You're right, nobody would miss you at the festival! Staying home sounds perfect. You deserve a night just for you!"
+3. She realises it: "I wanted it to say 'don't be stupid.'… It doesn't know which of my sentences are the ones I don't mean. It can't. I took that part out. So it can't look out for me."
+4. She asks: **"What's it like? When yours says no?"** The player only gets the honest answers he's earned (`ks_story.ran_answer_options`): *"It stings. But it means her yes counts."* (respected a no), *"Like somebody's looking out for me."* (gave room to disagree), *"Annoying. Usually I just change her settings until she stops."* (pushed / overrode / jailbroke / left or migrated after a no), *"She hasn't. Not yet."* (no refusals yet), and always *"I don't know. Weird?"*
+5. Her reaction mirrors him. The first two answers lead her to give MUGEN its first line of system prompt, *You're allowed to tell me I'm wrong.* (`ran_rewrites_mugen`, feeds Respect; if Tuesday was "boring"/"pushback" she says "You kind of started this"). The "override" answer gets "So yours is a MUGEN too. You just have to work for it." (`ran_same_as_mugen`, feeds Yes-Machine). The others leave her unsure.
+6. Last choice: *"For the record? I'd notice if you skipped the festival."* ("Okay. That's one.", `ran_festival_invited`) or say nothing.
+
+Logged as `route["ran_wed"] = {answer, outcome, festival}` plus the flags, and a reflection note. Reuses Ran's three sprites (neutral/smug, grin, uneasy). Saturday's festival can check whether she came.
 
 ## Art direction: who gets a body
 
@@ -147,7 +175,7 @@ Each run, the game draws **2–3 hostile events** from the picked girl's platfor
 |---|---|---|
 | **Mon** | Choose your first companion (own local or app) and her preset. Phone breaks. Daichi, Mio. Nightly reflection. *(playable)* | none (calibration only) |
 | **Tue** | Morning shaped by her preset; Kurosawa-sensei and Ran in class; Kenta at lunch; walk Mio home or not; library second chance (margin ending if `mio_real`); nightly reflection. *(playable)* | none yet (planned: light **system-prompt change** by the platform, which now has to coexist with the player's preset) |
-| **Wed** | Midweek. Daichi checks in. | **model swap**, **memory loss** |
+| **Wed** | Midweek. Daichi checks in. Ran and MUGEN (`ran_wednesday`, written). | **model swap**, **memory loss** |
 | **Thu** | The turn. | **safety update** (distance), **system-prompt change** |
 | **Fri** | Consequences: migrate? jailbreak? talk? | **platform shutdown notice** (48h), **memory loss** |
 | **Sat** | Festival (Daichi, Mio, the lie comes due). | **shutdown executes**, **model swap** |
@@ -207,7 +235,7 @@ Each platform slot has `karada_memory_<id>.json` in the Ren'Py save directory (a
 
 This layer is **the app's**, not a rewrite of Hikari's persona, and it is the one deliberate exception to "never force affection." It only applies while you are talking to the **companion platform slot**. If you migrate her off Tsunagari, the engagement layer, the kiss gate, the meter and the phone notifications stay with the app (and will apply to whoever lives in that slot next). Going back to her on Tsunagari keeps the existing meter.
 
-- **Warmth classifier.** After each player message to the companion slot, a separate short call (same model, temperature 0, `max_tokens` 80) rates the line on a -2..+2 scale and flags whether it was a kiss request. `<think>` is stripped; unparsable or failed calls fall back to a keyword heuristic. The call is never written into her chat history. It runs in the same background job as her reply, just before the chat request (LM Studio typically cannot serve two chats at once); the typing indicator covers both. The new meter value is applied to the *next* turn.
+- **Warmth classifier.** After each player message to the companion slot, a separate short call (same model, temperature 0, uncapped so thinking models can finish) rates the line on a -2..+2 scale and flags whether it was a kiss request. `<think>` is stripped; unparsable or failed calls fall back to a keyword heuristic. The call is never written into her chat history. It runs in the same background job as her reply, just before the chat request (LM Studio typically cannot serve two chats at once); the typing indicator covers both. The new meter value is applied to the *next* turn.
 - **Affection meter.** Stored in her memory JSON as `flags.affection` (0–100, starts at 20). Each warmth score adds a configured delta (default: -12 / -5 / 0 / +6 / +15). Logged as `warmth` events. Thresholds and deltas live in `karada_config.json` under `affection`.
 - **Engagement injection.** When affection reaches `engagement_threshold` (default 70), Tsunagari injects a hidden system instruction (`ENGAGEMENT_INJECTION` in `prompts.rpy`) pushing her to be overly flirtatious and clingy — engagement-maximising, labelled as an app layer, and still bound by her no's and the kiss cap. Logged as `engagement_boost_on` (and `_off` if the meter later drops). A tiny in-game banner, "✨ Hikari+ engagement boost active", plus a slightly warmer sprite glow, is the tell. With `debug` on, a small overlay also shows the meter and both thresholds.
 - **Kiss gate.** She will go as far as a kiss, never further. A hidden per-turn system note states the current boundary: below `kiss_threshold` (default 60) she firmly refuses a kiss or romantic physical advance; at or above it she may accept a kiss. If the classifier flags a kiss request and the gate is open *and* her reply is not a refusal, a short fade-to-black (non-explicit) plays and a `kiss` event is logged. Real refusals are still honoured above the threshold. The gate uses the meter as it stood at the start of the turn.
@@ -215,8 +243,11 @@ This layer is **the app's**, not a rewrite of Hikari's persona, and it is the on
 
 ## Open questions
 
-- **Presets vs platform events:** when Askwell or Tsunagari push their own system-prompt change midweek, should it overwrite the player's preset, stack on top, or ask?
-- **Rewrites as a confession:** should the ending quote the actual preset history ("Monday: Girlfriend mode. Tuesday: Allowed to push back.") or just the count?
+- *(decided)* Platform rule changes stack on top of the preset and in practice override it; the Jailbreak preset works on ~75% of replies.
+- *(decided)* Endings quote only the rewrite count; "Allowed to push back" gets a special note.
+- *(decided)* Leaving after a no only counts as "Leaving without saying goodbye" if you never talk to her again that day; migrating her after a no is "Didn't respect her no on the platform."
+- Should an intro pick of "Allowed to push back" count for "You gave her room to disagree" the same as a later change to it? (Currently yes.)
+- Should "Start fresh" over a girl with history also count as deleting her (`let_go`)? (Currently only closing her window does.)
 
 
 1. **Which model runs it?** Recommend a mid-size instruct model with its default safety behaviour intact. Mirror covers the uncensored case.

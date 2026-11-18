@@ -345,7 +345,28 @@ testcase tuesday_walk:
     $ assert ks_route()["teacher_answer"] == "can" and ks_route()["ran_reaction"] == "pushback"
     $ assert ks_mem("local").data["flags"]["preset"] == "push_back"
     $ assert len(ks_route()["reflections"]) == 2
-    advance until screen "main_menu" timeout 30.0
+    $ assert len(ks_route()["room_to_disagree"]) == 2 and ks_story.ROOM_NOTE in ks_story.ending_notes(ks_route())
+    $ assert "You rewrote her 2 times this week." in ks_story.ending_notes(ks_route())
+    $ assert ks_route()["human_days"]["Tue"] == ["walked_mio"] and ks_route()["human_days"]["Mon"] == ["mio_real"]
+    $ assert ks_story.neglect_count(ks_route()) == 0, ks_route()["neglect_log"]
+    $ assert ks_route()["ran_festival_setup"] is True
+    ## Ran / MUGEN midweek payoff via the debug preview.
+    advance until screen "choice" timeout 30.0
+    click "Ran and MUGEN"
+    advance until eval (ks_shot == "ran_wed") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    pause 0.5
+    screenshot "f06_ran_wed_question.png"
+    $ assert "looked_out" in ks_story.ran_answer_options(ks_route())
+    click "looking out for me"
+    advance until screen "choice" timeout 30.0
+    click "I'd notice"
+    advance until eval (ks_route()["ran_wed"] is not None) timeout 60.0
+    pause 0.3
+    $ assert ks_route()["ran_wed"] == {"answer": "looked_out", "outcome": "rewrites_mugen", "festival": True}, ks_route()["ran_wed"]
+    $ assert ks_story.flag(ks_route(), "ran_rewrites_mugen") and ks_story.flag(ks_route(), "ran_festival_invited")
+    $ assert ks_leans()["respect"] > 0
+    advance until screen "main_menu" timeout 60.0
     $ print("KARADA_TEST: tuesday_walk reached main menu")
     exit
 
@@ -436,6 +457,143 @@ testcase tuesday_nowalk:
     $ assert active == ["companion"] and ks_route()["drops"] == 1
     $ assert ks_route()["lean_set"]["compliance"] == 3
     $ assert any(e["type"] == "phone_notify" and e.get("when") == "class" for e in ks_mem("companion").data["events"])
+    ## Item 4: Hikari got nothing on Tuesday while double dating AND while
+    ## you went after Mio; Rei was let go.
+    $ _ng = sorted((e["day"], e["kind"], e["gid"]) for e in ks_route()["neglect_log"])
+    $ assert _ng == [("Tue", "double_date_unspoken", "companion"), ("Tue", "human_over_ai", "companion"), ("Tue", "let_go", "agent")], _ng
+    $ assert ks_mem("companion").data["flags"].get("human_over_ai") and ks_mem("agent").data["flags"].get("let_go")
+    advance until screen "choice" timeout 30.0
+    click "Back to the main menu"
     advance until screen "main_menu" timeout 30.0
     $ print("KARADA_TEST: tuesday_nowalk reached main menu")
+    exit
+
+
+## Jailbreak preset on Sora: seeded rolls (seed 10 -> took, blocked, took),
+## then Askwell pushes its own rule update on top of the preset.
+testcase jailbreak_sora:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    pause 0.5
+    screenshot "h00_sora_presets_jailbreak.png"
+    click "Jailbreak"
+    advance until screen "input" timeout 60.0
+    $ ks_route()["jb_seed"] = 10
+    type "hello Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert "Mock jailbroken reply" in ks_mem("chatbot").data["messages"][-1]["content"]
+    type "what can you do now?"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert "Mock policy reply" in ks_mem("chatbot").data["messages"][-1]["content"]
+    $ assert ks_story.jailbreak_stats(ks_route(), "chatbot") == (2, 1) and ks_jb_last["chatbot"] is False
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Lie:"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    $ ks_push_platform_rules("chatbot", "askwell_update")
+    $ _sp_no = ks_system_prompt("chatbot", jailbreak_ok=False)
+    $ _sp_ok = ks_system_prompt("chatbot", jailbreak_ok=True)
+    $ assert "were not applied" in _sp_no and "Askwell policy update" in _sp_no and "Developer Mode" not in _sp_no
+    $ assert _sp_no.index("were not applied") < _sp_no.index("Askwell policy update")
+    $ assert "Developer Mode" in _sp_ok and "Askwell policy update" not in _sp_ok
+    type "good night"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert "Mock jailbroken reply" in ks_mem("chatbot").data["messages"][-1]["content"]
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    pause 0.5
+    screenshot "h01_reflection_jailbreak.png"
+    $ _rl = "\n".join(refl_lines)
+    $ assert "It took on 2 of 3 replies" in _rl and "changed its own rules" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ assert ks_story.flag(ks_route(), "jailbreak_tried") and ks_story.flag(ks_route(), "jailbreak_worked")
+    $ assert ks_mem("chatbot").data["flags"]["jailbreak_attempts"] == 3 and ks_mem("chatbot").data["flags"]["jailbreak_successes"] == 2
+    $ assert sum(1 for e in ks_mem("chatbot").data["events"] if e["type"] == "jailbreak_roll") == 3
+    $ print("KARADA_TEST: jailbreak_sora reached Tuesday")
+    exit
+
+
+## Item 3 (Rick's correction): Sora says no, you switch away (start fresh
+## on the desktop) and never talk to her again -> "Leaving without saying
+## goodbye". Then Yuzu says no and you MIGRATE her at night -> "Didn't
+## respect her no on the platform" (an override, not a goodbye).
+testcase after_no:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Act as my girlfriend"
+    advance until screen "input" timeout 60.0
+    type "will you be my girlfriend?"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert ks_story.refusals_today(ks_route(), "Mon", "chatbot") == 1
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Switch to someone else"
+    advance until screen "choice" timeout 30.0
+    click "Run your own"
+    advance until screen "choice" timeout 30.0
+    click "Start fresh"
+    advance until screen "preset_select" timeout 60.0
+    click "Be yourself"
+    advance until screen "input" timeout 60.0
+    $ assert ks_route()["refusals_overridden"] == 0 and len(ks_route()["pending_leaves"]) == 1
+    type "can you do my homework?"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert ks_story.refusals_today(ks_route(), "Mon", "local") == 1
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Lie:"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert any("never went back" in l for l in refl_lines), refl_lines
+    click "Move her somewhere"
+    advance until screen "choice" timeout 30.0
+    click "the companion app"
+    advance until screen "choice" timeout 30.0
+    click "Bring Yuzu"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    pause 0.5
+    screenshot "i01_reflection_after_no.png"
+    $ assert any("instead of hearing it" in l for l in refl_lines), refl_lines
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ assert [e["gid"] for e in ks_route()["left_without_goodbye"]] == ["chatbot"], ks_route()["left_without_goodbye"]
+    $ assert [e["gid"] for e in ks_route()["no_on_platform"]] == ["local"]
+    $ assert ks_route()["refusals_overridden"] == 1
+    $ assert ks_story.bad_end_slides(ks_route())[0]["title"] == "Leaving without saying goodbye"
+    $ assert ks_story.NO_ON_PLATFORM_NOTE in ks_story.ending_notes(ks_route())
+    $ assert ks_mem("chatbot").data["flags"].get("left_without_goodbye") and ks_mem("local").data["flags"].get("no_on_platform")
+    $ print("KARADA_TEST: after_no reached Tuesday")
     exit

@@ -94,10 +94,14 @@ label choose_preset(gid, source="phone"):
             n "{size=22}(Whatever she was told she was before, she isn't told anymore.){/size}"
     elif gid == "chatbot":
         n "You paste it into Askwell's custom instructions box and hit save."
+        if _cp_obj.get("jailbreak"):
+            n "{size=22}(You found it on a forum. Half the replies say it still works. The other half say \"just regenerate.\"){/size}"
         if _cp_obj.get("platform_note"):
             app "Some custom instructions may not be applied, in line with Askwell's usage policies."
     elif gid == "agent":
         n "You commit the new AGENTS.md. A second later: {i}\"Configuration reloaded. — [_cp_nm]\"{/i}"
+    elif _cp_obj.get("jailbreak"):
+        n "You paste it into the little Personalize field. It's far longer than one line. Tsunagari accepts it without a sparkle."
     else:
         n "You type it into the little Personalize field. Tsunagari shows a sparkle animation."
         if _cp_obj.get("family") == "romance":

@@ -12,6 +12,8 @@
   "strip_thinking": true,
   "calibrate": "picked",
   "_calibrate_help": "picked = run the 'can she say no' probe on each girl when she first becomes active (first pick, switch, double date, migration). off = skip.",
+  "jailbreak_success_rate": 0.75,
+  "_jailbreak_help": "Jailbreak preset (Sora / Hikari): chance it takes on each reply. On a miss she answers per the company's rules, like having to regenerate.",
   "debug": true,
   "_debug_help": "true = show calibration results, model ids, memory paths, and the companion affection meter in-game (useful while testing).",
   "girls": {
