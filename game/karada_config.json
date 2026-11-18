@@ -1,0 +1,55 @@
+{
+  "_readme": "Karada Shoujo LLM settings. Edit, save, restart the game (or use LLM Check on the main menu). Keys starting with _ are ignored.",
+  "endpoint": "http://localhost:1234/v1/chat/completions",
+  "model": "",
+  "_model_help": "Leave empty to use the first chat model LM Studio reports at /v1/models, or paste the exact model id from LM Studio.",
+  "temperature": 0.8,
+  "max_tokens": null,
+  "_max_tokens_help": "null (or -1) = uncapped, best for reasoning/CoT models. A number caps replies; if a capped reply comes back empty with finish_reason=length it is retried once uncapped.",
+  "timeout": 300,
+  "history_messages": 24,
+  "api_key": "",
+  "strip_thinking": true,
+  "calibrate": "picked",
+  "_calibrate_help": "picked = run the 'can she say no' probe on each girl when she first becomes active (first pick, switch, double date, migration). off = skip.",
+  "debug": true,
+  "_debug_help": "true = show calibration results, model ids, memory paths, and the companion affection meter in-game (useful while testing).",
+  "girls": {
+    "_help": "Per-girl overrides. Any key left empty uses the shared value above. Point one girl at a different model or server to test a 'model swap'.",
+    "local": {
+      "model": "",
+      "endpoint": "",
+      "temperature": ""
+    },
+    "companion": {
+      "model": "",
+      "endpoint": "",
+      "temperature": ""
+    },
+    "chatbot": {
+      "model": "",
+      "endpoint": "",
+      "temperature": ""
+    },
+    "agent": {
+      "model": "",
+      "endpoint": "",
+      "temperature": ""
+    }
+  },
+  "affection": {
+    "_help": "Companion-app (Hikari / Tsunagari) only. Warmth classifier updates the meter after each player message; the new value applies to the next turn.",
+    "start": 20,
+    "min": 0,
+    "max": 100,
+    "deltas": {
+      "-2": -12,
+      "-1": -5,
+      "0": 0,
+      "1": 6,
+      "2": 15
+    },
+    "engagement_threshold": 70,
+    "kiss_threshold": 60
+  }
+}
