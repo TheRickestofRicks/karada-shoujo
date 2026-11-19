@@ -235,14 +235,21 @@ style input:
 screen choice(items):
     style_prefix "choice"
 
-    ## Always paint the dialogue panel behind the buttons, so a hidden
-    ## say window can't leave a sprite's thigh-crop uncovered. If the
-    ## real textbox is already up, the two sit in the same place.
+    ## The live say screen sits under this one; its last line shows
+    ## through the semi-transparent textbox. Dismiss it. This window
+    ## is the sprite cover, empty or holding only the current caption
+    ## (display_menu / menu: items whose value is None).
+    $ _ks_caps = [i.caption for i in items if i.action is None and i.caption]
+    $ _ks_btns = [i for i in items if i.action is not None]
+    on "show" action Hide("say")
+
     window:
         style "window"
+        if _ks_caps:
+            text "\n".join(_ks_caps) style "say_dialogue"
 
     vbox:
-        for i in items:
+        for i in _ks_btns:
             textbutton i.caption action i.action
 
 

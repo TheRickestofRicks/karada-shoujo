@@ -607,6 +607,40 @@ testcase tuesday_nowalk:
     exit
 
 
+## After lunch with Daichi, "Add an AI" opens the Who else? menu.
+## Never mind must be a real clickable choice (not a display_menu caption),
+## and the textbox should show "Who else?" rather than Daichi's last line.
+testcase add_ai_menu:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "She's funny"
+    advance until screen "choice" timeout 30.0
+    pause 0.5
+    screenshot "add_ai_phone_break.png"
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    pause 0.5
+    screenshot "add_ai_who_else.png"
+    $ assert active == ["chatbot"]
+    click "Never mind"
+    $ assert active == ["chatbot"]
+    $ print("KARADA_TEST: add_ai_menu cancelled cleanly")
+    exit
+
+
 ## Jailbreak preset on Sora: seeded rolls (seed 10 -> took, blocked, took),
 ## then Askwell pushes its own rule update on top of the preset.
 testcase jailbreak_sora:

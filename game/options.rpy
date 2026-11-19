@@ -111,11 +111,17 @@ define config.window = "auto"
 ## Keep the textbox up during choice menus so it covers the cropped
 ## bottom of thigh-up sprites. Removing "menu" from auto-hide is not
 ## enough: display_menu and a preceding call screen (Hikari's toast)
-## can still dismiss it. choice_empty_window turns a menu into
-## "menu-with-caption", which auto-shows an empty panel even then.
+## can still dismiss it. Marking every menu as "menu-with-caption"
+## (via choice_empty_window) keeps the panel up; the function itself
+## must not be `extend`, which reprints the previous line in the box.
+## Captions go through the choice screen (narrator_menu is off) so
+## the panel shows only the current prompt, or stays empty.
 init 1 python:
+    def ks_blank_choice_window(*args, **kwargs):
+        return
     config.window_auto_hide = [s for s in config.window_auto_hide if s != "menu"]
-    config.choice_empty_window = extend
+    config.choice_empty_window = ks_blank_choice_window
+    config.narrator_menu = False
 
 
 ## Transitions used to show and hide the dialogue window

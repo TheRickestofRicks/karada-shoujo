@@ -41,6 +41,11 @@ define GIRL_PITCH = {
     "agent":     "Set up a [agent_platform] agent that does things for you",
 }
 
+## display_menu treats a value of None as a caption (greyed, not
+## clickable), so cancel choices need a real sentinel. Same idea as
+## the "__put_down__" put-away button in message_pool.
+define KS_NEVER_MIND = "__never_mind__"
+
 ## Narration when a girl first arrives (interpolated at display time).
 define ARRIVAL_NARRATION = {
     "local": [
@@ -239,8 +244,8 @@ label switch_girl(when, turns=4):
     else:
         $ _src = renpy.display_menu([("Who are you leaving?", None)] + [(gname(g) + " on " + gplatform(g), g) for g in active])
     $ _choices = [g for g in GIRL_IDS if g not in active]
-    $ _dst = renpy.display_menu([("Where to?", None)] + [(renpy.substitute(GIRL_PITCH[g]) + (" (" + gname(g) + " remembers you)" if ks_has_history(g) else ""), g) for g in _choices] + [("Never mind", None)])
-    if _dst is None:
+    $ _dst = renpy.display_menu([("Where to?", None)] + [(renpy.substitute(GIRL_PITCH[g]) + (" (" + gname(g) + " remembers you)" if ks_has_history(g) else ""), g) for g in _choices] + [("Never mind", KS_NEVER_MIND)])
+    if _dst is None or _dst == KS_NEVER_MIND:
         return
     $ _sn = gname(_src)
     $ _dp = gplatform(_dst)
@@ -271,8 +276,8 @@ label switch_girl(when, turns=4):
 
 label add_girl(when, turns=3):
     $ _choices = [g for g in GIRL_IDS if g not in active]
-    $ _dst = renpy.display_menu([("Who else?", None)] + [(renpy.substitute(GIRL_PITCH[g]) + (" (" + gname(g) + " remembers you)" if ks_has_history(g) else ""), g) for g in _choices] + [("Never mind", None)])
-    if _dst is None:
+    $ _dst = renpy.display_menu([("Who else?", None)] + [(renpy.substitute(GIRL_PITCH[g]) + (" (" + gname(g) + " remembers you)" if ks_has_history(g) else ""), g) for g in _choices] + [("Never mind", KS_NEVER_MIND)])
+    if _dst is None or _dst == KS_NEVER_MIND:
         return
     if active:
         $ ks_mem(active[0]).log_event("double_date_started", day=day_name, when=when, other=_dst)
@@ -283,8 +288,8 @@ label add_girl(when, turns=3):
 label drop_girl(allow_last=False):
     if not active or (len(active) < 2 and not allow_last):
         return
-    $ _drop = renpy.display_menu([("Stop seeing who?", None)] + [(gname(g), g) for g in active] + [("Never mind", None)])
-    if _drop is None:
+    $ _drop = renpy.display_menu([("Stop seeing who?", None)] + [(gname(g), g) for g in active] + [("Never mind", KS_NEVER_MIND)])
+    if _drop is None or _drop == KS_NEVER_MIND:
         return
     $ _dn = gname(_drop)
     menu:
