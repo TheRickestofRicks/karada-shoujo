@@ -1,6 +1,6 @@
 # Karada Shoujo — branching walkthrough (through Wednesday)
 
-Version **0.3-day3** (`game/options.rpy`: `config.version`). Documented against branch `main`, commit `aff7773` ("Both ending, no Respect cost for time with Mio, Wednesday backgrounds").
+Version **0.4-day4** (`game/options.rpy`: `config.version`). Thursday is playable; see also `docs/THURSDAY.md`.
 
 This covers everything implemented so far: intro through the **"To be continued: Thursday"** card. Later days, most ending slides, and midweek hostile events are **not written yet**. Anything below that is only a hook in the current code is marked as such. Nothing here is invented from design intent alone; when the design doc and the code disagree, the **code** wins, and unclear points are labelled unclear.
 
@@ -823,6 +823,20 @@ flowchart TD
   lilac --> eveWed
   eveWed["LLM: night pool of 4, then bed"] --> reflWed[Nightly reflection]
   reflWed --> tbc["To be continued: Thursday + debug card"]
+  tbc --> thu[thursday]
+
+  thu --> thuMorn[Notices: Askwell / Relay / Tsunagari / Yuzu crash]
+  thuMorn --> thuPool["LLM: morning pool of 4"]
+  thuPool --> thuClass[Kurosawa essay foreshadow; maybe keeps Ran]
+  thuClass --> thuLunch[Daichi; come-clean if you deflected or lied]
+  thuLunch --> thuFess{Look for Mio?}
+  thuFess -->|optional fess-up| thuAfter
+  thuFess -->|class| thuAfter[After school: bamboo?]
+  thuAfter -->|with Mio| tanzaku[Tanzaku: A / B / C / C-late / D]
+  thuAfter -->|home| thuEve
+  tanzaku --> thuEve["LLM: night pool of 4, then bed"]
+  thuEve --> reflThu[Nightly reflection]
+  reflThu --> friCard["To be continued: Friday"]
 ```
 
 Phone-break / reflection actions (talk, switch, migrate, start fresh, add an AI, drop, change prompt) can fire on every day and are omitted from the diagram to keep the day spine readable; see [Shared systems](#shared-systems-every-day).
@@ -837,10 +851,10 @@ At the start of `nightly_reflection`, **before** neglect is judged, `ks_classify
 
 ## Open threads and unimplemented hooks (Thursday onward)
 
-These exist as comments, flags, or design, but have **no playable Thursday–Sunday script** yet.
+Thursday is playable (`game/thursday.rpy`, `docs/THURSDAY.md`). Friday–Sunday and the festival are not.
 
-- **Thursday–Sunday** and the festival. Wednesday ends at `tbc_thursday`. Hostile-event pools in `DESIGN.md` (Thu: safety update, system-prompt change; Fri: shutdown notice, memory loss; Sat: shutdown executes, model swap; Sun: endings) are not scheduled in code. `ks_push_platform_rules` / `PLATFORM_RULES` are ready but unused in story labels. **Kurosawa's Friday essay handover** should read `kurosawa_essay` (`self` / `askwell` / `girl_help`): she can tell when nobody was there. `askwell_available` can be cleared by a later Askwell shutdown.
-- **Yuzu backup must be respected** by later memory-loss events (`route["yuzu_backup"]`, memory `flags.backup_hardware`). An early-week hint is already in: `yuzu_bsod_seen` (Monday night or Tuesday). Restore-from-backup behaviour is the Thursday event (`docs/THURSDAY.md`); see that outline for the rest of Day 4.
+- **Friday–Sunday** and the festival. Thursday ends at `tbc_friday`. Hostile-event pools in `DESIGN.md` for Fri–Sat are not scheduled in code. **Kurosawa's Friday essay handover** should read `kurosawa_essay` (`self` / `askwell` / `girl_help`): she can tell when nobody was there. `askwell_available` can be cleared by a later Askwell shutdown.
+- **Yuzu backup is respected on Thursday** (`apply_yuzu_hardware`: `restored_from_backup` or a real wipe). The early-week hint is `yuzu_bsod_seen`. Later Friday+ memory-loss events, if any, should keep respecting the backup.
 - **Yuzu avatar-body upgrade** (`engine.rpy:35`, `flags.yuzu_avatar_choice = "none"`). Hook only; no gallery UI. Future values `"player"` / `"self"` (and objection logging) are described in `DESIGN.md`, not implemented.
 - **`label ran_wednesday` can theoretically run on Thu/Fri** (`wednesday.rpy:380`) but those days have no caller.
 - **Endings:** only Both has body text; only one bad-end slide exists. Yes-Machine, Migration, Respect, Human, Fail, and Mirror are scores / flags / design flavour. Mirror calibration is live; the Mirror *run* is not. Saturday follow-through for the linguistics-girl lie, `both_know`, `ran_festival_invited`, `teacher_answer`, `kurosawa_essay`, and `route["mio_notebook"]` is unwritten.
@@ -869,4 +883,4 @@ Not necessarily bugs — things that matter when reading the graph:
 
 ---
 
-*End of walkthrough for v0.3-day3 / `aff7773`. Thursday is the next event day.*
+*End of walkthrough for v0.4-day4. Friday is the next event day.*

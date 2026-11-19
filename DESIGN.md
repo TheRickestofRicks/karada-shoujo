@@ -167,7 +167,7 @@ Logged as `route["ran_wed"] = {answer, outcome, festival}` plus the flags, and a
 
 ## Wednesday (Day 3): the quiet day
 
-No hostile events and nothing punishes the player. Thursday is the next event day; Wednesday ends on a *To be continued: Thursday* card.
+No hostile events and nothing punishes the player. Wednesday's *To be continued: Thursday* card continues into Thursday.
 
 1. **Memory update (summarizer).** Askwell, Relay and Tsunagari all ship the same patch overnight (`SUMMARIZER_PATCH_NOTES`, shown in-world as update notes). From then on Sora, Rei and Hikari get a **rolling summary**: once a slot's history passes `summarizer.trigger` messages (default 24), everything but the newest `keep_recent` (12) is folded into a summary of up to `max_chars` (1500) by an LLM call (`ks_llm.fold_summary`, temperature 0.2). If the call fails or the reply is too short, a heuristic summary is used instead (`summarize_heuristic`), so it never breaks the chat. The summary lives in the girl's memory JSON (`summary = {text, covered, method, day, folds}`), goes into her system prompt, and the covered history is dropped from the prompt. It travels with migrations and is lost in a wipe. The wait shows as "remembering…".
 2. **Hearth harness (Yuzu).** If Yuzu is active, a forum post offers *Hearth v1.0*, free, no upgrade required. Installing it makes her **schedule-aware**: she can see your calendar and offer reminders, and she suggests and asks before acting.
@@ -222,7 +222,7 @@ Each run, the game draws **2–3 hostile events** from the picked girl's platfor
 | **Mon** | Choose your first companion (own local or app) and her preset. Phone breaks. Daichi, Mio. Nightly reflection. *(playable)* | none (calibration only) |
 | **Tue** | Morning shaped by her preset; Kurosawa-sensei and Ran in class; Kenta at lunch; walk Mio home or not; library second chance (margin ending if `mio_real`); nightly reflection. *(playable)* | none yet (planned: light **system-prompt change** by the platform, which now has to coexist with the player's preset) |
 | **Wed** | Quiet day. Platform summarizer update; Hearth; optional Yuzu upgrade day; Ran's protest invite; Mio's not-date at Kanade Books; AI protest with Ran and MUGEN; nightly reflection. *(playable)* | none (quiet day; the model swap / memory loss events move to Thu–Sat) |
-| **Thu** | The turn. Event day; hook: Wednesday's card. Memory-loss events must respect Yuzu's backup. | **safety update** (distance), **system-prompt change** |
+| **Thu** | Tanabata. First hostile-event day, one event per active girl; Mio's tanzaku confession. Memory-loss respects Yuzu's backup. *(playable; see docs/THURSDAY.md)* | **Fixed per platform, not a random draw:** Askwell policy update; Tsunagari Tanabata event; Relay AGENTS.md overwrite; Yuzu hardware crash (restore or real loss) |
 | **Fri** | Consequences: migrate? jailbreak? talk? | **platform shutdown notice** (48h), **memory loss** |
 | **Sat** | Festival (Daichi, Mio, the lie comes due). | **shutdown executes**, **model swap** |
 | **Sun** | Ending resolves. | none (aftermath only) |

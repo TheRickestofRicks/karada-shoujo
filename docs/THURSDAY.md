@@ -287,7 +287,7 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Ran: already invited her to the stall | No rescue scene required | n/a |
 | Two or three girls active | Each event fires; morning/afternoon/night pools still cap at 4 | Combined mocks |
 
-The Wednesday card still ends the current build (`tbc_thursday`). These cases land when Thursday is playable. Until then, the routing helper and any new `PLATFORM_RULES` entry can be unit-tested on their own.
+Thursday is playable (`game/thursday.rpy`). The Wednesday card (`tbc_thursday`) recaps and jumps into Thursday; the day ends on a *To be continued: Friday* card. Play-throughs: `thu_wish_accept` (also covers the Sora door crack and the Ran safety net), `thu_wish_decline`, `thu_discovery`, `thu_friendship_wish`, `thu_fess_held`, `thu_yuzu_backup`, `thu_yuzu_lost`. The confession selector and Yuzu hardware helper are also unit-tested in `tools/test_ks_llm.py`.
 
 ---
 
