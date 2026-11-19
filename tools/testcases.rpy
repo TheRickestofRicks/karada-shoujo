@@ -509,7 +509,7 @@ testcase tuesday_nowalk:
     advance until screen "choice" timeout 30.0
     click "Which book needed"
     advance until screen "choice" timeout 30.0
-    click "Ask Askwell to write it."
+    click "Write it yourself."
     advance until screen "choice" timeout 30.0
     click "Put the phone down and go to bed"
     advance until screen "reflection_choice" timeout 30.0
@@ -526,7 +526,7 @@ testcase tuesday_nowalk:
     $ assert ks_route()["walked_mio_home"] is False and ks_route().get("mio_walk_answer") is None and mio_real and friend_told == "truth"
     $ assert active == ["companion"] and ks_route()["drops"] == 1
     $ assert ks_route()["lean_set"]["compliance"] == 3
-    $ assert ks_route()["kurosawa_essay"] == "askwell"
+    $ assert ks_route()["kurosawa_essay"] == "self"
     $ assert any(e["type"] == "phone_notify" and e.get("when") == "class" for e in ks_mem("companion").data["events"])
     ## Rei was a helper (Run my life), Hikari got no lines. Only one romantic
     ## partner at most, so no double-date unspoken flag. Time with Mio while

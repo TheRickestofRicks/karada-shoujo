@@ -131,6 +131,10 @@ init python:
     def ks_askwell_available():
         return ks_story.askwell_available(ks_route())
 
+    def ks_essay_menu_options():
+        names = dict((g, gname(g)) for g in GIRL_IDS)
+        return ks_story.essay_menu_options(ks_route(), store.active, names=names)
+
     def ks_set_kurosawa_essay(how, girl=None):
         ks_story.set_kurosawa_essay(ks_route(), how, girl)
         for gid in GIRL_IDS:

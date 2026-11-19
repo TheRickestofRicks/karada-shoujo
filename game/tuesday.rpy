@@ -578,30 +578,26 @@ label mio_second_chance:
 
 ## Tuesday night: the blank page. Thoughtful, not a lecture.
 ## kurosawa_essay = "self" / "askwell" / "girl_help".
-## Askwell here is the homework bot everybody already uses, and is offered
-## only while route["askwell_available"] is true (later shutdowns can clear it).
+## "Ask Askwell to write it" is the homework-bot window, and only appears
+## if the Askwell platform slot (chatbot) is currently installed and the
+## homework-bot side has not been shut off. Helpers are installed girls
+## only; Yuzu (local) only if she is installed; Hikari (companion) is
+## never offered.
 label kurosawa_essay:
-    $ _askwell = ks_askwell_available()
-    $ _eg0 = active[0] if active else None
-    $ _eg1 = active[1] if len(active) > 1 else None
-    $ _en0 = gname(_eg0) if _eg0 else ""
-    $ _en1 = gname(_eg1) if _eg1 else ""
-    menu:
-        "Write it yourself.":
-            $ ks_set_kurosawa_essay("self")
-            n "You write. A sentence stalls halfway and you leave it. You cross out a word, then write it back."
-            n "It isn't good. It's yours. Sometime after eleven you stop. The last line leans a little to the right."
-            $ day_notes.append("You wrote Kurosawa's essay yourself. It was messy, and it was yours.")
-        "Ask Askwell to write it." if _askwell:
-            $ ks_set_kurosawa_essay("askwell")
-            n "You open a fresh Askwell window — the homework one, the one everybody uses. You paste the prompt."
-            n "The page fills in under a minute. Clean sentences. No crossed-out words. You copy it out by hand, because she said handwritten."
-            n "Your handwriting is the only part that looks like you."
-            $ day_notes.append("You let Askwell fill the page for Kurosawa. You copied it out by hand.")
-        "Ask [_en0] to help you think it through." if _eg0:
-            call kurosawa_essay_girl(_eg0)
-        "Ask [_en1] to help you think it through." if _eg1:
-            call kurosawa_essay_girl(_eg1)
+    $ _pick = renpy.display_menu(ks_essay_menu_options())
+    if _pick == "self":
+        $ ks_set_kurosawa_essay("self")
+        n "You write. A sentence stalls halfway and you leave it. You cross out a word, then write it back."
+        n "It isn't good. It's yours. Sometime after eleven you stop. The last line leans a little to the right."
+        $ day_notes.append("You wrote Kurosawa's essay yourself. It was messy, and it was yours.")
+    elif _pick == "askwell":
+        $ ks_set_kurosawa_essay("askwell")
+        n "You open a fresh Askwell window — the homework one, not her chat. You paste the prompt."
+        n "The page fills in under a minute. Clean sentences. No crossed-out words. You copy it out by hand, because she said handwritten."
+        n "Your handwriting is the only part that looks like you."
+        $ day_notes.append("You let Askwell fill the page for Kurosawa. You copied it out by hand.")
+    else:
+        call kurosawa_essay_girl(_pick)
     return
 
 

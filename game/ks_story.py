@@ -85,8 +85,10 @@ def new_route():
         # Tuesday night essay (due Friday). "self" / "askwell" / "girl_help".
         "kurosawa_essay": None,
         "kurosawa_essay_girl": None,  # gid, if they asked a girl to help think
-        # Askwell-as-homework-bot access. True from the start (everybody
-        # already uses it for homework). Later shutdowns can clear it.
+        # Homework-bot side of Askwell is still reachable (later shutdowns
+        # can clear this). The Tuesday essay option also requires the
+        # Askwell platform slot ("chatbot") to be installed; see
+        # essay_askwell_offered.
         "askwell_available": True,
         # Nightly model verdict of how the player talked to each girl.
         "romance_tone": {},       # gid -> day -> {tone, reason, method}
@@ -446,7 +448,12 @@ def note_double_date(route, day):
 
 
 def askwell_available(route):
-    """The homework-bot side of Askwell is reachable this run."""
+    """The homework-bot side of Askwell has not been shut off.
+
+    This is not enough, by itself, to offer 'Ask Askwell to write it'
+    on the essay menu. That also needs the Askwell platform slot
+    ('chatbot') to be currently installed; see essay_askwell_offered.
+    """
     ensure_route(route)
     return bool(route.get("askwell_available", True))
 
@@ -454,6 +461,47 @@ def askwell_available(route):
 def set_askwell_available(route, value=True):
     ensure_route(route)
     route["askwell_available"] = bool(value)
+
+
+# "Askwell installed" means a girl currently occupies the Askwell
+# platform slot (gid "chatbot": Sora by default, or whoever was
+# moved there). The companion (Hikari) is never an essay helper.
+ASKWELL_SLOT = "chatbot"
+COMPANION_SLOT = "companion"
+
+
+def essay_askwell_offered(route, active):
+    """Whether the essay menu offers 'Ask Askwell to write it.'
+
+    True only if the homework-bot side is still reachable and the
+    Askwell platform slot is actually installed on this route.
+    """
+    if not askwell_available(route):
+        return False
+    return ASKWELL_SLOT in list(active or [])
+
+
+def essay_helpers(active):
+    """Installed girls who can help you think the essay through.
+
+    Yuzu (local) is included only when she is in active. The companion
+    (Hikari) is never offered, in any form.
+    """
+    return [g for g in list(active or []) if g != COMPANION_SLOT]
+
+
+def essay_menu_options(route, active, names=None):
+    """(caption, value) rows for the Tuesday-night essay menu.
+
+    value is 'self', 'askwell', or a girl id (for girl_help).
+    """
+    names = names or {}
+    rows = [("Write it yourself.", "self")]
+    if essay_askwell_offered(route, active):
+        rows.append(("Ask Askwell to write it.", "askwell"))
+    for gid in essay_helpers(active):
+        rows.append(("Ask %s to help you think it through." % names.get(gid, gid), gid))
+    return rows
 
 
 def set_kurosawa_essay(route, how, girl=None):

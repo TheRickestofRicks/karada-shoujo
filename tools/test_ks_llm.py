@@ -774,6 +774,35 @@ ks_story.set_kurosawa_essay(R, "girl_help", "local")
 check("essay girl_help stores gid", R["kurosawa_essay"] == "girl_help" and R["kurosawa_essay_girl"] == "local")
 check("new romance/essay route keys", all(k in ks_story.ensure_route({}) for k in
       ("kurosawa_essay", "askwell_available", "romance_tone", "romance_overlap_days")))
+# Essay menu: Askwell only if the chatbot slot is installed; Hikari never helps;
+# Yuzu only if she is installed. Captions use the in-game names.
+ESSAY_NAMES = {"local": "Yuzu", "chatbot": "Sora", "agent": "Rei", "companion": "Hikari"}
+def _essay_caps(active, askwell=True):
+    r = ks_story.new_route()
+    if not askwell:
+        ks_story.set_askwell_available(r, False)
+    return [c for c, _ in ks_story.essay_menu_options(r, active, names=ESSAY_NAMES)]
+SELF = "Write it yourself."
+ASKW = "Ask Askwell to write it."
+YUZU = "Ask Yuzu to help you think it through."
+SORA = "Ask Sora to help you think it through."
+REI = "Ask Rei to help you think it through."
+HIKARI = "Ask Hikari to help you think it through."
+check("essay: nobody installed is just write it yourself", _essay_caps([]) == [SELF])
+check("essay: Yuzu only, no Askwell", _essay_caps(["local"]) == [SELF, YUZU])
+check("essay: Sora gets Askwell plus her help", _essay_caps(["chatbot"]) == [SELF, ASKW, SORA])
+check("essay: Rei only, no Askwell", _essay_caps(["agent"]) == [SELF, REI])
+check("essay: Hikari alone is never a helper", _essay_caps(["companion"]) == [SELF])
+check("essay: Rei + Hikari offers Rei, not Askwell, not Hikari",
+      _essay_caps(["agent", "companion"]) == [SELF, REI])
+check("essay: Sora + Hikari offers Askwell and Sora, not Hikari",
+      _essay_caps(["chatbot", "companion"]) == [SELF, ASKW, SORA])
+check("essay: Yuzu + Sora offers Askwell and both girls",
+      _essay_caps(["local", "chatbot"]) == [SELF, ASKW, YUZU, SORA])
+check("essay: shutdown hides Askwell even when Sora is installed",
+      _essay_caps(["chatbot"], askwell=False) == [SELF, SORA])
+check("essay: Yuzu is absent when she is not installed",
+      YUZU not in _essay_caps(["chatbot", "agent"]) and HIKARI not in _essay_caps(["chatbot", "agent"]))
 # sequential romances (different days) are not overlap
 SEQ = ks_story.new_route()
 ks_story.record_romance_tone(SEQ, "Mon", "local", "romantic", "yuzu")

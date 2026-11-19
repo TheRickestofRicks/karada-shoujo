@@ -371,8 +371,8 @@ The narration: *"Night. Your feet hurt. Your essay for Kurosawa is a blank page 
 | Choice | Condition | Flag | What happens |
 |---|---|---|---|
 | "Write it yourself." | always | `kurosawa_essay = "self"` | You write two messy, real pages. Day note: "You wrote Kurosawa's essay yourself. It was messy, and it was yours." |
-| "Ask Askwell to write it." | `ks_askwell_available()` (`route["askwell_available"]`, default **True**: everybody already uses the homework bot, even if Sora isn't a companion. Later shutdowns can set this False.) | `"askwell"` | A fresh homework window fills the page; you copy it out by hand. Day note: "You let Askwell fill the page for Kurosawa. You copied it out by hand." |
-| "Ask [name] to help you think it through." | one option per active girl | `"girl_help"` + `kurosawa_essay_girl = gid` | A short scripted talk: she helps you think, and does not write it. Day note names her. |
+| "Ask Askwell to write it." | Askwell is **installed**: a girl currently occupies the Askwell platform slot (`chatbot`, usually Sora), *and* `askwell_available` is still true (later shutdowns can clear the flag). Having the flag alone is not enough — a run with only Rei, or only Hikari, does not get this option. | `"askwell"` | A fresh homework window (not her chat) fills the page; you copy it out by hand. Day note: "You let Askwell fill the page for Kurosawa. You copied it out by hand." |
+| "Ask [name] to help you think it through." | one option per **installed** girl except the companion. Yuzu (local) only if she is installed. **Hikari is never offered**, even when she is active. | `"girl_help"` + `kurosawa_essay_girl = gid` | A short scripted talk: she helps you think, and does not write it. Day note names her. |
 
 **Thursday/Friday hook (unwritten):** the essay is due Friday. Kurosawa can tell when "nobody was there." Intended flavour, not in the tree: `self` still has mistakes, so somebody was there; `askwell` is too clean, even in your handwriting; `girl_help` is still your work, maybe a little clearer. `teacher_answer` can flavour that scene.
 
