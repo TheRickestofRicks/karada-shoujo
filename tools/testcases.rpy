@@ -568,6 +568,8 @@ testcase tuesday_nowalk:
     advance until screen "choice" timeout 60.0
     click "read it out loud"
     advance until screen "choice" timeout 30.0
+    click "That's why you come to places like this."
+    advance until screen "choice" timeout 30.0
     click "Text Hikari"
     advance until screen "input" timeout 30.0
     type "she bought me cocoa"
@@ -883,7 +885,11 @@ testcase wed_sora_noinvite:
     $ assert "Kanade Books with Mio" in ks_mem("chatbot").data["messages"][-1]["content"], ks_mem("chatbot").data["messages"][-1]
     click "read it out loud"
     advance until screen "choice" timeout 30.0
+    click "That's why you come to places like this."
+    advance until screen "choice" timeout 30.0
     click "what she's writing"
+    advance until screen "choice" timeout 30.0
+    click "Then write a little here."
     advance until screen "choice" timeout 60.0
     $ assert ks_route()["notdate"]["texts"] == 1 and ks_route()["ran_wed"] is None
     click "Put the phone down and go to bed"
@@ -896,6 +902,102 @@ testcase wed_sora_noinvite:
     advance until label "tbc_thursday" timeout 30.0
     $ assert not ks_story.flag(ks_route(), "ran_payoff_seen")
     $ print("KARADA_TEST: wed_sora_noinvite reached Thursday")
+    exit
+
+
+## Wednesday: stay present at Kanade Books through all three moments.
+## Mio's escalating beats each get a response; phone stays away. Ends
+## on the present-scale close ("didn't look at your phone once").
+testcase bookstore_present:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "She's funny"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "yes-machine"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["ran_reaction"] == "judged" and not ks_story.ran_good_terms(ks_route())
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Sorry, I've got something."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Just returning a book."
+    advance until screen "choice" timeout 30.0
+    click "Write it yourself."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "wednesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["ran_invited"] is False
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I'd like that."
+    advance until eval (ks_shot == "bookstore") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Follow her up the escalator"
+    advance until screen "choice" timeout 30.0
+    click "Why that one?"
+    advance until screen "choice" timeout 30.0
+    click "read it out loud"
+    advance until screen "choice" timeout 30.0
+    click "That's why you come to places like this."
+    advance until screen "choice" timeout 30.0
+    click "what she's writing"
+    advance until screen "choice" timeout 30.0
+    click "Then write a little here."
+    advance until screen "choice" timeout 30.0
+    click "I'm glad I came too."
+    advance until screen "choice" timeout 60.0
+    $ assert ks_route()["notdate"]["texts"] == 0 and ks_route()["notdate"]["present"] == 3, ks_route()["notdate"]
+    $ assert ks_route()["notdate"]["texted"] == []
+    $ assert any("didn't look at your phone once" in (x if isinstance(x, str) else "") for x in day_notes), day_notes
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    $ _rl = "\n".join(refl_lines)
+    $ assert "didn't look at your phone once" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "tbc_thursday" timeout 30.0
+    $ print("KARADA_TEST: bookstore_present reached Thursday")
     exit
 
 

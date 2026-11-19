@@ -6,7 +6,8 @@
 ##       → morning chat (schedule-aware girls see today's calendar)
 ##       → classes: Ran invites you to the AI protest (if on good terms)
 ##       → phone break → lunch: Mio in the library asks about the bookstore
-##       → optional "not a date" at Kanade Books (three chances to text her)
+##       → optional "not a date" at Kanade Books (three chances to text;
+##         staying present unlocks a deeper beat each time)
 ##       → 17:30 AI protest downtown with Ran (label ran_wednesday)
 ##       → night chat with every active girl → nightly reflection
 ##       → "To be continued — Thursday".
@@ -215,6 +216,11 @@ label wed_library:
 
 
 ## ── The not-date at Kanade Books: three chances to text her ─────────────
+## Staying present (phone away, or the stay option) unlocks a deeper beat
+## each time: a book she loves, her house, a small admission, and — if you
+## stayed through all three — a quiet shared moment. Texting interrupts
+## the beat she was about to offer; she trails off or changes the subject.
+## notdate_texts / notdate_present / mio_points are unchanged.
 label wed_bookstore:
     scene bg bookstore
     with fade
@@ -229,16 +235,27 @@ label wed_bookstore:
     if ks_companion_active():
         call hikari_phone_notify("bookstore")
     call notdate_moment(1, "Mio heads for the escalator. Your phone is warm in your pocket.", "Follow her up the escalator")
+    if _return:
+        call notdate_beat_book
+    else:
+        call notdate_interrupt(1)
+    n "The second floor is quieter. Almost all of it is poetry."
     show mio open
-    mi "Here. Poetry. Listen to this one."
-    mi "{i}\"I keep a light on in the window, not for anyone. Just in case.\"{/i}"
-    show mio shy
-    mi "That's the whole poem. Isn't that unfair? It's so short."
-    call notdate_moment(2, "She's reading the next one under her breath.", "Ask her to read it out loud")
+    n "Mio is already halfway down an aisle, a slim volume open in her hands."
+    call notdate_moment(2, "She's reading something under her breath.", "Ask her to read it out loud")
+    if _return:
+        call notdate_beat_house
+    else:
+        call notdate_interrupt(2)
     show mio neutral
     n "The top floor is a café. Mio buys two cocoas before you can argue, and slides one across the table."
-    mi "The notebook's in my bag. I'm not showing you. I'm just telling you it's there."
     call notdate_moment(3, "She's turning the cup in her hands, looking at the station lights.", "Ask what she's writing this week")
+    if _return:
+        call notdate_beat_admission
+        if notdate_present >= 3:
+            call notdate_beat_quiet
+    else:
+        call notdate_interrupt(3)
     $ _nd = ks_route()["notdate"]
     $ _nd["texts"] = notdate_texts
     $ _nd["present"] = notdate_present
@@ -272,13 +289,15 @@ label wed_bookstore:
     return
 
 
-## One moment: text your AI, or stay with Mio. Mio reacts to texting in
-## character, on a scale, never punishing. No AI active -> no phone choice.
+## One moment: text your AI, or stay with Mio. Stay (or no one active, or
+## putting the phone away unsent) returns True and unlocks that beat.
+## A real send returns False; Mio reacts in character, never punishing,
+## and the beat is interrupted.
 label notdate_moment(i, lead, stay):
     n "[lead]"
     if not active:
         $ notdate_present += 1
-        return
+        return True
     $ _ndg = None
     ## (A None value would render as an insensitive caption, so use "stay".)
     $ _ndopts = [("Text " + gname(g), g) for g in active] + [(stay, "stay")]
@@ -286,14 +305,14 @@ label notdate_moment(i, lead, stay):
     if _ndg == "stay":
         $ notdate_present += 1
         $ mio_points += 1
-        return
+        return True
     $ _ndn = gname(_ndg)
     n "You pull out your phone. [_ndn]'s window opens."
     call girl_chat(_ndg, "wed_notdate_" + str(i), ks_scene(WED_TEXT_SCENE, _ndg), 1)
     if _return == 0:
         n "You put the phone away without sending anything."
         $ notdate_present += 1
-        return
+        return True
     $ notdate_texts += 1
     if _ndg not in ks_route()["notdate"]["texted"]:
         $ ks_route()["notdate"]["texted"].append(_ndg)
@@ -312,6 +331,126 @@ label notdate_moment(i, lead, stay):
     else:
         show mio open
         mi "It's okay. Really. I like that you have someone you want to tell things to."
+    return False
+
+
+## Beat 1: a book she loves, and why. Neutral / open / shy; a small choice.
+label notdate_beat_book:
+    show mio open
+    n "She stops so suddenly you almost walk into her. A thin paperback is already in her hands, like it had been waiting."
+    mi "This one. I didn't even look for it. It's just... here."
+    show mio shy
+    n "She turns it so you can see the cover. The spine is soft. Someone has read this more than once, and it might have been her."
+    mi "It's about a girl who keeps writing letters she never sends. I know how that sounds."
+    mi "I don't do that. I just like that she almost does, every chapter, and then she doesn't, and you still know what she meant."
+    menu:
+        "\"Why that one?\"":
+            show mio open
+            mi "Because the letters are the point, even if nobody reads them. That's a very me thing to say. Sorry."
+            n "She almost laughs at herself, then doesn't."
+            mi "The writing's quiet. Like it's trying not to bother you. I like that."
+        "\"You should get it, if you want it.\"":
+            show mio shy
+            mi "I already have it. At home. This is just a nicer copy. I'm not buying it."
+            mi "I'm saying hi."
+            n "She slots it back, carefully, as if the shelf might notice."
+    show mio neutral
+    return
+
+
+## Beat 2: the poem, then her brothers and the quiet she can't get at home.
+label notdate_beat_house:
+    show mio open
+    mi "Here. Poetry. Listen to this one."
+    mi "{i}\"I keep a light on in the window, not for anyone. Just in case.\"{/i}"
+    show mio shy
+    n "She closes the book on her finger and doesn't look up right away."
+    mi "That's the whole poem. Isn't that unfair? It's so short."
+    show mio neutral
+    n "Downstairs, someone laughs at a display table. Mio waits until it passes."
+    if mio_real or ks_route().get("walked_mio_home"):
+        mi "I think I told you about my house. The loud one."
+        mi "At night I can hear all three of them through the walls. Not talking to me. Just... existing at full volume."
+    else:
+        mi "It's loud at my house. Three brothers. One TV. Zero doors that close properly."
+        mi "At night I can hear all of them through the walls. Not talking to me. Just... existing at full volume."
+    show mio open
+    mi "A poem like this wouldn't survive there. It'd get talked over."
+    menu:
+        "\"That's why you come to places like this.\"":
+            show mio open
+            mi "...Yes. That's exactly why."
+            n "She looks at the aisle like it might vanish if she agrees too loudly."
+            mi "Here, you can finish a sentence. Even a short one."
+        "\"You can say the next one, if you want.\"":
+            show mio shy
+            mi "I'll get embarrassed. I'm already embarrassed."
+            n "She reads the next one anyway, too quietly for you to catch every word, and doesn't translate it."
+    show mio neutral
+    return
+
+
+## Beat 3: a small personal admission, still not a date.
+label notdate_beat_admission:
+    show mio shy
+    mi "The notebook's in my bag. I'm not showing you. I'm just telling you it's there."
+    n "A pause. She almost leaves it at that."
+    show mio open
+    mi "I was going to write on the train home. I always say that. Then I get home and it's dinnertime and someone needs the table."
+    show mio shy
+    mi "I don't mind. I just... I carry it around like I'm the kind of person who would. Sometimes I am."
+    menu:
+        "\"Then write a little here.\"":
+            show mio open
+            mi "...That's cheating. That's a good kind of cheating."
+            n "She doesn't take the notebook out. She does smile at the bag, like the page heard you."
+            mi "Okay. Maybe I am, today."
+        "\"You don't have to prove it.\"":
+            show mio shy
+            mi "I know. I know that."
+            n "She nods at the bag, once, like she's agreeing with you and the notebook at the same time."
+    show mio neutral
+    return
+
+
+## Beat 4: a quiet shared moment, only if you stayed present all three times.
+label notdate_beat_quiet:
+    show mio neutral
+    n "Neither of you talks for a minute. The cocoa goes from too hot to just right. A train announcement leaks up from the station, tinny and far away."
+    show mio open
+    mi "I'm glad you came."
+    n "She says it to the window, not to you, which is how you know she meant it."
+    show mio shy
+    mi "That's all. You don't have to say anything back. I already said it wasn't a date."
+    menu:
+        "\"I'm glad I came too.\"":
+            show mio shy
+            mi "...Okay. Good."
+            n "She hides behind the cup, but not very well."
+        "Sit with that, quietly.":
+            n "You do. She glances over once, then back at the lights, and doesn't fill the silence."
+    show mio shy
+    return
+
+
+## Phone use cuts off the beat she was about to offer.
+label notdate_interrupt(i):
+    if i == 1:
+        show mio open
+        n "She glances at a shelf, then at the escalator, and lets whatever she was going to say go."
+        mi "Anyway. Poetry's upstairs. We should..."
+        show mio shy
+        mi "Yeah. Upstairs."
+    elif i == 2:
+        show mio shy
+        n "The book in her hands closes on a page she doesn't mark."
+        mi "Never mind. It was a short one anyway."
+        show mio neutral
+        mi "Café's at the top. I'll get the cocoa."
+    else:
+        show mio neutral
+        n "She turns the cup again, then sets it down like the thought has somewhere else to be."
+        mi "It's fine. We can just drink these. We don't have to talk about anything."
     return
 
 

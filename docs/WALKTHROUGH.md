@@ -484,7 +484,7 @@ Skipped entirely on an upgrade day. If `route["walked_mio_home"]`, she thanks yo
 
 `ks_sync_mio()`.
 
-### The not-date — `label wed_bookstore` (`wednesday.rpy:220`)
+### The not-date — `label wed_bookstore` (`wednesday.rpy`)
 
 Kanade Books. Sets `notdate_texts = 0`, `notdate_present = 0`, and
 
@@ -492,12 +492,12 @@ Kanade Books. Sets `notdate_texts = 0`, `notdate_present = 0`, and
 route["notdate"] = {"went": True, "texts": 0, "present": 0, "texted": []}
 ```
 
-If Hikari is active, a toast. Then **three** moments (`notdate_moment`, `wednesday.rpy:279`): escalator, poetry floor, café cocoa.
+If Hikari is active, a toast. Then **three** moments (`notdate_moment`): escalator, poetry floor, café cocoa.
 
-Each moment: if nobody is active, it auto-counts as present. Otherwise a menu: "Text [each active girl]" or the stay prompt.
+Each moment: if nobody is active, it auto-counts as present and returns True. Otherwise a menu: "Text [each active girl]" or the stay prompt.
 
-- **Stay:** `notdate_present += 1`, `mio_points += 1`. No LLM window.
-- **Text:** `girl_chat(gid, "wed_notdate_{1|2|3}", ..., 1 turn)`. If you send nothing (`_return == 0`), it counts as **present**, not a text. A real send increments `notdate_texts` and appends her gid to `route["notdate"]["texted"]`. Mio's reaction uses `ks_mio_ai_ref`: if `friend_told == "truth"`, she uses the girl's name; if `"lie"`, "the linguistics girl"; otherwise she doesn't name her.
+- **Stay** (or put the phone away unsent): `notdate_present += 1`, `mio_points += 1` on a stay click (unsent / no-AI skip the point, as before). Then the matching beat plays (`notdate_beat_book`, `notdate_beat_house`, `notdate_beat_admission`). If you stayed through all three (`notdate_present >= 3`), a fourth beat (`notdate_beat_quiet`) follows the café admission. Beats have a narration pause, a sprite change (neutral / open / shy), and a small player response at each one; those responses do not change flags or points.
+- **Text:** `girl_chat(gid, "wed_notdate_{1|2|3}", ..., 1 turn)`. If you send nothing (`_return == 0`), it counts as **present**, not a text, and the beat still plays. A real send increments `notdate_texts` and appends her gid to `route["notdate"]["texted"]`, then Mio's usual in-character line (`ks_mio_ai_ref`: if `friend_told == "truth"`, she uses the girl's name; if `"lie"`, "the linguistics girl"; otherwise she doesn't name her). After that, `notdate_interrupt` cuts off the beat she was about to offer: she trails off or changes the subject, and you move on to the next floor.
 
 Closing reaction (`ks_story.notdate_reaction_key`, `ks_story.py:573`) — **never a punishment**:
 
@@ -509,7 +509,7 @@ Closing reaction (`ks_story.notdate_reaction_key`, `ks_story.py:573`) — **neve
 
 Memories get `flags.wed_notdate = {texts, present}`; texted girls get event `texted_during_notdate`. `ks_sync_mio()`.
 
-### Free afternoon — `label wed_afternoon_ai` (`wednesday.rpy:321`)
+### Free afternoon — `label wed_afternoon_ai` (`wednesday.rpy`)
 
 Only if you went to class, skipped the bookstore, and are not going to the protest. Same pattern as Tuesday: no one active → you read; else `afternoon_chats` → `message_pool("afternoon")` with `WED_AFTERNOON_SCENE` (shared pool of 4).
 
