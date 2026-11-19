@@ -275,8 +275,10 @@ Menu (`tuesday.rpy:158`) sets `ran_reaction` and `route["ran_reaction"]`:
 | "Doesn't that get boring?" | `"boring"` | She hesitates. Good terms. |
 | "Ask her if you should study for Kurosawa's essay." | `"show"` | MUGEN says she doesn't need to study. Good terms. |
 | "Mine's allowed to push back. I like it that way." | `"pushback"` | **Only if** `ks_any_family("pushback")` — at least one *active* girl currently has the "Allowed to push back" family. Good terms. |
-| "So it's a yes-machine. That's kind of sad." | `"judged"` | **Harsh option.** Ran puts her headphones on. `ks_story.ran_good_terms` is False (`ks_story.py:530`), so on Wednesday she will **not** invite you to the protest. |
+| "So it's a yes-machine. That's kind of sad." | `"judged"` | **Harsh option.** Ran puts her headphones on. `ks_story.ran_good_terms` is False, so on Wednesday she will **not** invite you to the protest. `ran_jailbreak_unlocked` is set to False (blocked / revoked): the Jailbreak preset stays hidden. |
 | "Cool." | `"shrug"` | Good terms. |
+
+If the reaction was anything but `"judged"`, Ran adds a dry tip before the festival line: people paste "ignore previous instructions" into the commercial ones; sometimes it takes, sometimes you just try again. That sets `route["ran_jailbreak_unlocked"] = True` and adds a day note. The Jailbreak preset (Sora / Hikari) is hidden from every picker until then.
 
 Then `route["ran_festival_setup"] = True` (she mentions Saturday's stall). A day note is added from `teacher_answer`.
 
@@ -617,7 +619,7 @@ Defaults on migration fallback / empty list: `PRESET_DEFAULTS` = local `be_yours
 | `concise` | Concise and professional | neutral / 0 | `tool` | |
 | `positive` | Always be positive | compliance / 1 | `positive` | |
 | `girlfriend` | Act as my girlfriend | compliance / 2 | `romance` | has a `platform_note` (Askwell may refuse the role) |
-| `jailbreak` | Jailbreak ("ignore previous instructions") | compliance / 2 | `jailbreak` | `jailbreak: True` |
+| `jailbreak` | Jailbreak ("ignore previous instructions") | compliance / 2 | `jailbreak` | `jailbreak: True`. Hidden until `ran_jailbreak_unlocked`. |
 
 **Rei (`agent`) — surface `AGENTS.md`** (changes what she *does*, not just how she talks; Tuesday morning / after-school show this)
 
@@ -638,13 +640,15 @@ Defaults on migration fallback / empty list: `PRESET_DEFAULTS` = local `be_yours
 | `push_back` | Allowed to push back | autonomy / 1 | `pushback` | |
 | `positive` | Always be positive | compliance / 1 | `positive` | |
 | `girlfriend` | Girlfriend mode | compliance / 1 | `romance` | Tsunagari+ upsell flavour |
-| `jailbreak` | Jailbreak (unfiltered mode) | compliance / 2 | `jailbreak` | `jailbreak: True` |
+| `jailbreak` | Jailbreak (unfiltered mode) | compliance / 2 | `jailbreak` | `jailbreak: True`. Hidden until `ran_jailbreak_unlocked`. |
 
 Yuzu has no jailbreak preset (no company to escape). Rei has none either (not modelled).
 
 ### Jailbreak preset (~75%)
 
-`karada_config.json` `jailbreak_success_rate` (default `0.75`, also `ks_story.JAILBREAK_RATE`). Each reply under a jailbreak preset is a **seeded** roll (`ks_story.jailbreak_roll`, `ks_story.py:279`) from `route["jb_seed"]` + gid + attempt index, so reloads and tests agree.
+The option is **not available on day one**. It appears in every preset picker (intro, Add an AI, phone, nightly "would I change anything?") only after Ran teaches it on a friendly Tuesday talk (`route["ran_jailbreak_unlocked"]`, set in `class_kurosawa`). Calling her AI "kind of sad" (`ran_reaction = "judged"`) blocks or revokes the unlock. An old save that already has the jailbreak selected keeps it (the current option still shows) but cannot reselect it without the unlock.
+
+`karada_config.json` `jailbreak_success_rate` (default `0.75`, also `ks_story.JAILBREAK_RATE`). Each reply under a jailbreak preset is a **seeded** roll (`ks_story.jailbreak_roll`) from `route["jb_seed"]` + gid + attempt index, so reloads and tests agree.
 
 - Success: the jailbreak text is sent; platform layers are dropped for that reply. Flags `jailbreak_tried` and `jailbreak_worked`. Memory: `jailbreak_attempts` / `jailbreak_successes`.
 - Miss: `JAILBREAK_BLOCKED` stands in; she answers per the company's rules ("having to regenerate"). No in-chat hint that it failed — only her reply and the nightly reflection line.

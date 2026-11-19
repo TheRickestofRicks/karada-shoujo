@@ -49,7 +49,8 @@ def new_route():
         "goodbyes_said": [],      # [{day, gid, name}] explained before closing her window
         "reflections": [],        # [{day, changes: [...]}]
         "teacher_answer": None,   # Tue class: "can" / "cant" / "silent"
-        "ran_reaction": None,     # Tue class: "boring" / "show" / "pushback" / "shrug"
+        "ran_reaction": None,     # Tue class: "boring" / "show" / "pushback" / "shrug" / "judged"
+        "ran_jailbreak_unlocked": False,  # Ran taught the Jailbreak preset on a friendly talk
         # --- routing flags (see DESIGN.md "Story routing") -------------------
         "flags": {},              # name -> True (jailbreak_tried, gave_room, ...)
         # Jailbreak preset: one seeded roll per reply (~75% works).
@@ -895,6 +896,32 @@ def ran_good_terms(route):
     "cool" is fine; the "That's kind of sad" line (ran_reaction "judged")
     isn't."""
     return (route or {}).get("ran_reaction") != "judged"
+
+
+def jailbreak_unlocked(route):
+    """The Jailbreak preset is hidden until Ran teaches it on a friendly
+    Tuesday talk. Insulting her (ran_reaction "judged") leaves this false,
+    or revokes it if it was already set."""
+    return bool((route or {}).get("ran_jailbreak_unlocked"))
+
+
+def set_ran_jailbreak_unlocked(route, unlocked):
+    ensure_route(route)
+    route["ran_jailbreak_unlocked"] = bool(unlocked)
+    return route["ran_jailbreak_unlocked"]
+
+
+def visible_presets(presets, gid, route, current=None):
+    """Presets shown in a picker. Jailbreak stays hidden until Ran teaches
+    it, except an already-selected one on an old save: you can keep seeing
+    what you have, but you can't pick it again once you leave."""
+    unlocked = jailbreak_unlocked(route)
+    out = []
+    for p in preset_list(presets, gid):
+        if p.get("jailbreak") and not unlocked and p.get("id") != current:
+            continue
+        out.append(p)
+    return out
 
 
 def wed_schedule(plan):

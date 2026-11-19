@@ -628,6 +628,29 @@ SA["yuzu_harness"] = True
 check("Hearth makes Yuzu schedule-aware", ks_story.schedule_aware(SA, "local"))
 check("Ran: good terms unless judged", ks_story.ran_good_terms({"ran_reaction": "boring"}) and ks_story.ran_good_terms({"ran_reaction": "shrug"})
       and ks_story.ran_good_terms({}) and not ks_story.ran_good_terms({"ran_reaction": "judged"}))
+JB0 = ks_story.new_route()
+check("jailbreak starts locked", not ks_story.jailbreak_unlocked(JB0)
+      and "ran_jailbreak_unlocked" in JB0 and JB0["ran_jailbreak_unlocked"] is False)
+check("ensure_route fills the unlock key", "ran_jailbreak_unlocked" in ks_story.ensure_route({})
+      and not ks_story.ensure_route({})["ran_jailbreak_unlocked"])
+ids_locked = [p["id"] for p in ks_story.visible_presets(PRESETS, "chatbot", JB0)]
+ids_hika = [p["id"] for p in ks_story.visible_presets(PRESETS, "companion", JB0)]
+check("jailbreak hidden on day one (Sora and Hikari)",
+      "jailbreak" not in ids_locked and "jailbreak" not in ids_hika
+      and "girlfriend" in ids_locked and "none" in ids_locked)
+ks_story.set_ran_jailbreak_unlocked(JB0, True)
+check("friendly talk unlocks it", ks_story.jailbreak_unlocked(JB0)
+      and "jailbreak" in [p["id"] for p in ks_story.visible_presets(PRESETS, "chatbot", JB0)]
+      and "jailbreak" in [p["id"] for p in ks_story.visible_presets(PRESETS, "companion", JB0)])
+ks_story.set_ran_jailbreak_unlocked(JB0, False)
+check("insulting Ran revokes the unlock", not ks_story.jailbreak_unlocked(JB0)
+      and "jailbreak" not in [p["id"] for p in ks_story.visible_presets(PRESETS, "chatbot", JB0)])
+LEG = ks_story.new_route()
+LEG["presets"]["chatbot"] = "jailbreak"
+keep = [p["id"] for p in ks_story.visible_presets(PRESETS, "chatbot", LEG, current="jailbreak")]
+gone = [p["id"] for p in ks_story.visible_presets(PRESETS, "chatbot", LEG, current="friend")]
+check("old save keeps a selected jailbreak but cannot reselect it",
+      "jailbreak" in keep and "jailbreak" not in gone)
 check("not-date reaction scale", [ks_story.notdate_reaction_key(n) for n in (0, 1, 2, 3)] == ["present", "some", "some", "always"])
 check("new Wednesday route keys", all(k in ks_story.ensure_route({}) for k in ("summarizer_slots", "yuzu_backup", "wed_plan", "notdate", "ran_invited")))
 check("yuzu bluescreen hint key", ks_story.new_route()["yuzu_bsod_seen"] is False)

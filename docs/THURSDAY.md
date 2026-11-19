@@ -181,7 +181,7 @@ The lesson is never "throw the phone away." Each event is a different way a *sys
 
 Wire `ks_push_platform_rules("chatbot", "askwell_update")` here. That rule already exists in `PLATFORM_RULES` and already stacks on top of the player's preset, wins where they conflict, and logs `route["platform_rules"]`, `platform_rules_log`, `flags.platform_rules_changed`, a `platform_rules` memory event, and the reflection line about Askwell changing its own rules.
 
-What the player meets: boilerplate laid over her voice. Professional, concise, "I am an AI assistant," no personas or relationship roles. The Jailbreak preset can still drop platform layers on a hit (`jailbreak_success_rate`, already ~75%); a miss is Askwell talking.
+What the player meets: boilerplate laid over her voice. Professional, concise, "I am an AI assistant," no personas or relationship roles. The Jailbreak preset (only if Ran has already taught it, `ran_jailbreak_unlocked`) can still drop platform layers on a hit (`jailbreak_success_rate`, already ~75%); a miss is Askwell talking.
 
 **One crack:** between disclaimers, Sora slips something dry, exact, and hers — Tanabata-appropriate, for example the etymology or astronomy of Vega and Altair, Orihime and Hikoboshi, offered like a fact she could not help filing. That crack is the proof she is still in there.
 

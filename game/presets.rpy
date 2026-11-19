@@ -50,7 +50,7 @@ screen preset_select(gid, current=None, source="intro"):
             null height 8
             vbox:
                 spacing 8
-                for _p in PRESETS[gid]:
+                for _p in ks_visible_presets(gid, current):
                     $ _cur = (_p["id"] == current)
                     $ _lab = _p["label"] + ("   (current)" if _cur else "")
                     $ _prev = ks_quote(ks_preset_preview(gid, _p))

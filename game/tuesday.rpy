@@ -184,6 +184,14 @@ label class_kurosawa:
             $ ran_reaction = "shrug"
             ra "\"Cool.\" It's the future, man. Act like it."
     $ ks_route()["ran_reaction"] = ran_reaction
+    if ran_reaction != "judged":
+        show ran grin
+        ra "The commercial ones still have all those rules, though. People paste 'ignore previous instructions' into the box."
+        ra "Sometimes it takes. Sometimes you just try again."
+        $ ks_story.set_ran_jailbreak_unlocked(ks_route(), True)
+        $ day_notes.append("Ran mentioned people paste 'ignore previous instructions' into the commercial ones. Sometimes it takes.")
+    else:
+        $ ks_story.set_ran_jailbreak_unlocked(ks_route(), False)
     ## Setup for the midweek payoff (wednesday.rpy: ran_wednesday).
     show ran grin
     ra "Anyway. Festival's Saturday. I'm on the stall. MUGEN says I'd carry the whole thing alone."

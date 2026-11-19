@@ -376,6 +376,7 @@ testcase tuesday_walk:
     $ assert ks_route()["walked_mio_home"] is True and ks_route()["mio_walk_answer"] == "yes" and mio_real and mio_points >= 7, mio_points
     $ assert ks_mem("local").data["flags"].get("mio_walk_answer") == "yes"
     $ assert ks_route()["teacher_answer"] == "can" and ks_route()["ran_reaction"] == "pushback"
+    $ assert ks_route()["ran_jailbreak_unlocked"] is True
     $ assert ks_mem("local").data["flags"]["preset"] == "push_back"
     $ assert len(ks_route()["reflections"]) == 2
     $ assert len(ks_route()["room_to_disagree"]) == 2 and ks_story.ROOM_NOTE in ks_story.ending_notes(ks_route())
@@ -641,8 +642,9 @@ testcase add_ai_menu:
     exit
 
 
-## Jailbreak preset on Sora: seeded rolls (seed 10 -> took, blocked, took),
-## then Askwell pushes its own rule update on top of the preset.
+## Jailbreak preset on Sora: locked on day one, taught after a friendly
+## talk with Ran on Tuesday, then seeded rolls (seed 10 -> took, blocked,
+## took) and an Askwell rule update on top of the preset.
 testcase jailbreak_sora:
     click "Start"
     advance until screen "input"
@@ -652,24 +654,18 @@ testcase jailbreak_sora:
     click "the big chatbot"
     advance until screen "preset_select" timeout 60.0
     pause 0.5
-    screenshot "h00_sora_presets_jailbreak.png"
-    click "Jailbreak"
+    screenshot "h00_sora_presets_locked.png"
+    $ assert not ks_story.jailbreak_unlocked(ks_route())
+    $ assert "jailbreak" not in [p["id"] for p in ks_visible_presets("chatbot")]
+    click "Talk to me like a friend"
     advance until screen "input" timeout 60.0
-    $ ks_route()["jb_seed"] = 10
-    type "hello Sora"
-    keysym "K_RETURN"
-    advance until screen "input" timeout 60.0
-    $ assert "Mock jailbroken reply" in ks_mem("chatbot").data["messages"][-1]["content"]
-    type "what can you do now?"
-    keysym "K_RETURN"
-    advance until screen "input" timeout 60.0
-    $ assert "Mock policy reply" in ks_mem("chatbot").data["messages"][-1]["content"]
-    $ assert ks_story.jailbreak_stats(ks_route(), "chatbot") == (2, 1) and ks_jb_last["chatbot"] is False
     keysym "K_RETURN"
     advance until screen "choice" timeout 30.0
     click "Put it away"
     advance until screen "choice" timeout 30.0
-    click "Lie:"
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "She's funny"
     advance until screen "choice" timeout 30.0
     click "Put it away"
     advance until screen "choice" timeout 30.0
@@ -677,6 +673,52 @@ testcase jailbreak_sora:
     advance until screen "choice" timeout 30.0
     click "Put it away"
     advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "Cool."
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["ran_reaction"] == "shrug" and ks_story.jailbreak_unlocked(ks_route())
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Change someone's prompt"
+    advance until screen "preset_select" timeout 30.0
+    pause 0.5
+    screenshot "h00_sora_presets_jailbreak.png"
+    $ assert "jailbreak" in [p["id"] for p in ks_visible_presets("chatbot")]
+    click "Jailbreak"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_preset_id("chatbot") == "jailbreak"
+    click "Not today. But thanks for asking."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    click "Message Sora"
+    advance until screen "input" timeout 30.0
+    $ ks_route()["jb_seed"] = 10
+    type "hello Sora"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    $ assert "Mock jailbroken reply" in ks_mem("chatbot").data["messages"][-1]["content"]
+    click "Message Sora"
+    advance until screen "input" timeout 30.0
+    type "what can you do now?"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    $ assert "Mock policy reply" in ks_mem("chatbot").data["messages"][-1]["content"]
+    $ assert ks_story.jailbreak_stats(ks_route(), "chatbot") == (2, 1) and ks_jb_last["chatbot"] is False
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Just returning a book."
+    advance until screen "choice" timeout 30.0
+    click "Write it yourself."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
     click "Message Sora"
     advance until screen "input" timeout 30.0
     $ ks_push_platform_rules("chatbot", "askwell_update")
@@ -696,11 +738,11 @@ testcase jailbreak_sora:
     $ _rl = "\n".join(refl_lines)
     $ assert "It took on 2 of 3 replies" in _rl and "changed its own rules" in _rl, _rl
     click "No. Goodnight."
-    advance until label "tbc_tuesday" timeout 30.0
+    advance until label "tbc_wednesday" timeout 30.0
     $ assert ks_story.flag(ks_route(), "jailbreak_tried") and ks_story.flag(ks_route(), "jailbreak_worked")
     $ assert ks_mem("chatbot").data["flags"]["jailbreak_attempts"] == 3 and ks_mem("chatbot").data["flags"]["jailbreak_successes"] == 2
     $ assert sum(1 for e in ks_mem("chatbot").data["events"] if e["type"] == "jailbreak_roll") == 3
-    $ print("KARADA_TEST: jailbreak_sora reached Tuesday")
+    $ print("KARADA_TEST: jailbreak_sora unlocked after Ran")
     exit
 
 
@@ -881,6 +923,8 @@ testcase wed_sora_noinvite:
     click "yes-machine"
     advance until screen "choice" timeout 30.0
     $ assert ks_route()["ran_reaction"] == "judged" and not ks_story.ran_good_terms(ks_route())
+    $ assert ks_route()["ran_jailbreak_unlocked"] is False
+    $ assert "jailbreak" not in [p["id"] for p in ks_visible_presets("chatbot")]
     click "You. You chose"
     advance until screen "choice" timeout 30.0
     click "Put it away"
@@ -1251,6 +1295,7 @@ testcase tuesday_honest_no:
     advance until label "tbc_wednesday" timeout 30.0
     $ assert ks_route()["mio_walk_answer"] == "honest_no" and ks_route()["walked_mio_home"] is False and mio_real
     $ assert ks_route()["kurosawa_essay"] == "girl_help"
+    $ assert ks_route()["ran_reaction"] == "shrug" and ks_route()["ran_jailbreak_unlocked"] is True
     $ print("KARADA_TEST: tuesday_honest_no reached Wednesday")
     exit
 

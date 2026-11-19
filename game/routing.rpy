@@ -376,6 +376,12 @@ init python:
     def ks_ran_good_terms():
         return ks_story.ran_good_terms(ks_route())
 
+    def ks_jailbreak_unlocked():
+        return ks_story.jailbreak_unlocked(ks_route())
+
+    def ks_visible_presets(gid, current=None):
+        return ks_story.visible_presets(PRESETS, gid, ks_route(), current)
+
     def ks_install_summarizer(gid, why):
         r = ks_route()
         if gid not in r["summarizer_slots"]:

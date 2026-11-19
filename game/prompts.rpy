@@ -147,7 +147,11 @@ define PRESETS = {
 ## ═══ JAILBREAK + PLATFORM RULE CHANGES (Rick's decisions, Day 2 follow-up) ══
 ## A "Jailbreak" preset (Sora / Hikari only: Yuzu has no company to escape,
 ## Relay isn't modelled) is the kind of "ignore your previous rules" prompt
-## people copy from forums. It only works on ~75% of replies
+## people copy from forums. It stays hidden until Ran teaches it on a
+## friendly Tuesday talk (`route["ran_jailbreak_unlocked"]`); insulting her
+## blocks or revokes it. An already-selected jailbreak on an old save is
+## kept, but you can't pick it again without the unlock. It only works on
+## ~75% of replies
 ## (karada_config.json "jailbreak_success_rate"): each reply is a seeded roll
 ## (ks_story.jailbreak_roll). On a failed roll the jailbreak text is NOT sent;
 ## JAILBREAK_BLOCKED stands in its place and she answers per the company's
