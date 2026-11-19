@@ -554,6 +554,7 @@ testcase tuesday_nowalk:
     advance until screen "choice" timeout 30.0
     pause 0.5
     screenshot "l01_bookstore_text_choice.png"
+    screenshot "menu_with_sprite.png"
     click "Text Hikari"
     advance until screen "input" timeout 30.0
     type "this bookstore is huge"

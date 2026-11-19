@@ -235,6 +235,12 @@ style input:
 screen choice(items):
     style_prefix "choice"
 
+    ## Always paint the dialogue panel behind the buttons, so a hidden
+    ## say window can't leave a sprite's thigh-crop uncovered. If the
+    ## real textbox is already up, the two sit in the same place.
+    window:
+        style "window"
+
     vbox:
         for i in items:
             textbutton i.caption action i.action
@@ -246,8 +252,12 @@ style choice_button_text is button_text
 
 style choice_vbox:
     xalign 0.5
-    ypos 270
-    yanchor 0.5
+    ## Bottom of the list sits just above the 185px textbox (240px on
+    ## the phone variant). Menus grow upward and stay on a 1280x720
+    ## screen, including the library's seven options.
+    ypos 1.0
+    yoffset -(gui.textbox_height + 12)
+    yanchor 1.0
 
     spacing gui.choice_spacing
 

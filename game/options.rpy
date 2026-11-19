@@ -108,9 +108,14 @@ define config.end_game_transition = None
 
 define config.window = "auto"
 
-## Keep the textbox up during menus (covers sprite crops under the box).
-init python:
-    config.window_auto_hide = [ s for s in config.window_auto_hide if s != "menu" ]
+## Keep the textbox up during choice menus so it covers the cropped
+## bottom of thigh-up sprites. Removing "menu" from auto-hide is not
+## enough: display_menu and a preceding call screen (Hikari's toast)
+## can still dismiss it. choice_empty_window turns a menu into
+## "menu-with-caption", which auto-shows an empty panel even then.
+init 1 python:
+    config.window_auto_hide = [s for s in config.window_auto_hide if s != "menu"]
+    config.choice_empty_window = extend
 
 
 ## Transitions used to show and hide the dialogue window
