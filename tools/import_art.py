@@ -217,11 +217,13 @@ def key_to_rgba(src, use_rembg=True, thresh=14, color_dist=28, speckle=24,
 # (Kurosawa's silver hair and gray book): rembg + a tight border flood only.
 SPRITE_KEY = {
     "kurosawa": dict(thresh=5, color_dist=0),
-    "ran": dict(thresh=8, color_dist=0),
-    # The flat-bg flood can seed from pants at the bottom edge and punch a
-    # hole in dark clothing. rembg's cutout is already clean for these.
+    # The flat-bg flood can seed from dark clothing (Ran's jeans, Mio's
+    # skirt pleats, Daichi and Kenta's pants) and punch a hole. rembg's
+    # cutout is already clean for these.
     "kenta": dict(use_bg_key=False),
     "daichi": dict(use_bg_key=False, punch_bottom_studio=True),
+    "ran": dict(use_bg_key=False),
+    "mio": dict(use_bg_key=False),
 }
 
 
