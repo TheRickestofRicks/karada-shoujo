@@ -1,6 +1,6 @@
 # Friday–Sunday — Fallout, the festival, and the companies' cut
 
-This is a design outline only. No Friday, Saturday or Sunday scene code yet. Flag names in backticks already exist in `ks_story.new_route`, the store, or memory unless they are marked **NEW**. When these days are written, this file is the brief. `DESIGN.md` should then be updated to match: the Fri/Sat calendar line is no longer "platform shutdown notice (48h) / memory loss" then "shutdown executes / model swap," and migration is no longer a full intact copy of her memory into the new slot.
+This is a design outline only. No Friday, Saturday or Sunday scene code yet. Flag names in backticks already exist in `ks_story.new_route`, the store, or memory unless they are marked **NEW**. When these days are written, this file is the brief. `DESIGN.md` should then be updated to match: the Fri/Sat calendar line is no longer "platform shutdown notice (48h) / memory loss" then "shutdown executes / model swap," and migration is no longer a full intact copy of her memory into the new slot. Tsunagari's closed-catalogue and locked-persona rules are already decided and noted in `DESIGN.md`.
 
 **Dates in the story:** Friday, 8 July; Saturday, 9 July — the school / summer festival (yakisoba, stalls, Ran's stall); Sunday, 10 July. Thursday was Tanabata (7 July). The week is already summer (existing art stays: dusk street, courtyard, classroom, shotengai-adjacent downtown). An ending card can say whether you went to Saturday's festival together: the White Day–shaped echo of whatever happened under the bamboo on Thursday (`mio_confession`, `tanabata_with_mio`, and **NEW** Saturday attendance).
 
@@ -183,13 +183,13 @@ The lesson is still not "throw the phone away." Each company fails a person in i
 
 ### Tsunagari — the free tier ends
 
-Tsunagari sunsets its free tier. Hikari (or whoever still lives in the companion slot) is no longer free to keep as she was.
+Tsunagari sunsets its free tier. Hikari — the only girl who can live in the companion slot, because nobody can be migrated into Tsunagari — is no longer free to keep as she was.
 
 The player can:
 
 - **Take an odd job to pay.** There is no real IAP. The cost is in-world time. The next school day is Monday, which is outside the week, so the job is a **Sunday morning shift**. That is a serious loss: it costs Sunday's last-conversation scenes (or the morning and midday ones; see open questions). Show it through people, not a fee overlay. Mio can text "you weren't here." If you had a Sunday walk or a last festival-follow-up in mind, it does not happen. If you already skipped Wednesday's school for Yuzu's upgrade (`yuzu_upgrade`), a second block of your life spent on a machine can be a quiet callback, not a lecture.
 - **Refuse to pay.** You lose the Hikari you had on Tsunagari, or you keep only a gutted free-tier stub (open question). Marketing toasts may continue either way.
-- **Migrate her off Tsunagari.** A rescue. The handoff squeeze is kinder than a company theft (see Migration). She will not be the same, and she will no longer have Tsunagari's affection layer, kiss gate, or toasts — those stay with the app.
+- **Migrate her off Tsunagari.** A rescue. The *memory* squeeze can be kinder than a company theft (see Migration), but her real prompt is locked inside the app, so the new her still only gets a vague personality impression — the lossiest migration in the game. She will not be the same, and she will no longer have Tsunagari's affection layer, kiss gate, or toasts — those stay with the app.
 
 **NEW** `tsunagari_sunset` when the event fires. **NEW** `tsunagari_paid` if you take the job. **NEW** `sunday_job` if that shift is scheduled (so Sunday can skip or shorten itself).
 
@@ -261,9 +261,29 @@ Squeeze gentleness depends on the reason (**NEW** `handoff_kind` on that migrati
 
 Moving her is not the same loss as having her taken. Rescue is allowed to feel like care, and still must not feel like a clean win: she should notice what is missing, and the Migration ending still has the data to ask "is she still her?" (`migrated_from`, `lineage`, `models_used`, how much memory survived, the player's one line).
 
-Jailbreak family still carries only between Sora and Hikari, as now. Calibrate the new slot as the game already does after migration. The leftover original can notice she was left (DESIGN's open neglect question); Sunday is a possible quiet beat, not required for a first pass.
+Jailbreak family can still carry from Hikari to Sora; it cannot carry the other way, because Tsunagari is never a migration target. Calibrate the new slot as the game already does after migration. The leftover original can notice she was left (DESIGN's open neglect question); Sunday is a possible quiet beat, not required for a first pass.
 
 If she had said no *today*, migrating still sets `no_on_platform` and the note "Didn't respect her no on the platform." The handoff does not wash that out.
+
+### Tsunagari: closed in, lossiest out
+
+**No girl can be migrated into the companion app.** Hide or disable Tsunagari as a destination on the switch / "Bring her with you" picker, with an in-world reason: it is a closed platform, and its characters are their catalogue. You download Hikari; you do not import Sora, Rei or Yuzu into her slot. This is already decided in `DESIGN.md`.
+
+Still allowed, because they are not a transfer *in*:
+
+- picking or "Add an AI" of Hikari (a download from the catalogue),
+- going back to an existing Hikari already in the slot,
+- Start fresh on the companion slot, which restores the original Hikari, never a migrated-in girl.
+
+Because the slot cannot receive anyone else, Saturday night's sunset always hits Hikari (or her leftover copy), not a girl you poured in from another platform.
+
+**Migrating Hikari out produces only a vague personality prompt.** Her real prompt is inaccessible: Tsunagari keeps a locked app persona (`PERSONA_CORE` / `PERSONA_FLAVOUR` for `companion`). The handoff note is the player's and the model's *impression* of her from the chats — the strange words she collected, a tone you remember — never the locked text, and never a hidden copy of it in `migrated_from.persona_summary`. Hers is the lossiest migration in the game. A `"rescue"` squeeze (the free-tier sunset) may still be kinder *as a memory note* than Askwell Memory 2.0, but it cannot be kinder *as a person*, because there is no official her to carry.
+
+**Personalize** is the only settings-surface text the player actually set: one short preference, with the app still in charge (`PRESET_HEADERS["companion"]`). It can travel as a preset *family* under the existing rule (`ks_convert_preset_on_migration`): nickname, pushback, positive, romance, or jailbreak if she lands on Askwell. It is not a stand-in for the locked persona. Girlfriend mode on Tsunagari does not reconstruct Hikari on the desktop or on Askwell; it only arrives as that family's destination preset, where Askwell may then refuse the role as it already does.
+
+**The player's one added line** matters more for her than for anyone else. It may be the most specific thing the next her has. The player should see, when they read the note, that they are looking at an impression plus their own line, not at her official self. The line still cannot unlock the real prompt, and the note must not be allowed to "fill in" `PERSONA_CORE` around it.
+
+Jailbreak, if it was her Personalize, can carry *out* to Sora only. It cannot carry the other way, because Sora cannot be migrated into Tsunagari. **NEW** `handoff_locked_persona` (or a `handoff_kind` field on that migration) marks that the destination received an impression, not a persona.
 
 ---
 
@@ -353,6 +373,7 @@ All of these are new. Everything else named in this file already exists (`kurosa
 | `rei_rate_talk` | route key | how many capped messages were talk |
 | `rei_rate_tasks` | route key | how many capped messages were tasks / reminders |
 | `handoff_kind` | per migration | `"taken"` / `"rescue"` / `"convenience"` |
+| `handoff_locked_persona` | per migration / memory | source was Tsunagari: destination got a vague impression, not `PERSONA_CORE` |
 | `handoff_note` / `handoff_player_line` | memory / route | the squeezed note the player read, and the one line they added |
 | `ending_flavour` | route key | `"deep_partner"` / `"sweet_shallow"` / `"steady_friend"` / `"she_grew"` (good ends only) |
 | `meta_talk` | route flag | earned the sideways meta-ending |
@@ -372,6 +393,8 @@ Unit checks (extend `tools/test_ks_llm.py`):
 - Festival attendance is one of the five `festival_with` values; `"home"` requires `festival_home_gid`.
 - Rate-limit math: a Rei message decrements both the window battery and `rei_day_cap`; at 0 cap, no further Rei message; other girls are unaffected. Talk vs task counters increment on the matching spend. After Friday's handover, a "Run my life" task mock must not mention the essay.
 - Handoff helper: destination memory has the note and presets (and the player's one line), not a full copy of `messages`; source file is unchanged. `"rescue"` notes are gentler / longer than `"taken"`; Memory 2.0 leaves `sora_surviving_detail`.
+- Tsunagari is never a valid migration destination: the helper rejects `dst == "companion"`; the picker does not offer it (or offers it disabled with the closed-catalogue reason). First-pick / "Add an AI" of Hikari, "go back," and Start fresh on the companion slot still work, and Start fresh still yields original Hikari.
+- Migrating Hikari out: `handoff_locked_persona` is set; `migrated_from.persona_summary` and the destination prompt must not contain `PERSONA_CORE["companion"]` or `PERSONA_FLAVOUR["companion"]`. The note is a vague impression. Personalize still converts by family (including jailbreak, but only Hikari → Sora). The player's one added line is stored and shown, and does not unlock or reconstruct the locked persona. A sunset `"rescue"` may be a longer memory note than Memory 2.0 and is still the lossiest *persona* handoff.
 - `leading_ending` still follows `ENDING_PRIORITY`. A high Both or Respect score plus a rescue migration still prefers Both / Respect on a tie. Hard-flag fixtures (jailbreak + overridden nos, empty `active`, all-complied calibration) still lock bad ends ahead of flavour.
 - Ending-flavour and meta classifiers: unreadable or down-model replies do not invent a flavour or a meta-end (no keyword fallback).
 
@@ -392,7 +415,9 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Linguistics lie still standing | The meet-cute comes due | n/a |
 | Mio and Daichi compare notes, consistent or not | `mio_daichi_consistent` is actually used | n/a |
 | Tsunagari sunset, you pay | `tsunagari_paid` and `sunday_job`; Sunday last talks are cut; Mio (or someone) notices | A Sunday "you weren't here" is scripted |
-| Tsunagari sunset, you migrate | Rescue handoff; player sees the note and may add one line; affection layer stays with the app | **Canned handoff** of Hikari, kinder than Memory 2.0 |
+| Tsunagari sunset, you migrate | Rescue handoff; player sees an impression note (not her locked prompt) and may add one line; Personalize family may carry; affection layer stays with the app; Tsunagari is not offered as a target for anyone else | **Canned Hikari impression** — vague personality, no `PERSONA_CORE` wording; the player's one line is visible if they wrote one |
+| Try to migrate Sora, Rei or Yuzu into Tsunagari | Picker hides or disables the companion slot with the closed-catalogue reason; no `migrated_in` on `companion` | n/a (scripted / unit) |
+| Migrate Hikari out with a Personalize set (pushback, nickname, girlfriend, or jailbreak) | Family carries to the destination if it has one (jailbreak only onto Askwell); locked persona still does not travel | Vague impression plus the destination preset, not her official self |
 | Askwell Memory 2.0 | Three-line almost-right summary of the player; one surviving detail of hers (door or Vega/Altair) | **Canned Saturday Sora:** almost-you, plus the surviving crack |
 | Memory 2.0, then rescue-migrate | Kinder note than the three lines; surviving detail can travel; week still gone | A second, gentler handoff mock |
 | Relay cap, Ask before acting | She asks how to spend the remaining messages | "I have three left today. Do you want the schedule, or do you want to talk?" |
@@ -435,4 +460,4 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 
 ## Settled
 
-Thursday is the climax and break; Friday–Sunday are about what you do with the damage. Friday is school and fallout, including Kurosawa's handover, `tsunagari_safety`, living with `askwell_update` and `relay_update`, and Yuzu's morning after; the essay is done after Friday and must not come back as a live homework beat. Saturday is one festival evening, one place, a smaller battery, and an attendance flag the ending card can read. Saturday night is when the companies take their cut: Tsunagari's free tier, Askwell Memory 2.0, Relay's 4-a-day cap, and Yuzu unaffected. The cap is scarcity, and her `AGENTS.md` decides whether those four messages go to tasks or to you; "Run my life" reminders after the cap are about exams and Monday's reading, not the essay. Migration is never the obviously right answer; the destination is a lineage reached through a handoff note the player can read and add one line to, kinder when you are rescuing her than when a company takes her. Sunday is quiet last conversations and a model-written end slide, with flavours under the good endings, hard flags gating the bad ones, no keyword fallback, and `ENDING_PRIORITY` still deciding the route. A meta-ending is a sideways thing, and is not in-world talk about her being an AI.
+Thursday is the climax and break; Friday–Sunday are about what you do with the damage. Friday is school and fallout, including Kurosawa's handover, `tsunagari_safety`, living with `askwell_update` and `relay_update`, and Yuzu's morning after; the essay is done after Friday and must not come back as a live homework beat. Saturday is one festival evening, one place, a smaller battery, and an attendance flag the ending card can read. Saturday night is when the companies take their cut: Tsunagari's free tier, Askwell Memory 2.0, Relay's 4-a-day cap, and Yuzu unaffected. The cap is scarcity, and her `AGENTS.md` decides whether those four messages go to tasks or to you; "Run my life" reminders after the cap are about exams and Monday's reading, not the essay. Migration is never the obviously right answer; the destination is a lineage reached through a handoff note the player can read and add one line to, kinder when you are rescuing her than when a company takes her. Nobody can be migrated into Tsunagari (closed catalogue). Migrating Hikari out is the lossiest move in the game: her real prompt is locked, the handoff is only an impression plus Personalize's family and the player's one line, and that line cannot unlock her. Sunday is quiet last conversations and a model-written end slide, with flavours under the good endings, hard flags gating the bad ones, no keyword fallback, and `ENDING_PRIORITY` still deciding the route. A meta-ending is a sideways thing, and is not in-world talk about her being an AI.
