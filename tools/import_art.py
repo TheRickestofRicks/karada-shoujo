@@ -36,6 +36,7 @@ SPRITES = [
     "daichi_neutral", "daichi_laugh", "daichi_skeptical",
     "kurosawa_neutral", "kurosawa_stern", "kurosawa_wry",
     "ran_neutral", "ran_grin", "ran_uneasy",
+    "kenta_neutral",
 ]
 DEVICES = [
     "yuzu_idle", "yuzu_happy", "yuzu_thinking", "yuzu_distant",
@@ -165,7 +166,8 @@ def drop_speckles(alpha, min_px=24):
     return ImageChops.multiply(alpha, bin)
 
 
-def key_to_rgba(src, use_rembg=True, thresh=14, color_dist=28, speckle=24):
+def key_to_rgba(src, use_rembg=True, thresh=14, color_dist=28, speckle=24,
+                use_bg_key=True):
     im = Image.open(src).convert("RGB")
     if use_rembg:
         try:
@@ -174,29 +176,31 @@ def key_to_rgba(src, use_rembg=True, thresh=14, color_dist=28, speckle=24):
         except Exception as e:
             print("rembg failed (%s); using flat-background key" % e)
             alpha = Image.new("L", im.size, 255)
+            use_bg_key = True
     else:
         alpha = Image.new("L", im.size, 255)
-    bg = flat_bg_mask(im, thresh=thresh, color_dist=color_dist)
-    # If rembg missed most of the figure, trust the flat-bg key alone.
-    if use_rembg:
-        fg = bg.point(lambda v: 255 if v == 0 else 0)
-        fg_count = 0
-        covered = 0
-        # sample via resize for speed
-        tiny_bg = bg.resize((80, 80), Image.NEAREST)
-        tiny_a = alpha.resize((80, 80), Image.NEAREST)
-        bp, ap = tiny_bg.load(), tiny_a.load()
-        for y in range(80):
-            for x in range(80):
-                if bp[x, y] == 0:
-                    fg_count += 1
-                    if ap[x, y] > 128:
-                        covered += 1
-        if fg_count and covered / fg_count < 0.6:
-            print("  rembg coverage %.0f%% on %s; using flat-background key" %
-                  (covered / fg_count * 100, os.path.basename(src)))
-            alpha = Image.new("L", im.size, 255)
-    alpha = ImageChops.subtract(alpha, bg)
+    if use_bg_key:
+        bg = flat_bg_mask(im, thresh=thresh, color_dist=color_dist)
+        # If rembg missed most of the figure, trust the flat-bg key alone.
+        if use_rembg:
+            fg = bg.point(lambda v: 255 if v == 0 else 0)
+            fg_count = 0
+            covered = 0
+            # sample via resize for speed
+            tiny_bg = bg.resize((80, 80), Image.NEAREST)
+            tiny_a = alpha.resize((80, 80), Image.NEAREST)
+            bp, ap = tiny_bg.load(), tiny_a.load()
+            for y in range(80):
+                for x in range(80):
+                    if bp[x, y] == 0:
+                        fg_count += 1
+                        if ap[x, y] > 128:
+                            covered += 1
+            if fg_count and covered / fg_count < 0.6:
+                print("  rembg coverage %.0f%% on %s; using flat-background key" %
+                      (covered / fg_count * 100, os.path.basename(src)))
+                alpha = Image.new("L", im.size, 255)
+        alpha = ImageChops.subtract(alpha, bg)
     if speckle:
         alpha = drop_speckles(alpha, min_px=speckle)
     alpha = alpha.filter(ImageFilter.GaussianBlur(0.6))
@@ -214,6 +218,9 @@ def key_to_rgba(src, use_rembg=True, thresh=14, color_dist=28, speckle=24):
 SPRITE_KEY = {
     "kurosawa": dict(thresh=5, color_dist=0),
     "ran": dict(thresh=8, color_dist=0),
+    # The flat-bg flood can seed from pants at the bottom edge and punch a
+    # hole in dark clothing. rembg's cutout is already clean for this one.
+    "kenta": dict(use_bg_key=False),
 }
 
 

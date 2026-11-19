@@ -28,7 +28,7 @@ Line citations look like `file:line` and point at the current tree.
 | `chatbot` | Sora | Askwell (big chatbot) | chat-window orb |
 | `agent` | Rei | Relay (agent platform) | dashboard |
 
-Humans (scripted only): **Mio** (crush), **Daichi** (friend), **Kurosawa-sensei**, **Ran** (and her model **MUGEN**), **Kenta**. Kenta has a character tag (`ke`) but **no sprite** and is never `show`n (`art.rpy`; also noted in `DESIGN.md`).
+Humans (scripted only): **Mio** (crush), **Daichi** (friend), **Kurosawa-sensei**, **Ran** (and her model **MUGEN**), **Kenta**. Kenta has a character tag (`ke`) and a thigh-up sprite (`kenta neutral` in `art.rpy`), shown with Daichi in `lunch_kenta`.
 
 Player name defaults to "Haru" (`script.rpy:61–62`).
 
@@ -266,7 +266,7 @@ Then `route["ran_festival_setup"] = True` (she mentions Saturday's stall). A day
 
 ### Lunch: Daichi brings Kenta — `label lunch_kenta` (`tuesday.rpy:214`)
 
-Kenta talks about AI-edited texts to his girlfriend. Dialogue branches on `friend_told`:
+Daichi is shown at `ks_left` and Kenta at `ks_right`. Kenta talks about AI-edited texts to his girlfriend. Dialogue branches on `friend_told`:
 
 - `"truth"`: he reacts to one girl, two girls, or (if you already dropped everyone) "you looked lonely."
 - `"lie"`: "the guy with the linguistics girlfriend." Menu (`tuesday.rpy:236`): invent "Yuzuha" (day note only) **or** come clean → `friend_told = "truth"`, all memories updated.
@@ -802,7 +802,6 @@ These exist as comments, flags, or design, but have **no playable Thursday–Sun
 - **Mio and Daichi compare notes.** Monday's library can set `mio_told` (`truth` / `lie` / `deflect`) and `mio_daichi_consistent`. The later scene that uses them is a hook only. Wednesday still has Mio refer to the AI girl from `friend_told` alone (`ks_mio_ai_ref`).
 - **Good-end variants / conversation-reflection end cards** (a summarizer that judges how you treated her, rather than "one message a day") were discussed after this commit; they are **not in the tree**.
 - **Hearth / upgrade UI beyond the Wednesday menus**, streaming replies, and real-model tuning are leftover production work, not story branches.
-- Kenta's sprite is still missing (`DESIGN.md`: "Kenta has no sprite yet.").
 - Push-past-a-no detection is **keyword-only** (`looks_like_pushback`). A model classifier for "pushed" is not in the game loop (warmth/kiss classification is Hikari-only).
 - Copy-migration: the girl left behind in the source slot stays in her file but is no longer `active`. A later "quiet event" for her is an open design question, not a scene.
 

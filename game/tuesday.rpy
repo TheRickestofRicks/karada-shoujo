@@ -215,9 +215,11 @@ label class_kurosawa:
 label lunch_kenta:
     scene bg cafeteria
     with fade
-    show daichi at ks_center
+    show daichi at ks_left
     with dissolve
     d "Oi. This is Kenta, from futsal. He's sitting with us now. He has a problem."
+    show kenta at ks_right
+    with dissolve
     ke "I don't have a problem."
     d "He has his AI write the texts to his girlfriend."
     ke "It doesn't {i}write{/i} them. It edits them. Heavily."
@@ -271,6 +273,7 @@ label lunch_kenta:
     show daichi neutral
     d "Oh, and Mio was asking about you again. She said \"is he coming today\" and then pretended she hadn't said anything."
     hide daichi
+    hide kenta
     with dissolve
     return
 

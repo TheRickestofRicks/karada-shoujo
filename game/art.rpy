@@ -77,6 +77,7 @@ image daichi skeptical = ks_file("images/sprites/daichi_skeptical.png", _DAI_FB)
 init -4 python:
     _KUR_FB = ks_person_fallback("kurosawa_name", "#4a4a4a", "#333333", "#d8cfc0")
     _RAN_FB = ks_person_fallback("ran_name", "#111111", "#151515", "#c9a8ff")
+    _KEN_FB = ks_person_fallback("kenta_name", "#6b4a32", "#7ec8b3", "#9be0b0")
 image kurosawa = "kurosawa neutral"
 image kurosawa neutral = ks_file("images/sprites/kurosawa_neutral.png", _KUR_FB)
 image kurosawa stern   = ks_file("images/sprites/kurosawa_stern.png",   _KUR_FB)
@@ -85,6 +86,8 @@ image ran = "ran neutral"
 image ran neutral = ks_file("images/sprites/ran_neutral.png", _RAN_FB)
 image ran grin    = ks_file("images/sprites/ran_grin.png",    _RAN_FB)
 image ran uneasy  = ks_file("images/sprites/ran_uneasy.png",  _RAN_FB)
+image kenta = "kenta neutral"
+image kenta neutral = ks_file("images/sprites/kenta_neutral.png", _KEN_FB)
 
 ## ── AI girls: one image per platform slot, mood + migration aware ────────
 default girl_mood = {"local": "neutral", "companion": "neutral", "chatbot": "neutral", "agent": "neutral"}
