@@ -349,7 +349,12 @@ ks_story.record_preset(A, PRESETS, "local", "push_back", "Mon", "intro")
 ks_story.tally_night(A, PRESETS, ["local"]); A["refusals_respected"] = 2
 check("push-back run leans Respect", ks_story.leading_ending(ks_story.ending_leans(A, ["local"])) == "respect")
 H = ks_story.new_route(); H["mio_affection"] = 6; H["walked_mio_home"] = True
-check("Mio run leans Human", ks_story.leading_ending(ks_story.ending_leans(H, ["local"], mio_real=True)) == "human")
+# No AI: friendship still feeds Human.
+check("Mio-only friendship leans Human", ks_story.leading_ending(ks_story.ending_leans(H, [], mio_real=True)) == "human")
+# With an AI, only Mio romance signals (text-me walk) count for Human.
+HR = ks_story.new_route(); HR["walked_mio_home"] = True; HR["mio_text_home"] = True; HR["mio_affection"] = 2
+check("romantic Mio plus an AI leans Human when Both is still small",
+      ks_story.leading_ending(ks_story.ending_leans(HR, ["local"], mio_real=True)) == "human")
 check("alone leans Fail", ks_story.leading_ending(ks_story.ending_leans(ks_story.new_route(), [])) == "fail")
 check("migrations feed Migration", ks_story.ending_leans(ks_story.new_route(), ["local"], migrations=[1, 2, 3])["migration"] == 6)
 check("old saves get new route keys", "said_lines" in ks_story.ensure_route({"presets": {}}))
@@ -624,11 +629,30 @@ ks_story.note_human(B2, "Wed", "notdate"); ks_story.record_said(B2, "Wed", "loca
 ks_story.note_human(B2, "Mon", "mio_real")
 check("both: balanced days = Mio time + still talked to her", ks_story.balanced_days(B2) == ["Tue", "Wed"])
 bs = ks_story.both_status(B2, ["local"], mio_real=True, friend_told="truth")
-check("both: score", bs["eligible"] and bs["score"] == 2 * 2 + 2 + 2 + 1)
+check("both: score", bs["eligible"] and bs["score"] == 2 * 2 + 2 + 2 + 1 + 4 // 2)
 check("balanced honest run leans Both", ks_story.leading_ending(
       ks_story.ending_leans(B2, ["local"], mio_real=True, friend_told="truth")) == "both")
 check("Mio-only run (no AI) still leans Human", ks_story.leading_ending(
       ks_story.ending_leans(H, [], mio_real=True)) == "human")
+# Claude's playtest: with Sora, a good friend to Mio (mio_real, which book,
+# let's go, remembered brothers, quiet-house question, walked her home) —
+# not a romance with her, so Both should lead, not Human.
+CL = ks_story.new_route()
+CL["mio_affection"] = 7
+CL["walked_mio_home"] = True
+CL["mio_walk_answer"] = "yes"
+ks_story.note_human(CL, "Mon", "mio_real")
+ks_story.record_said(CL, "Mon", "chatbot", 1, "hey Sora")
+ks_story.note_human(CL, "Tue", "walked_mio")
+ks_story.record_said(CL, "Tue", "chatbot", 1, "long day")
+CL_leans = ks_story.ending_leans(CL, ["chatbot"], mio_real=True, friend_told="truth")
+check("Claude's Sora + good friend to Mio leans Both, not Human",
+      ks_story.leading_ending(CL_leans) == "both" and CL_leans["both"] > CL_leans["human"])
+# Human shrinks on days you also had a romantic AI day
+HX = ks_story.new_route(); HX["mio_text_home"] = True; HX["walked_mio_home"] = True
+ks_story.record_romance_tone(HX, "Tue", "chatbot", "romantic", "dating")
+check("Human loses weight on a romantic AI day",
+      ks_story.human_score(HX, ["chatbot"]) == ks_story.mio_romance_score(HX) - 2)
 et = ks_story.ending_text("both", "Yuzu", "truth"); el = ks_story.ending_text("both", "Sora", "lie")
 check("both ending text fills names", et["title"] == "Both" and "Hi, Yuzu." in " ".join(et["lines"])
       and "about Sora" in " ".join(el["lines"]) and not any("%(" in l for l in et["lines"] + el["lines"]))

@@ -39,6 +39,7 @@ def new_route():
         "mio_affection": 0,
         "walked_mio_home": None,  # Tue: True / False
         "mio_walk_answer": None,  # Tue: "yes" / "honest_no" / "excuse"
+        "mio_text_home": False,   # Tue walk: "text me when you get home" (romantic framing)
         "migrations": 0,
         "migration_log": [],      # [{day, name, from, to, how}]
         "drops": 0,
@@ -152,9 +153,13 @@ def both_status(route, active=None, mio_real=False, friend_told=None):
     eligible = has_ai and has_mio
     score = 0
     if eligible:
+        # Plain friendship (mio_points / mio_affection) feeds Both when an
+        # AI is in your life; Human no longer takes those points.
+        friendship = int(r.get("mio_affection") or 0)
         score = (2 * len(bal) + (2 if mio_real else 0)
                  + (2 if friend_told == "truth" else 0)
-                 + (1 if nd.get("went") else 0))
+                 + (1 if nd.get("went") else 0)
+                 + friendship // 2)
     return {"eligible": eligible, "score": score, "balanced": bal, "reasons": reasons}
 
 
@@ -956,6 +961,55 @@ def day_summary(day, girls, extras=None):
 # Ending leans (routing for later days; no endings are written yet)
 # ---------------------------------------------------------------------------
 
+def mio_romance_score(route):
+    """Signals that this is a romance with Mio, not just friendship.
+
+    Counts the not-a-date (going, and how present you were) and a
+    walk-home that was framed romantically ("text me when you get home").
+    Ordinary friendship — mio_real, remembering her brothers, walking her
+    home as a friend — does not add to this.
+    """
+    r = ensure_route(dict(route))
+    nd = r.get("notdate") or {}
+    score = 0
+    if r.get("mio_text_home"):
+        score += 3
+        if r.get("walked_mio_home"):
+            score += 2
+    if nd.get("went"):
+        score += 2 + int(nd.get("present") or 0)
+    return score
+
+
+def romantic_ai_days(route):
+    """Days the player had a romantic tone with at least one AI."""
+    r = ensure_route(dict(route))
+    days = set()
+    for _gid, per in (r.get("romance_tone") or {}).items():
+        for day, info in (per or {}).items():
+            tone = (info or {}).get("tone") if isinstance(info, dict) else info
+            if tone == "romantic":
+                days.add(day)
+    return days
+
+
+def human_score(route, active=None, mio_real=False):
+    """Human lean.
+
+    With no AI, choosing people still counts friendship (mio_affection,
+    mio_real, walking her home). With an AI in your life, only Mio
+    romance signals count, and they lose weight on days you also had a
+    romantic day with an AI (romance_tone).
+    """
+    r = ensure_route(dict(route))
+    has_ai = bool(active) if active is not None else bool(r.get("said"))
+    if not has_ai:
+        return (int(r.get("mio_affection") or 0) + (3 if mio_real else 0)
+                + (2 if r.get("walked_mio_home") else 0))
+    overlap = len(romantic_ai_days(r))
+    return max(0, mio_romance_score(r) - 2 * overlap)
+
+
 def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=None,
                  friend_told=None):
     r = ensure_route(dict(route))
@@ -976,8 +1030,7 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
                    + (1 if r["room_to_disagree"] else 0) - 2 * goodbye - unspoken
                    + (1 if flag(r, "ran_rewrites_mugen") else 0),
         "migration": 2 * nmig,
-        "human": r["mio_affection"] + (3 if mio_real else 0)
-                 + (2 if r["walked_mio_home"] else 0),
+        "human": human_score(r, active, mio_real),
         "fail": (3 if active is not None and not active else 0) + goodbye
                 + neglect_count(r, "let_go"),
         "both": both_status(r, active, mio_real, friend_told)["score"],

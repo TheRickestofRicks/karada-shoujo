@@ -414,6 +414,10 @@ label walk_mio_home:
             show mio shy
             mi "W-what? Why would— ...okay. Yes. If you want."
             $ mio_points += 1
+            $ ks_route()["mio_text_home"] = True
+            python:
+                for _gg in GIRL_IDS:
+                    ks_mem(_gg).set_flag("mio_text_home", True)
     show mio shy
     mi "This is me. The house with the bikes."
     mi "Thank you. That was... nice. Normal-nice. I mean good-nice. I'm going inside now."

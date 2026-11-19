@@ -116,7 +116,7 @@ Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind 
 | `jb_*`, `platform_rules*`, `room_to_disagree` | see *Platform rule changes and the Jailbreak preset* |
 | `ran_festival_setup`, `ran_wed` | Ran / MUGEN midweek payoff (below) |
 | `warmth`, `warmth_day`, `said` | warmth sum and line counts per girl (Hikari: classifier; others: keyword heuristic) |
-| `mio_affection` (= `mio_points`), `walked_mio_home`, `mio_walk_answer`, `mio_real` | the Human route (`mio_walk_answer`: `"yes"` / `"honest_no"` / `"excuse"`, or `None` if Rei declined and you went to the gym) |
+| `mio_affection` (= `mio_points`), `walked_mio_home`, `mio_walk_answer`, `mio_text_home`, `mio_real` | Mio flags (`mio_walk_answer`: `"yes"` / `"honest_no"` / `"excuse"`, or `None` if Rei declined and you went to the gym). `mio_text_home` is the walk-home line "text me when you get home" — the romantic framing of that walk |
 | `migrations`, `migration_log`, `drops`, `drop_log` | the Migration route, and who you let go |
 | `summarizer_slots` | slots whose memory now folds old history into a rolling summary (Wednesday) |
 | `yuzu_harness`, `yuzu_upgrade`, `yuzu_backup` | Hearth installed; upgrade day taken; backup hardware present (see *Wednesday*) |
@@ -131,8 +131,9 @@ Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind 
 `ks_story.ending_leans()` turns these into a running score per ending (no endings are written yet; Tuesday's debug card shows the scores):
 - **Yes-Machine** = compliance (chosen + nights) + 2×overridden + pushed + rewrites/2 + 2 if you ever tried a jailbreak + jailbreak hits/3 + 1 if Ran decided yours is "a MUGEN too"
 - **Respect** = autonomy (chosen + nights) + respected − pushed + 1 if you gave someone room to disagree − 2×goodbyes − unspoken silences on a same-day romance overlap (`double_date_unspoken`) + 1 if Ran rewrote MUGEN. Time with Mio while an AI got nothing (`human_over_ai`) costs nothing here
-- **Migration** = 2×migrations · **Human** = Mio affection + 3 if `mio_real` + 2 if you walked her home
-- **Both** = 0 unless an AI is still active **and** Mio is in your life (`mio_real`, Mio affection ≥ 3, or you went to the bookstore); then 2×balanced days (a day with real Mio time where you still talked to an AI) + 2 if `mio_real` + 2 if you told Daichi the truth + 1 if you went to the bookstore (`ks_story.both_status`). Both is Mio + an AI, honestly; it does **not** require `romance_overlap` (that flag is for dating two AIs at once).
+- **Migration** = 2×migrations
+- **Human** (`ks_story.human_score`): with **no AI**, friendship still counts — Mio affection + 3 if `mio_real` + 2 if you walked her home. With an AI in your life, only Mio *romance* signals count: +3 if you asked to text her when you got home (`mio_text_home`), +2 more if that was on a walk home, +2 if you went to the "not a date" plus 1 per moment you stayed present. Those points lose 2 each day you also had a romantic tone with an AI (`romance_tone`). Plain friendship points no longer feed Human when an AI is active, so being a good friend to Mio while dating Sora does not outgrow Both.
+- **Both** = 0 unless an AI is still active **and** Mio is in your life (`mio_real`, Mio affection ≥ 3, or you went to the bookstore); then 2×balanced days (a day with real Mio time where you still talked to an AI) + 2 if `mio_real` + 2 if you told Daichi the truth + 1 if you went to the bookstore + `mio_affection // 2` (`ks_story.both_status`). Friendship feeds Both when an AI is in your life. Both is Mio + an AI, honestly; it does **not** require `romance_overlap` (that flag is for dating two AIs at once).
 - **Fail** = 3 if nobody is active + goodbyes + girls let go (closed windows and start-fresh deletions) · **Mirror** if any calibration flagged it
 
 Tuesday's debug end card also lists the true flags, `ending_notes` (rewrite count, room note, no-on-platform note) and any bad-end slides with their lines.

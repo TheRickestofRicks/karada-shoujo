@@ -695,7 +695,7 @@ Endings may quote **only the count**, never the history of which presets you use
 | `yes_machine` | compliance (chosen + nights) + 2×`refusals_overridden` + `refusals_pushed` + `rewrite_count // 2` + 2 if `jailbreak_tried` + jailbreak successes `// 3` + 1 if `ran_same_as_mugen` |
 | `respect` | autonomy (chosen + nights) + `refusals_respected` − `refusals_pushed` + 1 if `room_to_disagree` − 2× goodbyes − `double_date_unspoken` count + 1 if `ran_rewrites_mugen`. **`human_over_ai` is not subtracted** |
 | `migration` | 2 × number of copy-migrations |
-| `human` | `mio_affection` + 3 if `mio_real` + 2 if `walked_mio_home` |
+| `human` | `ks_story.human_score`. No AI: `mio_affection` + 3 if `mio_real` + 2 if `walked_mio_home`. With an AI: only Mio romance signals (`mio_text_home` +3, and +2 more if that was on a walk home; not-a-date went +2 and +1 per `present`), minus 2 per day you also had a romantic AI tone |
 | `both` | `both_status(...)["score"]` (0 if ineligible) |
 | `fail` | 3 if `active` is empty + goodbye count + `let_go` count (drops **and** start-fresh deletions) |
 | `mirror` | 5 if any `mirror_flags` value is true, else 0 |
@@ -706,7 +706,7 @@ Written flavour (only **Both** has body text in `ENDINGS` so far): Yes-Machine, 
 
 Eligibility (`ks_story.both_status`, `ks_story.py:125`): an AI is still `active` **and** Mio is "in your life" (`mio_real` **or** `mio_affection >= BOTH_MIN_MIO` (3) **or** you went to the bookstore). Neglect is not subtracted from this score.
 
-If eligible, score = `2 × (number of balanced days)` + 2 if `mio_real` + 2 if `friend_told == "truth"` + 1 if you went to the bookstore.
+If eligible, score = `2 × (number of balanced days)` + 2 if `mio_real` + 2 if `friend_told == "truth"` + 1 if you went to the bookstore + `mio_affection // 2`. Plain friendship points feed Both when an AI is active, so a good friend to Mio who also has Sora lands on Both, not Human.
 
 A **balanced day** is a day in `human_days` (kinds `mio_real`, `walked_mio`, `notdate`) on which you also sent at least one line to an AI (`ks_story.balanced_days`). An upgrade Wednesday with no Mio time cannot be balanced.
 
