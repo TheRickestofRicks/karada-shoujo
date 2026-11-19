@@ -24,8 +24,9 @@ init python:
             extra += "Your platform shipped a memory update overnight: older conversations now get summarized instead of forgotten. "
         if gid == "local" and ks_route()["yuzu_harness"]:
             extra += "{player} installed a harness called Hearth this morning, so you can see their calendar now. ".format(player=player_name)
-        return WED_MORNING_SCENE.format(name=gname(gid), player=player_name,
+        note = WED_MORNING_SCENE.format(name=gname(gid), player=player_name,
                                         platform=gplatform(gid), extra=extra)
+        return ks_story.with_situation(note, "Wednesday morning")
 
     def ks_mio_ai_ref(gid):
         """How Mio refers to the one you're texting (she only knows what

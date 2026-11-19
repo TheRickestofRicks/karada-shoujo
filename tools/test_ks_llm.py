@@ -546,4 +546,84 @@ et = ks_story.ending_text("both", "Yuzu", "truth"); el = ks_story.ending_text("b
 check("both ending text fills names", et["title"] == "Both" and "Hi, Yuzu." in " ".join(et["lines"])
       and "about Sora" in " ".join(el["lines"]) and not any("%(" in l for l in et["lines"] + el["lines"]))
 
+
+# ---------------------------------------------------------------------------
+# Persona flavour nudges + scene situation lines (day-2 morning sag)
+# ---------------------------------------------------------------------------
+FLAVOUR = eval(_re.search(r"define PERSONA_FLAVOUR = (\{.*?\})", _src, _re.S).group(1))
+check("flavour nudge for all four girls", set(FLAVOUR) == {"local", "chatbot", "agent", "companion"})
+check("every flavour nudge keeps brief from meaning generic",
+      all("Brief doesn't have to mean generic" in FLAVOUR[g] for g in FLAVOUR))
+check("flavour is in each girl's voice",
+      "word you'd actually use" in FLAVOUR["local"] and "time of day" in FLAVOUR["local"]
+      and "word you like" in FLAVOUR["chatbot"] and "precise observation" in FLAVOUR["chatbot"]
+      and "dry observation" in FLAVOUR["agent"] and "next step" in FLAVOUR["agent"]
+      and "word you've been collecting" in FLAVOUR["companion"])
+check("flavour is not stuffed into player preset text",
+      all("Brief doesn't have to mean generic" not in (p.get("text") or "") for g in PRESETS for p in PRESETS[g]))
+LN = _re.search(r'define LAST_NIGHT_NOTE = ("(?:[^"\\]|\\.)*")', _src).group(1)
+LN = eval(LN)
+check("morning notes remember last night's tastes",
+      "word you liked" in LN and "last night" in LN.lower())
+# Ren'Py concatenates LAST_NIGHT_NOTE into the Tuesday / Wednesday morning templates.
+check("Tue/Wed morning templates include last-night continuity",
+      'TUE_MORNING_SCENE = "Tuesday morning' in _src and "LAST_NIGHT_NOTE" in _src
+      and 'WED_MORNING_SCENE = "Wednesday morning' in _src)
+check("summarizer prompt keeps favourite words",
+      "favourite words" in ks_llm.SUMMARY_SYSTEM or "favorite words" in ks_llm.SUMMARY_SYSTEM)
+
+sit_cases = [
+    ("Monday morning, before class", "", ks_story.SITUATION_MORNING),
+    ("Monday, late morning", "", ks_story.SITUATION_LATE_MORNING),
+    ("Monday afternoon", "", ks_story.SITUATION_LUNCH),
+    ("Monday evening", "", ks_story.SITUATION_EVENING),
+    ("Monday night", "", ks_story.SITUATION_NIGHT),
+    ("Tuesday, late morning", "", ks_story.SITUATION_LATE_MORNING),
+    ("Tuesday afternoon", "", ks_story.SITUATION_LUNCH),
+    ("Tuesday night", "", ks_story.SITUATION_NIGHT),
+    ("Wednesday, late morning", "", ks_story.SITUATION_LATE_MORNING),
+    ("Wednesday night", "", ks_story.SITUATION_NIGHT),
+    ("", "Tuesday morning, about 7:30. He is getting ready for university and opened Askwell.", ks_story.SITUATION_MORNING),
+    ("Tuesday morning", "Tuesday morning, about 7:30. If last night left you with something of your own — a word you liked — it can still be with you this morning.", ks_story.SITUATION_MORNING),
+    ("", "Tuesday, late afternoon, after classes. He has a free hour and opened Askwell.", ks_story.SITUATION_AFTERNOON_HOME),
+    ("", "Tuesday night, around 10 PM. He is home after a long day at university.", ks_story.SITUATION_NIGHT),
+    ("", "Wednesday morning, about 7:30. He is getting ready for the day.", ks_story.SITUATION_MORNING),
+    ("", "Wednesday, late afternoon. He has some free time and opened Askwell.", ks_story.SITUATION_AFTERNOON_HOME),
+    ("", "Wednesday afternoon. He is out somewhere and sends you a quick text from their phone.", ks_story.SITUATION_AFTERNOON_OUT),
+    ("", "Wednesday night, around 10 PM. He is home and opened Askwell. It was a quiet day.", ks_story.SITUATION_NIGHT),
+    ("", "Wednesday, around noon. He skipped classes today to upgrade the computer you run on.", ks_story.SITUATION_MIDDAY),
+]
+sit_ok = all(ks_story.situation_line(w, n) == expect for w, n, expect in sit_cases)
+if not sit_ok:
+    for w, n, expect in sit_cases:
+        got = ks_story.situation_line(w, n)
+        if got != expect:
+            print("  SIT FAIL when=%r note=%r got=%r expect=%r" % (w, n[:60], got, expect))
+check("situation lines cover every girl_chat / phone-talk window", sit_ok)
+note = "Tuesday night, around 10 PM. He is home after a long day at university."
+check("with_situation appends once",
+      ks_story.with_situation(note).endswith(ks_story.SITUATION_NIGHT)
+      and ks_story.with_situation(ks_story.with_situation(note)).count(ks_story.SITUATION_NIGHT) == 1)
+check("phone late-morning uses the between-classes line",
+      ks_story.SITUATION_LATE_MORNING in ks_story.with_situation(
+          "Monday, late morning. He glances at their phone.", "Monday, late morning"))
+
+# Previous-night memory still reaches a Tuesday-morning prompt, even when
+# Monday was long enough to overflow history_messages.
+npath = os.path.join(tempfile.mkdtemp(), "mem_night.json")
+NM = ks_llm.Memory(npath); NM.fresh("Sora")
+for i in range(20):
+    NM.add("user", "hello %d" % i, "Mon", "mon_chat")
+    NM.add("assistant", "reply %d" % i, "Mon", "mon_chat")
+NM.add("user", "what's a word you like?", "Mon", "mon_evening")
+NM.add("assistant", "Denouement. I find it satisfying.", "Mon", "mon_evening")
+tue_note = ks_story.with_situation(
+    "Tuesday morning, about 7:30. He is getting ready for university.", "Tuesday morning")
+nmsgs = NM.build_messages("SYS", 24, tue_note)
+nbody = "\n".join(m["content"] for m in nmsgs)
+check("Tuesday morning scene note is in the system prompt",
+      ks_story.SITUATION_MORNING in nmsgs[0]["content"])
+check("previous-night favourite word reaches Tuesday morning",
+      "Denouement" in nbody and "I find it satisfying" in nbody)
+
 print("\nALL %d CHECKS PASSED" % ok)

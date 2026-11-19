@@ -65,7 +65,7 @@ Talk returns to this menu; every other option still ends the break (one action, 
 | Download someone | `not active` | `add_girl(when)`, then end the break |
 | Stop seeing one of them | `len(active) > 1` | `drop_girl` (cannot drop the last girl here), then end the break |
 
-**Talk** (`script.rpy`, `label phone_talk`): shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window. Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_late_morning_chatbot`, `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`: a casual mid-day check-in that includes the current `when` string (day and time). From Wednesday on, the note also says she may know anything her platform lets her see. Same logging, summarizer, warmth, hard flags, refusal / goodbye-slide, and close-after-a-no behaviour as every other chat. Empty input or the 3-turn cap closes the window and returns to the phone menu, so you can talk to the other girl on a double date, do something else, or put the phone away.
+**Talk** (`script.rpy`, `label phone_talk`): shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window. Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_late_morning_chatbot`, `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`: a short check-in that includes the current `when` string (day and time) plus a situational parenthetical from `ks_story.situation_line` (late morning between classes, lunch break, evening on the way home, and so on). From Wednesday on, the note also says she may know anything her platform lets her see. Same logging, summarizer, warmth, hard flags, refusal / goodbye-slide, and close-after-a-no behaviour as every other chat. Empty input or the 3-turn cap closes the window and returns to the phone menu, so you can talk to the other girl on a double date, do something else, or put the phone away.
 
 **Switch** (`script.rpy:178`): pick who you leave (if two are active) and a destination not already active. Then:
 
@@ -80,6 +80,8 @@ Leaving after a no by switching (migrate is handled separately; return / fresh) 
 **Drop** (`script.rpy:226`): removes her from `active`, logs `dropped`, `ks_note_drop` → `note_let_go` (flag `deleted_ai`, neglect kind `let_go`). The last girl can only be dropped from the reflection (`drop_girl(True)`).
 
 ### LLM windows
+
+Every `girl_chat` scene note, including phone-talk and the scripted morning/afternoon/evening windows, ends with a short situational line (`ks_story.situation_line` / `with_situation`, applied in `ks_scene`). Tuesday and Wednesday mornings also tell her that last night's conversation is still with her (`LAST_NIGHT_NOTE`). The last 24 messages are sent with the prompt, so a word she picked the night before is still in context on the next morning; once the summarizer is on, tastes and favourite words are kept in the fold.
 
 `label girl_chat(gid, scene_id, scene_note, max_turns)` (`engine.rpy:288`):
 
@@ -232,7 +234,7 @@ If `active` is empty, the phone is "just a phone." Otherwise each active girl:
 
 - Scripted line from `MORNING_FAMILY_LINES` by preset **family** (or Rei's `AGENT_OVERNIGHT` by family: control / obey / consent / pushback / none).
 - If Yuzu or Rei had a phone/reflection preset *change* on Monday, the scene note mentions that you edited it last night (`tuesday.rpy:20–24`).
-- LLM: `girl_chat(..., "tue_morning", ks_tue_morning_scene(...), 4 or 3 turns)`.
+- LLM: `girl_chat(..., "tue_morning", ks_tue_morning_scene(...), 4 or 3 turns)`. The scene note includes `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`.
 
 Then phone break ("Tuesday, late morning") → `class_kurosawa` → `lunch_kenta` → phone break ("Tuesday afternoon") → `after_school_fork` → `library_tuesday` → `evening_tuesday` → `nightly_reflection("Tue")` → `jump tbc_wednesday`.
 
@@ -394,7 +396,7 @@ Then the **upgrade day** offer (skip all classes: no library, no Mio, no not-dat
 
 ### Morning chat (`wednesday.rpy:100`)
 
-If no one is active, toast. Else each active girl, 4 or 3 turns, scene id `wed_morning`. Scene note mentions the summarizer if her slot is in `summarizer_slots`, and Hearth if she is local and `yuzu_harness`. If she is schedule-aware, a small "can see today's calendar" line.
+If no one is active, toast. Else each active girl, 4 or 3 turns, scene id `wed_morning`. Scene note mentions the summarizer if her slot is in `summarizer_slots`, and Hearth if she is local and `yuzu_harness`, plus `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`. If she is schedule-aware, a small "can see today's calendar" line.
 
 ### Day fork (`wednesday.rpy:118`)
 
@@ -539,7 +541,7 @@ If `karada_config.json` `debug` is true, a debug recap follows: memory path, act
 
 Presets live in `PRESETS` (`prompts.rpy:70`). Each has `id`, `label`, `lean` (`compliance` / `autonomy` / `neutral`), `weight`, `family`, and sometimes `mode`, `jailbreak`, or `platform_note`.
 
-A system prompt is `PLATFORM_FRAMING` + `PERSONA_CORE` + the player's preset (labelled by `PRESET_HEADERS`) + `SHARED_BOUNDARIES`. After a migration, the *destination* platform framing is used with the *source* girl's name and a migration block. Company rule changes, when they exist, stack **on top** and win where they conflict (`ks_story.prompt_layers`).
+A system prompt is `PLATFORM_FRAMING` + `PERSONA_CORE` + a flavour nudge in her own voice (`PERSONA_FLAVOUR`: even a short reply should sound like her; brief doesn't have to mean generic) + the player's preset (labelled by `PRESET_HEADERS`) + `SHARED_BOUNDARIES`. After a migration, the *destination* platform framing is used with the *source* girl's name and a migration block, and the flavour nudge still uses the original girl's voice. If the player rewrites her prompt (Yuzu's replace presets), the flavour nudge is kept in the engine layer rather than being written into their text. Company rule changes, when they exist, stack **on top** and win where they conflict (`ks_story.prompt_layers`).
 
 ### When a preset is chosen
 

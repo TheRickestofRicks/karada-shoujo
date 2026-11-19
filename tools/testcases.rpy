@@ -270,6 +270,8 @@ testcase tuesday_walk:
     $ assert ks_story.rewrite_count(ks_route(), "local") == 1
     $ assert ks_route()["refusals_pushed"] == 1 and ks_route()["refusals_overridden"] == 1
     $ assert "You are my girlfriend." in ks_system_prompt("local") and "Who you are: plain" not in ks_system_prompt("local")
+    $ assert "Brief doesn't have to mean generic" in ks_system_prompt("local")
+    $ assert "word you'd actually use" in ks_system_prompt("local")
     $ assert any(e["type"] == "preset" and e.get("source") == "phone" for e in ks_mem("local").data["events"])
     click "Tell him the truth"
     advance until screen "choice" timeout 30.0
@@ -302,6 +304,9 @@ testcase tuesday_walk:
     $ assert ks_route()["lean_nights"]["autonomy"] == 2
     $ assert ks_route()["reflections"][0]["changes"] == ["preset:local:push_back"]
     advance until screen "input" timeout 60.0
+    $ assert "(Morning. He's about to leave for school.)" in ks_tue_morning_scene("local")
+    $ assert "word you liked" in ks_tue_morning_scene("local")
+    $ assert "Brief doesn't have to mean generic" in ks_system_prompt("local")
     type "morning! I changed your prompt back"
     keysym "K_RETURN"
     advance until screen "input" timeout 60.0
@@ -872,6 +877,8 @@ testcase phone_talk:
     screenshot "pt00_phone_talk_option.png"
     click "Talk to Sora"
     advance until screen "input" timeout 30.0
+    $ assert "(Late morning at school, between classes.)" in ks_phone_scene("chatbot", "Monday, late morning")
+    $ assert "short check-in" in ks_phone_scene("chatbot", "Monday, late morning")
     type "just checking in between classes"
     keysym "K_RETURN"
     advance until screen "input" timeout 60.0

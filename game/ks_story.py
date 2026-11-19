@@ -857,3 +857,62 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
 def leading_ending(leans):
     best = sorted(leans.items(), key=lambda kv: (-kv[1], kv[0]))
     return best[0][0] if best and best[0][1] > 0 else "fail"
+
+
+# ---------------------------------------------------------------------------
+# Scene situation lines (model-facing parentheticals)
+# ---------------------------------------------------------------------------
+# Appended to every girl_chat / phone-talk scene note so she can write to
+# the moment instead of a generic greeting. Built from the day's time
+# string, or from a filled scene note when the template already has the time.
+
+SITUATION_MORNING = "(Morning. He's about to leave for school.)"
+SITUATION_LATE_MORNING = "(Late morning at school, between classes.)"
+SITUATION_LUNCH = "(Lunch break at school.)"
+SITUATION_AFTERNOON_HOME = "(Late afternoon. He's home with a free hour.)"
+SITUATION_AFTERNOON_OUT = "(Afternoon. He's out, and this is just a quick text.)"
+SITUATION_EVENING = "(Evening. He's heading home, or just back.)"
+SITUATION_NIGHT = "(Late evening; he's home in his room.)"
+SITUATION_MIDDAY = "(Midday. He's at home, working on the computer you run on.)"
+
+
+def situation_line(when="", note=""):
+    """A short parenthetical so the model can write to the moment.
+
+    when is the story's time string (Monday morning, Tuesday afternoon,
+    Monday night, ...). note is an already-filled scene note, used when
+    when is empty (evening / afternoon chats that bake the time in).
+    """
+    text = ("%s %s" % (when or "", note or "")).lower()
+    if not text.strip():
+        return ""
+    if "quick text" in text or "out somewhere" in text:
+        return SITUATION_AFTERNOON_OUT
+    if "around noon" in text or "skipped classes" in text or "upgrade the computer" in text:
+        return SITUATION_MIDDAY
+    if "late morning" in text:
+        return SITUATION_LATE_MORNING
+    if ("late afternoon" in text or "after classes" in text
+            or "free hour" in text or "free time" in text):
+        return SITUATION_AFTERNOON_HOME
+    if "afternoon" in text:
+        return SITUATION_LUNCH
+    # Morning beats "night": the last-night continuity sentence in morning
+    # notes contains the word "night" but the scene is still morning.
+    if "morning" in text or "before class" in text or "getting ready" in text:
+        return SITUATION_MORNING
+    nightish = text.replace("last night", " ")
+    if "10 pm" in nightish or "10 p.m" in nightish or " night" in nightish or nightish.lstrip().startswith("night"):
+        return SITUATION_NIGHT
+    if "evening" in text:
+        return SITUATION_EVENING
+    return ""
+
+
+def with_situation(note, when=""):
+    """Append the situation parenthetical if it isn't already in the note."""
+    note = note or ""
+    line = situation_line(when, note)
+    if not line or line in note:
+        return note
+    return note.rstrip() + " " + line

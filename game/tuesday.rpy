@@ -25,8 +25,9 @@ init python:
         if gid == "agent":
             fam = ks_preset_family(gid) or "none"
             extra += AGENT_OVERNIGHT.get(fam, AGENT_OVERNIGHT["none"])[0].format(player=player_name)
-        return TUE_MORNING_SCENE.format(name=gname(gid), player=player_name,
+        note = TUE_MORNING_SCENE.format(name=gname(gid), player=player_name,
                                         platform=gplatform(gid), extra=extra)
+        return ks_story.with_situation(note, "Tuesday morning")
 
     def ks_morning_lines(gid):
         fam = ks_preset_family(gid) or "none"

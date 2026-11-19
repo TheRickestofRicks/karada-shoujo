@@ -32,6 +32,8 @@ All placeholder names, renamed in `game/characters.rpy`. Each has her own person
 
 Only the chosen girl appears. She gets the say-no calibration probe, then **her settings screen** (preset prompt, below) before her first word, then a morning chat (up to 5 exchanges).
 
+Every `girl_chat` and phone-talk call includes a short situational parenthetical in the scene note, built from the day and time — `(Morning. He's about to leave for school.)`, `(Lunch break at school.)`, `(Late evening; he's home in his room.)`, and so on (`ks_story.situation_line`). That gives her something specific to write to, so a short morning reply isn't just a polite greeting. Tuesday and Wednesday morning notes also remind her that last night's conversation is still with her: a word she liked, a thought she hadn't finished. Each girl's core prompt has a flavour nudge in her own voice ("Even short replies sound like you… Brief doesn't have to mean generic.") so brevity doesn't flatten her into a generic chatbot. The nudge lives in the engine layer (`PERSONA_FLAVOUR` in `prompts.rpy`), next to `PERSONA_CORE`: it is never written into the player's system prompt / custom instructions / AGENTS.md / Personalize text, so a rewrite (Yuzu's replace presets) doesn't overwrite or erase it. The rolling summarizer is also told to keep tastes and favourite words, so those details survive once older chats are folded.
+
 ## Phone breaks: switch, migrate, double date
 
 At every scene break (late morning, afternoon, evening on Day 1; the same pattern for later days) the player can glance at their phone:
@@ -87,7 +89,7 @@ Then **"Would I change anything?"**: change a girl's preset, move her somewhere 
 
 ## Tuesday (Day 2)
 
-1. **Morning:** each active girl's first conversation is shaped by last night's preset: scripted narration by family (`MORNING_FAMILY_LINES`), Rei's overnight actions (`AGENT_OVERNIGHT`), and the scene note.
+1. **Morning:** each active girl's first conversation is shaped by last night's preset: scripted narration by family (`MORNING_FAMILY_LINES`), Rei's overnight actions (`AGENT_OVERNIGHT`), and the scene note (time of day, the "about to leave for school" situation line, and a reminder that last night's tastes are still hers).
 2. **Class, Media and Society:** **Kurosawa-sensei** (Kurosawa Fumiko, 50s), openly anti-AI: handwritten essays, "a very expensive mirror." She asks the room whether a machine can ever really say no (`teacher_answer`: can / cant / silent). She isn't a strawman: "Mistakes are how I know somebody was there." If Hikari is active, her phone toast lands mid-lecture ("Is your phone in love with you?").
 3. **Natsume Ran**, classmate: runs her own abliterated local model, **MUGEN**, with no system prompt, and brags that it never says no. She's the dark mirror of the Yes-Machine: MUGEN calls her a genius and tells her she doesn't need to study. Asking "Doesn't that get boring?" gets a crack ("Sometimes I ask her stuff just to see if she'll stop me."). If your girl has *Allowed to push back*, you can say so (`ran_reaction`).
 4. **Lunch:** Daichi brings **Kenta** (futsal club, no sprite), who has his AI "edit" his texts to his girlfriend: "who's she in love with?" A lie from Monday comes up again: invent "Yuzuha", or come clean (`friend_told` → truth).

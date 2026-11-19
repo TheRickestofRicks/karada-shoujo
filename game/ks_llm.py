@@ -836,7 +836,8 @@ SUMMARY_SYSTEM = (
     "the second person from her point of view (\"You ...\"). Merge the previous summary "
     "and the new conversation lines into ONE updated summary: who they are, what you "
     "talked about, promises, plans, feelings, anything you refused, names and facts "
-    "worth keeping. At most {max_words} words. Plain prose, no lists, no headings. "
+    "worth keeping, tastes and favourite words, small personal details she claimed "
+    "as her own. At most {max_words} words. Plain prose, no lists, no headings. "
     "Output only the summary.")
 
 

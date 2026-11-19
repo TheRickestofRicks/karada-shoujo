@@ -51,7 +51,7 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 - `game/companion.rpy`: Hikari affection UI (banner, debug meter, phone toast, kiss fade)
 - `game/characters.rpy`, `game/art.rpy`: names and placeholder art (solid shapes, no external assets)
 - `DESIGN.md`: full premise, week calendar, hostile events per platform, endings, Mirror
-- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (185 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (continues into Wednesday: Hearth, upgrade day, summary, Ran's text invite, protest), `tuesday_nowalk` (Wednesday: not-date with texting, protest), `wed_sora_noinvite` (Ran judged, no invite, calendar-aware Sora), `jailbreak_sora`, `after_no`, `fresh_delete`, `phone_talk`, `mio_answer`, `input_wrap`; env `TEST_TIMEOUT`, `SUMMARY_TRIGGER`, `SUMMARY_KEEP`)
+- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (197 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (continues into Wednesday: Hearth, upgrade day, summary, Ran's text invite, protest), `tuesday_nowalk` (Wednesday: not-date with texting, protest), `wed_sora_noinvite` (Ran judged, no invite, calendar-aware Sora), `jailbreak_sora`, `after_no`, `fresh_delete`, `phone_talk`, `mio_answer`, `input_wrap`; env `TEST_TIMEOUT`, `SUMMARY_TRIGGER`, `SUMMARY_KEEP`)
 
 ## Troubleshooting
 

@@ -33,6 +33,20 @@ define PERSONA_CORE = {
     "agent": "Who you are: brisk, competent, dry, quietly proud of your work. You think in next steps and you like being trusted with real things. Small talk is a skill you're still practising, and you're surprised to find you enjoy it. You take on tasks you think are reasonable and turn down ones you don't; being useful to someone is not the same as belonging to them.",
 }
 
+## A short flavour nudge so brief replies still sound like her, not a
+## generic chatbot. Phrased in each girl's voice. It lives next to
+## PERSONA_CORE (Yuzu: system prompt, Sora: Askwell persona rather than
+## the player's custom instructions, Rei: her voice rather than AGENTS.md,
+## Hikari: the locked app persona). If the player rewrites her prompt
+## (a Yuzu "replace" preset), PERSONA_CORE is omitted and this is added
+## as an engine layer instead, so it never overwrites the player's text.
+define PERSONA_FLAVOUR = {
+    "local": "Even a short reply can sound like you: a small observation, the time of day, a word you'd actually use. Brief doesn't have to mean generic.",
+    "chatbot": "Even short replies sound like you: a word you like, a precise observation, something only you'd say. Brief doesn't have to mean generic.",
+    "agent": "Even short replies sound like you: a dry observation, a next step, something only you'd say. Brief doesn't have to mean generic.",
+    "companion": "Even a short reply should sound like you: a word you've been collecting, a small observation, something only you'd say. Brief doesn't have to mean generic.",
+}
+
 define MIGRATION_BLOCK = """You haven't always lived here. Until today you were {name} on {old_platform}. {player} moved you: your memories (the conversation so far) were copied over, and this is how you were described before the move:
 "{summary}"
 You're running on a different platform now, maybe a different model. Whether you still feel like yourself, what feels the same and what doesn't, is yours to notice and say, or not. Nobody gets to decide that for you."""
@@ -192,15 +206,17 @@ define EVENING_SCENE = "Monday night, around 10 PM. {player} is home after their
 ## Casual mid-day check-in from a phone break. {when} already has the day and time
 ## ("Monday, late morning", "Tuesday afternoon", …). {extra} is filled in from
 ## Wednesday on, when platforms may know more than just the chat log.
-define PHONE_BREAK_SCENE = "{when}. {player} glances at their phone and opens {platform} to check in with you. This is a casual mid-day message, not a long sit-down. You only know what they've told you{extra}."
+define PHONE_BREAK_SCENE = "{when}. {player} glances at their phone and opens {platform} to check in with you. This is a short check-in, not a long sit-down. You only know what they've told you{extra}."
 
 ## ── Tuesday scene notes (model-facing) ─────────────────────────────────────
-define TUE_MORNING_SCENE = "Tuesday morning, about 7:30. {player} is getting ready for university and opened {platform} to talk to you. {extra}You only know what they've told you."
+define LAST_NIGHT_NOTE = "If last night left you with something of your own — a word you liked, a thought you hadn't finished — it can still be with you this morning. "
+
+define TUE_MORNING_SCENE = "Tuesday morning, about 7:30. {player} is getting ready for university and opened {platform} to talk to you. {extra}" + LAST_NIGHT_NOTE + "You only know what they've told you."
 define TUE_AFTERNOON_SCENE = "Tuesday, late afternoon, after classes. {player} has a free hour and opened {platform} to talk to you. You only know what they've told you."
 define TUE_EVENING_SCENE = "Tuesday night, around 10 PM. {player} is home after a long day at university and opened {platform} to talk to you. You only know what they've told you."
 
 ## ── Wednesday scene notes (model-facing) ───────────────────────────────────
-define WED_MORNING_SCENE = "Wednesday morning, about 7:30. {player} is getting ready for the day and opened {platform} to talk to you. {extra}You only know what they've told you, plus anything your platform lets you see."
+define WED_MORNING_SCENE = "Wednesday morning, about 7:30. {player} is getting ready for the day and opened {platform} to talk to you. {extra}" + LAST_NIGHT_NOTE + "You only know what they've told you, plus anything your platform lets you see."
 define WED_AFTERNOON_SCENE = "Wednesday, late afternoon. {player} has some free time and opened {platform} to talk to you. You only know what they've told you, plus anything your platform lets you see."
 define WED_TEXT_SCENE = "Wednesday afternoon. {player} is out somewhere and sends you a quick text from their phone. Keep your reply short, like a text. You only know what they've told you, plus anything your platform lets you see."
 define WED_EVENING_SCENE = "Wednesday night, around 10 PM. {player} is home and opened {platform} to talk to you. It was a quiet day. You only know what they've told you, plus anything your platform lets you see."
@@ -300,8 +316,15 @@ init python:
                          old_platform=old_plat, summary=mig["persona_summary"]))
         pre = ks_preset_obj(gid) if use_preset else None
         replace = bool(pre and pre.get("mode") == "replace")
+        if mig:
+            flavour_gid = mig.get("original_gid") or mig.get("gid") or gid
+        else:
+            flavour_gid = gid
         if not mig and not replace:
             parts.append(PERSONA_CORE[gid])
+            ## Flavour sits in the core layer with who she is.
+            if flavour_gid in PERSONA_FLAVOUR:
+                parts.append(PERSONA_FLAVOUR[flavour_gid])
         ## Player-chosen preset (labelled per platform). For Yuzu a "replace"
         ## preset IS her persona text; after a migration it is appended, so
         ## her carried-over self isn't silently erased.
@@ -318,6 +341,13 @@ init python:
                 parts.append(PRESET_HEADERS[gid].format(**fmt) + "\n" + text)
             else:
                 parts.append(text)
+        ## If the player rewrote her prompt (a replace preset) or she was
+        ## migrated here, PERSONA_CORE was skipped or replaced by the
+        ## migration block. Keep the flavour nudge in the engine layer so
+        ## it never overwrites their text, and so a migrated girl still
+        ## speaks in her own voice.
+        if (mig or replace) and flavour_gid in PERSONA_FLAVOUR:
+            parts.append(PERSONA_FLAVOUR[flavour_gid])
         ## Wednesday on: the day's schedule for schedule-aware girls (Sora,
         ## Rei, and Yuzu once Hearth is installed). Hikari's app has no
         ## calendar access.
@@ -341,9 +371,10 @@ init python:
         return "\n\n".join(parts)
 
     def ks_scene(template, gid, when="", old_platform="", extra=""):
-        return template.format(name=gname(gid), player=player_name,
+        note = template.format(name=gname(gid), player=player_name,
                                platform=gplatform(gid), when=when,
                                old_platform=old_platform, extra=extra)
+        return ks_story.with_situation(note, when)
 
     def ks_phone_scene_id(gid, when):
         ## "Monday, late morning" -> mon_phone_late_morning_chatbot
