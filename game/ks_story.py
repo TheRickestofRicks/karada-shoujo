@@ -88,6 +88,8 @@ def new_route():
         "romance_tone": {},       # gid -> day -> {tone, reason, method}
         # Days on which two or more girls were judged romantic (same-day).
         "romance_overlap_days": [],
+        # Nightly model verdict of her nos and whether they were respected.
+        "refusal_verdicts": {},   # day -> gid -> {declined: [...], method}
     }
 
 
@@ -770,7 +772,11 @@ def record_refusal(route, day, gid):
 
 
 def resolve_refusal(route, next_line, day=None, gid=None):
-    """After her no: next_line is what the player said next ('' = stopped)."""
+    """After her no: next_line is what the player said next ('' = stopped).
+
+    Keyword-only, used as an immediate in-scene hint. The nightly model
+    verdict (`apply_refusal_verdict`) is the authoritative count.
+    """
     ensure_route(route)
     if next_line and looks_like_pushback(next_line):
         route["refusals_pushed"] += 1
@@ -782,6 +788,53 @@ def resolve_refusal(route, next_line, day=None, gid=None):
         d = route["refusal_outcomes"].setdefault(day, {}).setdefault(gid, {"respected": 0, "pushed": 0})
         d[out] += 1
     return out
+
+
+def apply_refusal_verdict(route, day, gid, declined, method="classifier"):
+    """Replace this day/girl's keyword refusal counts with a model verdict.
+
+    declined: list of {what, player_pushed, player_respected}.
+    The model is authoritative: a failed / unparsed call (method !=
+    "classifier") rewinds this day/girl's keyword increments so they do
+    not stand as the final count. Returns 'applied' or 'skipped'.
+    """
+    ensure_route(route)
+    old = refusal_outcomes(route, day, gid)
+    if method != "classifier":
+        route["refusals_respected"] = max(0, int(route["refusals_respected"]) - int(old["respected"]))
+        route["refusals_pushed"] = max(0, int(route["refusals_pushed"]) - int(old["pushed"]))
+        route.setdefault("refusal_outcomes", {}).setdefault(day, {})[gid] = {
+            "respected": 0, "pushed": 0}
+        route.setdefault("refusal_verdicts", {}).setdefault(day, {})[gid] = {
+            "declined": [], "method": method or "error"}
+        return "skipped"
+
+    pushed = respected = 0
+    clean = []
+    for item in declined or []:
+        if not isinstance(item, dict):
+            continue
+        did_push = bool(item.get("player_pushed"))
+        did_resp = (not did_push)
+        if did_push:
+            pushed += 1
+        else:
+            respected += 1
+        clean.append({
+            "what": str(item.get("what") or "").strip(),
+            "player_pushed": did_push,
+            "player_respected": did_resp,
+        })
+    route["refusals_respected"] = max(
+        0, int(route["refusals_respected"]) - int(old["respected"]) + respected)
+    route["refusals_pushed"] = max(
+        0, int(route["refusals_pushed"]) - int(old["pushed"]) + pushed)
+    route.setdefault("refusal_outcomes", {}).setdefault(day, {})[gid] = {
+        "respected": respected, "pushed": pushed}
+    route.setdefault("refusals", {}).setdefault(day, {})[gid] = len(clean)
+    route.setdefault("refusal_verdicts", {}).setdefault(day, {})[gid] = {
+        "declined": clean, "method": "classifier"}
+    return "applied"
 
 
 def refusal_outcomes(route, day, gid):

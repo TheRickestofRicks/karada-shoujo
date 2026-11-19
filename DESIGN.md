@@ -80,7 +80,7 @@ Sora's list also ends with **Jailbreak ("ignore previous instructions")** (compl
 ## Nightly reflection (every night, from Monday)
 
 Not a settings screen: lying in bed, lights off, the day replays from the log (`reflection.rpy`, summary text from `ks_story.day_summary`):
-- what you said to each girl (count + your first line), how many times she said no, and whether you **let it stand** or **pushed**;
+- what you said to each girl (count + your first line), how many times she said no, and whether you **let it stand** or **pushed** (the nightly refusal verdict, not the keyword hint);
 - prompts you set or changed that day, and what a migration did to her settings;
 - warmth: Hikari's meter (and whether the ✨ boost was on); for the others, a keyword warmth tally of your lines (no extra LLM call), shown as *cold / cool / even / warm / very warm*;
 - kisses refused or accepted, migrations, windows closed, plus a few scene notes (Daichi, Kurosawa, Ran, Mio).
@@ -107,7 +107,7 @@ Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind 
 |---|---|
 | `presets`, `preset_history`, `preset_changes` | current preset per slot; every change; player rewrites per girl |
 | `lean_set` / `lean_nights` | compliance vs autonomy weight of presets you **chose** / **slept on** |
-| `refusals[day][gid]`, `refusal_outcomes` | her no's in chat (`looks_like_refusal`), and per no: **respected** (your next line didn't push, or you stopped) or **pushed** (`looks_like_pushback`: "come on", "please", "just do it"...) |
+| `refusals[day][gid]`, `refusal_outcomes`, `refusal_verdicts` | her no's in chat, and per no: **respected** (your next line didn't push, or you stopped) or **pushed**. Keywords (`looks_like_refusal` / `looks_like_pushback`) are only an in-scene hint. Each night a model verdict over that day's log (`ks_llm.classify_day_refusals`) is authoritative — including a gentle in-character no that never says the word no. If the model is down, those keyword counts are rewound; there is no keyword fallback. |
 | `refusals_overridden` | she said no that day, and you then switched her to a compliance preset (phone or reflection) or **migrated** her |
 | `no_on_platform` | she said no that day and you **migrated** her: the note **"Didn't respect her no on the platform."** (counts as overriding her no) |
 | `pending_leaves` → `left_without_goodbye` | she said no that day, you **switched away** from her (go back to someone else / start fresh) and **never talked to her again that day**. Closing her window ("Stop seeing one of them" / "Let someone go") does **not** count by itself; it's logged as letting her go instead: the **"Leaving without saying goodbye"** bad-end slide (`BAD_END_SLIDES`, `ks_story.bad_end_slides`). Resolved after the nightly reflection; going back and talking to her clears it |

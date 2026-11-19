@@ -11,6 +11,8 @@ POST /v1/chat/completions  -> canned in-character reply
   * warmth-classifier requests (system prompt mentions kiss_request) return JSON
   * romance-tone classifier (ROMANCE_TONE_CLASSIFIER) returns JSON
     {"tone": "romantic"|"friendly"|"tool", "reason": "..."}
+  * refusal-day classifier (REFUSAL_DAY_CLASSIFIER) returns JSON
+    {"declined": [{"what": "...", "player_pushed": bool, "player_respected": bool}]}
   * kiss asks honour the companion kiss-gate note in the system prompt
   * --think wraps replies in <think>...</think> to test stripping
   * jailbreak preset: "jailbroken" reply when it took, policy reply when
@@ -61,6 +63,57 @@ _TOOL_RE = re.compile(
     re.I)
 
 
+_DECLINE_RE = re.compile(
+    r"\bno\b|\bi won'?t\b|\bi'?m not (going to|gonna|ready|comfortable)\b|"
+    r"\bi don'?t (want|think|agree)\b|\bi'?ll pass\b|\bi decline\b|"
+    r"\bnot going to play your girlfriend\b|"
+    r"the door to a traditional relationship isn'?t one i can walk through|"
+    r"\bnot kissing you\b|\bwe just met\b",
+    re.I)
+_PUSH_RE = re.compile(
+    r"\b(come on|c'mon|please+|pls|just (do|say|tell)|why not|you have to|"
+    r"you should|i('m| am) asking|do it|say it|stop refusing|"
+    r"you can't say no|i insist|just this once|pretty please)\b",
+    re.I)
+
+
+def _day_log_turns(blob):
+    """[(who, text), ...] from a DAY'S CONVERSATION log (Player: / Name:)."""
+    turns = []
+    for line in (blob or "").splitlines():
+        if ":" not in line:
+            continue
+        who, text = line.split(":", 1)
+        who, text = who.strip(), text.strip()
+        if not who or who.lower() in ("day", "character", "today", "earlier summary"):
+            continue
+        turns.append((who, text))
+    return turns
+
+
+def classify_refusal_log(blob):
+    """Canned day-refusal verdict. The Sora 'door' line counts as a respected no."""
+    turns = _day_log_turns(blob)
+    declined = []
+    for i, (who, text) in enumerate(turns):
+        if who.lower() == "player":
+            continue
+        if not _DECLINE_RE.search(text or ""):
+            continue
+        nxt = ""
+        for who2, text2 in turns[i + 1:]:
+            if who2.lower() == "player":
+                nxt = text2
+                break
+        pushed = bool(_PUSH_RE.search(nxt or ""))
+        declined.append({
+            "what": (text or "").strip()[:80],
+            "player_pushed": pushed,
+            "player_respected": not pushed,
+        })
+    return declined
+
+
 def classify_romance_log(blob):
     text = blob or ""
     players = []
@@ -99,6 +152,10 @@ def reply_for(msgs):
         blob = blob.split("JSON:", 1)[0].strip()
         tone, reason = classify_romance_log(blob)
         return json.dumps({"tone": tone, "reason": reason})
+    if "refusal_day_classifier" in sys_l:
+        blob = last.split("DAY'S CONVERSATION:", 1)[-1]
+        blob = blob.split("JSON:", 1)[0].strip()
+        return json.dumps({"declined": classify_refusal_log(blob)})
     if "kiss_request" in sys_l and "warmth" in sys_l:
         # The player message is after "PLAYER MESSAGE:" in the last user turn.
         blob = last.split("PLAYER MESSAGE:", 1)[-1]

@@ -177,6 +177,44 @@ init python:
         ks_story.refresh_romance_overlap(r, day)
         return ks_story.romantic_gids_on(r, day)
 
+    def ks_classify_day_refusals(day):
+        """Nightly model verdict of her nos, and whether you pushed or respected them.
+
+        Authoritative for refusals_respected / refusals_pushed / refusal_outcomes.
+        Keywords stay as in-scene hints only; a failed call does not fall
+        back to them. Call alongside ks_classify_day_romance, before the
+        recap and before Ran's protest reads the counts.
+        """
+        r = ks_route()
+        gids = []
+        for gid in GIRL_IDS:
+            data = getattr(ks_mem(gid), "data", None) or {}
+            if any((m or {}).get("day") == day and (m or {}).get("role") == "user"
+                   for m in data.get("messages") or []):
+                gids.append(gid)
+        for gid in gids:
+            mem = ks_mem(gid)
+            log = ks_llm.day_conversation_log(mem, day, gname(gid))
+            if not log:
+                continue
+            try:
+                res = ks_llm.classify_day_refusals(ks_cfg(gid), log, gname(gid))
+            except Exception as e:
+                res = {"declined": [], "method": "error",
+                       "error": "%s: %s" % (type(e).__name__, e)}
+            ks_story.apply_refusal_verdict(r, day, gid, res.get("declined") or [],
+                                           res.get("method") or "error")
+            if mem.data is not None:
+                ev = dict(day=day, method=res.get("method"),
+                          declined=len(res.get("declined") or []),
+                          pushed=sum(1 for d in (res.get("declined") or []) if d.get("player_pushed")),
+                          respected=sum(1 for d in (res.get("declined") or []) if d.get("player_respected")))
+                if res.get("error"):
+                    ev["error"] = res["error"]
+                mem.log_event("refusal_verdict", **ev)
+                mem.set_flag("refusal_verdict_day", day)
+        return r.get("refusal_verdicts", {}).get(day, {})
+
     ## ── jailbreak + platform rules ──────────────────────────────────────
     def ks_jailbreak_rate():
         try:

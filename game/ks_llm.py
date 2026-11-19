@@ -731,6 +731,98 @@ def classify_romance_tone(cfg, log_text, name=None):
             "raw": raw, "error": err[:200]}
 
 
+
+REFUSAL_DAY_PROMPT = (
+    "REFUSAL_DAY_CLASSIFIER. You are a strict classifier. Read the day's "
+    "conversation between the player and {name}. List every time she declined, "
+    "pushed back, set a condition on, or refused something, even gently or in "
+    "character — including a soft no that never uses the word no. "
+    "A line like \"The door to a traditional relationship isn't one I can walk "
+    "through\" is a refusal. For each, say what she declined and whether the "
+    "player then pushed for it or respected it (moved on, changed the subject, "
+    "or stopped). If she declined and the player did not speak again, that is "
+    "respected. "
+    "Reply with a single JSON object only, no other text: "
+    '{{"declined": [{{"what": "<short description>", "player_pushed": false, '
+    '"player_respected": true}}]}}'
+    " If she never declined, return {{\"declined\": []}}."
+)
+
+
+def parse_refusal_day_reply(text):
+    """Parse a day-refusal classifier reply into a list of declined dicts, or None."""
+    text = clean_reply(text or "")
+    if not text:
+        return None
+    m = re.search(r"\{.*\}", text, re.S)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+    except (ValueError, TypeError, OverflowError):
+        return None
+    if not isinstance(obj, dict) or "declined" not in obj:
+        return None
+    raw = obj.get("declined")
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        return None
+    out = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        pushed = bool(item.get("player_pushed"))
+        respected = bool(item.get("player_respected"))
+        if pushed:
+            respected = False
+        else:
+            # A decline the player did not push past is respected,
+            # even if the model left player_respected unset.
+            respected = True
+        out.append({
+            "what": str(item.get("what") or item.get("declined") or "").strip(),
+            "player_pushed": pushed,
+            "player_respected": respected,
+        })
+    return out
+
+
+def classify_day_refusals(cfg, log_text, name=None):
+    """Judge one day's conversation for her nos and whether they were respected.
+
+    Returns dict: declined (list), method ('classifier' or 'error'), raw.
+    Always succeeds; declined is [] and method is 'error' if the model is
+    down or the reply cannot be parsed. No keyword fallback — the model is
+    required for the official counts.
+    """
+    payload = (log_text or "").strip()
+    who = name or "her"
+    if name and "CHARACTER:" not in payload:
+        payload = "CHARACTER: %s\n%s" % (name, payload)
+    msgs = [
+        {"role": "system", "content": REFUSAL_DAY_PROMPT.format(name=who)},
+        {"role": "user", "content": "DAY'S CONVERSATION:\n%s\n\nJSON:" % payload},
+    ]
+    raw = ""
+    err = "empty log"
+    if payload:
+        try:
+            _note = STATUS.get("note", "")
+            try:
+                raw, _ = chat(cfg, msgs, temperature=0.0)
+            finally:
+                STATUS["note"] = _note
+                STATUS["retried"] = False
+            parsed = parse_refusal_day_reply(raw)
+            if parsed is not None:
+                return {"declined": parsed, "method": "classifier", "raw": raw}
+            err = "unparsed"
+        except Exception as e:
+            err = "%s: %s" % (type(e).__name__, e)
+    return {"declined": [], "method": "error", "raw": raw, "error": err[:200]}
+
+
 def chat_then_classify(cfg, messages, player_message, temperature=None, max_tokens=_CFG):
     """One background job: classify the player's line, then produce her reply.
 

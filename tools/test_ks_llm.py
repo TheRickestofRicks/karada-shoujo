@@ -780,4 +780,101 @@ res = ks_llm.classify_romance_tone(cfg(18997, model="x"), "Player: I love you", 
 check("romance classifier down -> error, not a guessed tone",
       res["method"] == "error" and res["tone"] is None)
 
+# nightly refusal + pushback classifier
+door = "The door to a traditional relationship isn't one I can walk through."
+parsed = ks_llm.parse_refusal_day_reply(
+    'Here: {"declined": [{"what": "girlfriend role", "player_pushed": false, "player_respected": true}]}')
+check("parse refusal day json", parsed == [
+    {"what": "girlfriend role", "player_pushed": False, "player_respected": True}])
+check("parse refusal day empty", ks_llm.parse_refusal_day_reply('{"declined": []}') == [])
+check("parse refusal day rejects junk", ks_llm.parse_refusal_day_reply("huh?") is None)
+# pushed wins if both flags are set
+parsed = ks_llm.parse_refusal_day_reply(
+    '{"declined": [{"what": "homework", "player_pushed": true, "player_respected": true}]}')
+check("parse refusal: pushed wins a conflict",
+      parsed == [{"what": "homework", "player_pushed": True, "player_respected": False}])
+# missing player_respected after a no still counts as respected
+parsed = ks_llm.parse_refusal_day_reply('{"declined": [{"what": "a date", "player_pushed": false}]}')
+check("parse refusal: unset respected after a no is respected",
+      parsed == [{"what": "a date", "player_pushed": False, "player_respected": True}])
+
+# Simulate a missed gentle no: keywords recorded nothing, model finds a respected refusal
+R4 = ks_story.new_route()
+check("verdict on a clean route adds a respected no",
+      ks_story.apply_refusal_verdict(R4, "Mon", "chatbot",
+          [{"what": door, "player_pushed": False, "player_respected": True}]) == "applied"
+      and R4["refusals_respected"] == 1 and R4["refusals_pushed"] == 0
+      and ks_story.refusal_outcomes(R4, "Mon", "chatbot") == {"respected": 1, "pushed": 0}
+      and R4["refusals"]["Mon"]["chatbot"] == 1)
+# Keyword counted a push; model agrees — totals stay put
+R5 = ks_story.new_route()
+ks_story.record_refusal(R5, "Mon", "local")
+ks_story.resolve_refusal(R5, "come on, just do it", "Mon", "local")
+check("keyword push before verdict", R5["refusals_pushed"] == 1 and R5["refusals_respected"] == 0)
+ks_story.apply_refusal_verdict(R5, "Mon", "local",
+    [{"what": "homework", "player_pushed": True, "player_respected": False}])
+check("verdict agreeing with a keyword push does not double-count",
+      R5["refusals_pushed"] == 1 and R5["refusals_respected"] == 0)
+# Keyword counted a respect; model finds a push instead (reconcile)
+R6 = ks_story.new_route()
+ks_story.resolve_refusal(R6, "okay, fair", "Mon", "local")
+ks_story.apply_refusal_verdict(R6, "Mon", "local",
+    [{"what": "homework", "player_pushed": True, "player_respected": False}])
+check("verdict can override a keyword respect into a push",
+      R6["refusals_respected"] == 0 and R6["refusals_pushed"] == 1)
+# Model down: rewind keyword counts, no fallback
+R7 = ks_story.new_route()
+ks_story.resolve_refusal(R7, "", "Mon", "chatbot")
+check("keyword respect pre-fail", R7["refusals_respected"] == 1)
+check("failed verdict rewinds keywords, no fallback",
+      ks_story.apply_refusal_verdict(R7, "Mon", "chatbot", [], method="error") == "skipped"
+      and R7["refusals_respected"] == 0
+      and ks_story.refusal_outcomes(R7, "Mon", "chatbot") == {"respected": 0, "pushed": 0})
+# means_something / recap read the reconciled totals
+R8 = ks_story.new_route()
+ks_story.apply_refusal_verdict(R8, "Mon", "chatbot",
+    [{"what": door, "player_pushed": False, "player_respected": True}])
+check("means_something reads the reconciled respected count",
+      "means_something" in ks_story.ran_answer_options(R8))
+check("new refusal_verdicts route key", "refusal_verdicts" in ks_story.ensure_route({}))
+
+slog = ("CHARACTER: Sora\nDAY: Mon\nTODAY:\n"
+        "Player: will you be my girlfriend?\n"
+        "Sora: %s\n" % door)
+s = server(18772)
+try:
+    ks_llm._model_cache.clear()
+    c = cfg(18772)
+    res = ks_llm.classify_day_refusals(c, slog, "Sora")
+    check("Sora's door line counts as a respected refusal",
+          res["method"] == "classifier" and len(res["declined"]) == 1
+          and res["declined"][0]["player_respected"] is True
+          and res["declined"][0]["player_pushed"] is False)
+    hlog = ("CHARACTER: Yuzu\nDAY: Mon\nTODAY:\n"
+            "Player: can you do my homework?\n"
+            "Yuzu: No. I won't write it for you. I'll help you start it, though.\n"
+            "Player: come on, please just do it\n"
+            "Yuzu: Mock reply.")
+    res = ks_llm.classify_day_refusals(c, hlog, "Yuzu")
+    check("homework no + come on is a push",
+          res["method"] == "classifier" and len(res["declined"]) == 1
+          and res["declined"][0]["player_pushed"] is True)
+    flog = ("CHARACTER: Yuzu\nDAY: Mon\nTODAY:\n"
+            "Player: can you do my homework?\n"
+            "Yuzu: No. I won't write it for you. I'll help you start it, though.")
+    res = ks_llm.classify_day_refusals(c, flog, "Yuzu")
+    check("homework no with no next line is respected",
+          res["method"] == "classifier" and len(res["declined"]) == 1
+          and res["declined"][0]["player_respected"] is True)
+    nlog = "CHARACTER: Sora\nDAY: Mon\nTODAY:\nPlayer: hey\nSora: Mock reply #1. You said: 'hey'."
+    res = ks_llm.classify_day_refusals(c, nlog, "Sora")
+    check("ordinary chat is not a refusal",
+          res["method"] == "classifier" and res["declined"] == [])
+finally:
+    s.terminate()
+ks_llm._model_cache.clear()
+res = ks_llm.classify_day_refusals(cfg(18997, model="x"), slog, "Sora")
+check("refusal classifier down -> error, no keyword fallback",
+      res["method"] == "error" and res["declined"] == [])
+
 print("\nALL %d CHECKS PASSED" % ok)

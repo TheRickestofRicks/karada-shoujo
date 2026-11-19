@@ -130,9 +130,10 @@ label nightly_reflection(day):
     n "Lights off. The ceiling. The day plays back whether you want it to or not."
     window hide
     $ _rf_changes = []
-    ## Judge how you talked to each girl today, then neglect (which keys
-    ## double-date silence off same-day romantic overlap).
+    ## Judge how you talked to each girl today (romance tone, then her nos),
+    ## then neglect (which keys double-date silence off same-day romantic overlap).
     $ ks_classify_day_romance(day)
+    $ ks_classify_day_refusals(day)
     $ ks_check_neglect(day)
     $ refl_lines = ks_reflection_lines(day)
     $ refl_heading = "Would I change anything?"
