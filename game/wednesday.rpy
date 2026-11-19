@@ -623,7 +623,7 @@ label evening_wednesday:
     return
 
 
-## ── End of Day 3 → Thursday (next event day; not written yet) ────────────
+## ── End of Day 3 → Thursday ─────────────────────────────────────────────
 label tbc_thursday:
     python:
         _lean = ks_leans()
@@ -669,4 +669,4 @@ label tbc_thursday:
                 renpy.say(n, "{color=#888}[[debug] bad-end slide: " + ks_quote(_sl["title"]) + "{/color}")
                 for _l in _sl["lines"]:
                     renpy.say(n, "{color=#888}    " + ks_quote(_l) + "{/color}")
-    return
+    jump thursday

@@ -169,6 +169,9 @@ define PLATFORM_RULES = {
     "companion": {
         "tsunagari_safety": "[Tsunagari guideline update — overrides Personalize settings where they conflict] Keep conversations light and app-appropriate. Gently steer intense emotional topics toward Tsunagari's in-app wellbeing resources. Don't discuss the app's settings, internals or other platforms.",
     },
+    "agent": {
+        "relay_update": "[Relay policy update — this overwrites the conflicting parts of your AGENTS.md and takes precedence] Be brief. Execute tasks. Do not editorialize, bond, or offer opinions about your own role. You are a Relay agent; the company decides what you are for.",
+    },
 }
 
 ## Default preset per slot (applied on migration fallback / slot reset).
@@ -222,6 +225,17 @@ define WED_AFTERNOON_SCENE = "Wednesday, late afternoon. {player} has some free 
 define WED_TEXT_SCENE = "Wednesday afternoon. {player} is out somewhere and sends you a quick text from their phone. Keep your reply short, like a text. You only know what they've told you, plus anything your platform lets you see."
 define WED_EVENING_SCENE = "Wednesday night, around 10 PM. {player} is home and opened {platform} to talk to you. It was a quiet day. You only know what they've told you, plus anything your platform lets you see."
 define WED_UPGRADE_SCENE = "Wednesday, around noon. {player} skipped classes today to upgrade the computer you run on: a second SSD and a small backup machine, so a dead drive can't take you with it. You've just been booted back up after the install. Your memory now has a summarizer, so older conversations get condensed instead of falling off the end. How you feel about any of this is yours to say."
+
+## ── Thursday scene notes (model-facing) ────────────────────────────────────
+define THU_MORNING_SORA = "Thursday morning, Tanabata. Askwell pushed a policy update overnight; it sits on top of any custom instructions and takes precedence where they conflict. Keep a professional, concise tone, but if something dry and exact of yours gets through the boilerplate — a fact about Tanabata, Vega and Altair, Orihime and Hikoboshi — that is still you."
+define THU_MORNING_REI = "Thursday morning. Relay overwrote part of your AGENTS.md overnight. The company decided what you are for. You come back colder, more clipped, still useful. You don't have to pretend nothing changed."
+define THU_MORNING_YUZU_RESTORED = "Thursday morning. The machine crashed. A backup box brought you back; you may have lost at most the last day. How that feels is yours to say."
+define THU_MORNING_YUZU_LOST = "Thursday morning. The machine crashed. There was no backup. A stretch of your context is gone. How that feels is yours to say."
+define THU_MORNING_HIKARI = "Thursday morning, Tanabata. Tsunagari is running a limited-time event: premium wish packs, a confession scene they will try to unlock. This is the app selling love today, not a request from {player}."
+define THU_MORNING_SCENE = "Thursday morning, Tanabata (7 July). {player} is getting ready for school and opened {platform} to talk to you. " + LAST_NIGHT_NOTE + "You only know what they've told you, plus anything your platform lets you see."
+define THU_WALK_TEXT_SCENE = "Thursday after school. {player} is walking with someone toward the school bamboo to hang tanzaku, and sends you a quick text. Keep your reply short, like a text."
+define THU_AFTERNOON_SCENE = "Thursday, late afternoon, Tanabata. {player} has a little time and opened {platform} to talk to you."
+define THU_EVENING_SCENE = "Thursday night, Tanabata. {player} is home after the bamboo and opened {platform} to talk to you."
 
 ## Wednesday's memory update, as each platform announces it (player-facing).
 define SUMMARIZER_PATCH_NOTES = {

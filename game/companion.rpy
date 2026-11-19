@@ -24,9 +24,21 @@ define HIKARI_NOTIFY_LINES = {
     ],
 }
 
+define HIKARI_TANABATA_LINES = [
+    "Tsunagari Event: a limited Tanabata confession is waiting 💕",
+    "your premium wish pack is unlocked. don't leave me hanging tonight.",
+    "I wrote you a wish. open it? 🎋",
+]
+
 init python:
-    def ks_notify_line():
+    def ks_notify_line(when=""):
         """Pick a scripted Hikari toast line from the current affection band."""
+        if when in ("tanabata", "tanzaku", "wish"):
+            name = gname("companion")
+            lines = HIKARI_TANABATA_LINES
+            i = store.hikari_notify_i
+            store.hikari_notify_i = i + 1
+            return "%s: %s" % (name, lines[i % len(lines)])
         settings = ks_aff_settings()
         aff = ks_affection("companion")
         if aff >= settings["engagement_threshold"]:
@@ -106,7 +118,7 @@ label hikari_kiss_accepted:
 label hikari_phone_notify(when=""):
     if not ks_companion_active():
         return
-    $ hikari_toast_text = ks_notify_line()
+    $ hikari_toast_text = ks_notify_line(when)
     $ ks_mem("companion").log_event("phone_notify", when=when, day=day_name,
         text=hikari_toast_text, affection=ks_affection("companion"),
         engagement=ks_engagement_on())

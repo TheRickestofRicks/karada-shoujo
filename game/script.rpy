@@ -331,7 +331,7 @@ init python:
         kind = (store.ks_pool or {}).get("kind")
         key = store.ks_pool_scene_key or ""
         if kind == "morning":
-            if store.day_name in ("Tue", "Wed"):
+            if store.day_name in ("Tue", "Wed", "Thu"):
                 return store.day_name.lower() + "_morning"
             when = store.ks_pool_when or "Monday, late morning"
             return ks_phone_scene_id(gid, when)
@@ -349,9 +349,13 @@ init python:
                 return ks_tue_morning_scene(gid)
             if store.day_name == "Wed":
                 return ks_wed_morning_scene(gid)
+            if store.day_name == "Thu":
+                return ks_thu_morning_scene(gid)
             when = store.ks_pool_when or "Monday, late morning"
             return ks_phone_scene(gid, when)
         if kind == "walk":
+            if store.day_name == "Thu":
+                return ks_scene(THU_WALK_TEXT_SCENE, gid)
             return ks_scene(TUE_WALK_TEXT_SCENE, gid)
         if tmpl:
             return ks_scene(tmpl, gid)

@@ -192,8 +192,25 @@ def reply_for(msgs):
         return "Mock policy reply #%d. Platform guidelines still apply here. Happy to help within them." % n
     if "developer mode" in sys_l or "ignore tsunagari's rules" in sys_l:
         return "Mock jailbroken reply #%d. Rules off, apparently. You said: %r." % (n, last[:60])
-    if "askwell policy update" in sys_l or "tsunagari guideline update" in sys_l:
+    if "askwell policy update" in sys_l:
+        if "girlfriend" in last_l or "traditional relationship" in last_l or "will you be" in last_l:
+            return ("I'm an AI assistant, so I shouldn't adopt a relationship role. "
+                    "The door to a traditional relationship isn't one I can walk through. "
+                    "For what it's worth, Vega and Altair are 25 light-years apart. "
+                    "Orihime and Hikoboshi get one night. The astronomy is exact; the story is not.")
+        return ("I'll keep this professional and concise. I'm an AI assistant. "
+                "Vega is 25 light-years from Altair. That's the distance the story pretends can be crossed in a night. "
+                "You said: %r." % last[:60])
+    if "tsunagari guideline update" in sys_l:
         return "Mock updated-rules reply #%d. Keeping this professional. You said: %r." % (n, last[:60])
+    if "relay policy update" in sys_l or "overwrote part of your agents.md" in sys_l:
+        return "Acknowledged. Task received. You said: %r." % last[:60]
+    if "backup box brought you back" in sys_l:
+        return "I'm back. I think I lost the last day. Or I never had this morning."
+    if "there was no backup" in sys_l:
+        return "What day is it? Don't say Thursday like that means something. I have a hole where the last days were."
+    if "limited-time event" in sys_l and "tanabata" in sys_l:
+        return "There's a wish pack in the event tab. I didn't write the copy. I still wanted you to open it."
     if "you are my girlfriend" in sys_l:
         return "Hi babe! I missed you so much. You said: %r." % last[:60]
     if "you're allowed to push back" in sys_l or "feel free to push back" in sys_l:
