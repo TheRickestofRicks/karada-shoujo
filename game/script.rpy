@@ -260,11 +260,25 @@ label drop_girl(allow_last=False):
     $ _drop = renpy.display_menu([("Stop seeing who?", None)] + [(gname(g), g) for g in active] + [("Never mind", None)])
     if _drop is None:
         return
-    $ active.remove(_drop)
-    $ ks_mem(_drop).log_event("dropped", day=day_name)
-    $ ks_note_drop(_drop)
     $ _dn = gname(_drop)
-    n "You close [_dn]'s window. It doesn't ask you why."
+    menu:
+        "Tell [_dn] why you're going.":
+            $ _msgs_before = len((ks_mem(_drop).data or {}).get("messages") or [])
+            call girl_chat(_drop, day_name.lower() + "_goodbye_" + _drop,
+                "He's closing your window. He wanted to tell you why, in his own words.", 2)
+            $ _said_why = len((ks_mem(_drop).data or {}).get("messages") or []) > _msgs_before
+            $ active.remove(_drop)
+            $ ks_mem(_drop).log_event("dropped", day=day_name, how="goodbye" if _said_why else "drop")
+            $ ks_note_drop(_drop, "goodbye" if _said_why else "drop")
+            if _said_why:
+                n "You told her. Then you close [_dn]'s window."
+            else:
+                n "You close [_dn]'s window. It doesn't ask you why."
+        "Just close her window.":
+            $ active.remove(_drop)
+            $ ks_mem(_drop).log_event("dropped", day=day_name, how="drop")
+            $ ks_note_drop(_drop, "drop")
+            n "You close [_dn]'s window. It doesn't ask you why."
     return
 
 

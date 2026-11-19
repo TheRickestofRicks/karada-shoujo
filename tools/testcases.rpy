@@ -162,6 +162,8 @@ testcase double_then_drop:
     advance until screen "choice" timeout 30.0
     click "Sora"
     advance until screen "choice" timeout 30.0
+    click "Just close her window."
+    advance until screen "choice" timeout 30.0
     click "Your hair"
     advance until screen "choice" timeout 30.0
     click "Nah"
@@ -500,6 +502,8 @@ testcase tuesday_nowalk:
     click "Let someone go"
     advance until screen "choice" timeout 30.0
     click "Rei"
+    advance until screen "choice" timeout 30.0
+    click "Just close her window."
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "tbc_wednesday" timeout 30.0
@@ -1198,6 +1202,61 @@ testcase save_load_memory:
     $ assert [m["content"] for m in ks_mem("local").data["messages"]] == _expect["msgs"]
     $ renpy.unlink_save("ks-test-mem")
     $ print("KARADA_TEST: save_load_memory ok")
+    exit
+
+
+## Saying goodbye before you close her window counts toward Respect, not Fail.
+testcase goodbye_drop:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Lie:"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "Let someone go"
+    advance until screen "choice" timeout 30.0
+    click "Sora"
+    advance until screen "choice" timeout 30.0
+    click "Tell Sora why"
+    advance until screen "input" timeout 30.0
+    type "I need to stop for a while. Thank you for talking with me."
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert ks_route()["drops"] == 1
+    $ assert ks_story.flag(ks_route(), "said_goodbye")
+    $ assert ks_route()["goodbyes_said"][0]["gid"] == "chatbot"
+    $ assert ks_story.neglect_count(ks_route(), "let_go") == 0
+    $ assert not ks_story.flag(ks_route(), "deleted_ai")
+    $ assert ks_mem("chatbot").data["flags"].get("said_goodbye")
+    $ assert not ks_mem("chatbot").data["flags"].get("let_go")
+    $ assert ks_leans()["fail"] == 3
+    $ assert ks_leans()["respect"] >= 1
+    $ assert any("why you were going" in l for l in refl_lines), refl_lines
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ print("KARADA_TEST: goodbye_drop ok")
     exit
 
 

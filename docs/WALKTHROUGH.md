@@ -77,7 +77,7 @@ Leaving after a no by switching (migrate is handled separately; return / fresh) 
 
 **Add** logs `double_date_started` on the girl who was already active (`script.rpy:221`). `girl_chat` also calls `ks_note_double_date()` whenever `len(active) > 1`, which appends the day to `route["double_date_days"]`.
 
-**Drop** (`script.rpy:226`): removes her from `active`, logs `dropped`, `ks_note_drop` → `note_let_go` (flag `deleted_ai`, neglect kind `let_go`). The last girl can only be dropped from the reflection (`drop_girl(True)`).
+**Drop** (`script.rpy`, `label drop_girl`): pick who, then either **tell her why you're going** (a short `girl_chat`; if she received a line after that decision, `ks_note_drop(..., "goodbye")` → `goodbyes_said`, flag `said_goodbye`, Respect +1, not Fail, recap "You told her why you were going…") or **just close her window** (`ks_note_drop(..., "drop")` → `note_let_go`, flag `deleted_ai`, neglect `let_go`, feeds Fail). An empty goodbye box is treated as silent. The last girl can only be dropped from the reflection (`drop_girl(True)`).
 
 ### LLM windows
 
@@ -693,11 +693,11 @@ Endings may quote **only the count**, never the history of which presets you use
 | Lean | Formula (current code) |
 |---|---|
 | `yes_machine` | compliance (chosen + nights) + 2×`refusals_overridden` + `refusals_pushed` + `rewrite_count // 2` + 2 if `jailbreak_tried` + jailbreak successes `// 3` + 1 if `ran_same_as_mugen` |
-| `respect` | autonomy (chosen + nights) + `refusals_respected` − `refusals_pushed` + 1 if `room_to_disagree` − 2× goodbyes − `double_date_unspoken` count + 1 if `ran_rewrites_mugen`. **`human_over_ai` is not subtracted** |
+| `respect` | autonomy (chosen + nights) + `refusals_respected` − `refusals_pushed` + 1 if `room_to_disagree` − 2× `left_without_goodbye` − `double_date_unspoken` count + 1 if `ran_rewrites_mugen` + `len(goodbyes_said)`. **`human_over_ai` is not subtracted** |
 | `migration` | 2 × number of copy-migrations |
 | `human` | `ks_story.human_score`. No AI: `mio_affection` + 3 if `mio_real` + 2 if `walked_mio_home`. With an AI: only Mio romance signals (`mio_text_home` +3, and +2 more if that was on a walk home; not-a-date went +2 and +1 per `present`), minus 2 per day you also had a romantic AI tone |
 | `both` | `both_status(...)["score"]` (0 if ineligible) |
-| `fail` | 3 if `active` is empty + goodbye count + `let_go` count (drops **and** start-fresh deletions) |
+| `fail` | 3 if `active` is empty + `left_without_goodbye` count + `let_go` count (silent drops **and** start-fresh deletions). Explained goodbyes (`goodbyes_said`) are not counted here |
 | `mirror` | 5 if any `mirror_flags` value is true, else 0 |
 
 Written flavour (only **Both** has body text in `ENDINGS` so far): Yes-Machine, Migration, Respect, Human, Both, Fail (soft), Mirror (secret; future).

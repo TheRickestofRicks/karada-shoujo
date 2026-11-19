@@ -252,14 +252,20 @@ init python:
         r["migration_log"].append({"day": store.day_name, "name": name,
                                    "from": gplatform(src), "to": gplatform(dst), "how": how})
 
-    def ks_note_drop(gid):
+    def ks_note_drop(gid, how="drop"):
         r = ks_route()
         r["drops"] += 1
-        r["drop_log"].append({"day": store.day_name, "name": gname(gid)})
-        ks_story.note_let_go(r, store.day_name, gid, gname(gid))
-        ks_mem(gid).set_flag("let_go", True)
+        r["drop_log"].append({"day": store.day_name, "name": gname(gid), "how": how})
+        if how == "goodbye":
+            ks_story.note_goodbye(r, store.day_name, gid, gname(gid))
+            ks_mem(gid).set_flag("said_goodbye", True)
+        else:
+            ks_story.note_let_go(r, store.day_name, gid, gname(gid), how)
+            ks_mem(gid).set_flag("let_go", True)
         ## Closing her window after a no is NOT "Leaving without saying
         ## goodbye" by itself (Rick): only switching away counts.
+        ## Telling her why you are going is a goodbye, and counts toward
+        ## Respect instead of Fail.
 
     def ks_note_fresh_delete(gid):
         """"Start fresh" over a slot that still holds a girl with history:

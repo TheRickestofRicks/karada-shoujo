@@ -518,6 +518,20 @@ N3 = ks_story.new_route(); ks_story.note_human(N3, "Tue", "walked_mio"); ks_stor
 check("talked to her too -> no neglect", ks_story.check_day_neglect(N3, "Tue", ["local"], {}) == [])
 ks_story.note_let_go(N3, "Tue", "agent", "Rei")
 check("let go logged", ks_story.neglect_count(N3, "let_go") == 1 and ks_story.flag(N3, "deleted_ai"))
+GB = ks_story.new_route()
+ks_story.note_let_go(GB, "Mon", "chatbot", "Sora", "goodbye")
+check("goodbye drop is not a silent let-go",
+      ks_story.neglect_count(GB, "let_go") == 0 and not ks_story.flag(GB, "deleted_ai")
+      and ks_story.flag(GB, "said_goodbye") and GB["goodbyes_said"][0]["gid"] == "chatbot")
+check("goodbye drop feeds Respect, not Fail",
+      ks_story.ending_leans(GB, [])["respect"] == 1
+      and ks_story.ending_leans(GB, [])["fail"] == 3)
+SD = ks_story.new_route()
+ks_story.note_let_go(SD, "Mon", "chatbot", "Sora", "drop")
+check("silent drop still feeds Fail",
+      ks_story.ending_leans(SD, ["local"])["fail"] == 1 and ks_story.flag(SD, "deleted_ai"))
+check("goodbye drop recap line",
+      "why you were going" in "\n".join(ks_story.day_summary("Mon", [], {"dropped": [{"name": "Sora", "how": "goodbye"}]})))
 
 # Ran / MUGEN
 RN = ks_story.new_route()

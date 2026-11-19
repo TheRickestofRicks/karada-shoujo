@@ -71,7 +71,7 @@ init python:
                     migs.append("You moved %s from %s to %s." % (m["name"], m["from"], m["to"]))
                 else:
                     migs.append("You left %s on %s." % (m["name"], m["from"]))
-        dropped = [d["name"] for d in r["drop_log"] if d["day"] == day]
+        dropped = [d for d in r["drop_log"] if d["day"] == day]
         routing = ks_story.reflection_extras(
             r, day, store.active,
             names=dict((g, gname(g)) for g in GIRL_IDS),

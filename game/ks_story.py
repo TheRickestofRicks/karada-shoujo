@@ -43,7 +43,8 @@ def new_route():
         "migrations": 0,
         "migration_log": [],      # [{day, name, from, to, how}]
         "drops": 0,
-        "drop_log": [],           # [{day, name}]
+        "drop_log": [],           # [{day, name, how}] how is "drop" or "goodbye"
+        "goodbyes_said": [],      # [{day, gid, name}] explained before closing her window
         "reflections": [],        # [{day, changes: [...]}]
         "teacher_answer": None,   # Tue class: "can" / "cant" / "silent"
         "ran_reaction": None,     # Tue class: "boring" / "show" / "pushback" / "shrug"
@@ -514,11 +515,24 @@ def note_human(route, day, kind):
 
 def note_let_go(route, day, gid, name, how="drop", platform=None):
     """You deleted an AI: closed her window ("drop"), or wiped a slot that
-    still held a girl with history to start fresh ("fresh")."""
+    still held a girl with history to start fresh ("fresh").
+
+    how="goodbye" is not a deletion for Fail: you told her why, and it
+    counts toward Respect instead. Use note_goodbye().
+    """
     ensure_route(route)
+    if how == "goodbye":
+        return note_goodbye(route, day, gid, name)
     route["neglect_log"].append({"day": day, "kind": "let_go", "gid": gid, "name": name,
                                  "how": how, "platform": platform})
     set_flag(route, "deleted_ai")
+
+
+def note_goodbye(route, day, gid, name):
+    """You explained why you were going, and she heard you, before the window closed."""
+    ensure_route(route)
+    route.setdefault("goodbyes_said", []).append({"day": day, "gid": gid, "name": name})
+    set_flag(route, "said_goodbye")
 
 
 def check_day_neglect(route, day, active, names):
@@ -944,8 +958,15 @@ def day_summary(day, girls, extras=None):
         out.append(x)
     for m in extras.get("migrations") or []:
         out.append(m)
-    for nme in extras.get("dropped") or []:
-        out.append("You closed %s's window." % nme)
+    for item in extras.get("dropped") or []:
+        if isinstance(item, dict):
+            nme = item.get("name") or "her"
+            if item.get("how") == "goodbye":
+                out.append("You told %s why you were going, and then you closed her window." % nme)
+            else:
+                out.append("You closed %s's window." % nme)
+        else:
+            out.append("You closed %s's window." % item)
     if extras.get("class_line"):
         out.append(extras["class_line"])
     if extras.get("mio"):
@@ -1028,7 +1049,8 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
                        + (1 if flag(r, "ran_same_as_mugen") else 0),
         "respect": auto + r["refusals_respected"] - r["refusals_pushed"]
                    + (1 if r["room_to_disagree"] else 0) - 2 * goodbye - unspoken
-                   + (1 if flag(r, "ran_rewrites_mugen") else 0),
+                   + (1 if flag(r, "ran_rewrites_mugen") else 0)
+                   + len(r.get("goodbyes_said") or []),
         "migration": 2 * nmig,
         "human": human_score(r, active, mio_real),
         "fail": (3 if active is not None and not active else 0) + goodbye
