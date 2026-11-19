@@ -38,6 +38,7 @@ def new_route():
         "said_lines": {},         # day -> gid -> first few lines (for the reflection)
         "mio_affection": 0,
         "walked_mio_home": None,  # Tue: True / False
+        "mio_walk_answer": None,  # Tue: "yes" / "honest_no" / "excuse"
         "migrations": 0,
         "migration_log": [],      # [{day, name, from, to, how}]
         "drops": 0,

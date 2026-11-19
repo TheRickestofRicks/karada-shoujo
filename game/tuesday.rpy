@@ -9,6 +9,7 @@
 ##       → "To be continued — Wednesday".
 
 default walked_mio_home = None
+default mio_walk_answer = None  # "yes" / "honest_no" / "excuse"
 default ran_reaction = None
 default teacher_answer = None
 default ks_shot = ""            # marker for automated screenshots (tools/testcases.rpy)
@@ -298,6 +299,7 @@ label after_school_fork:
         menu:
             "Walk her home anyway.":
                 $ walked_mio_home = True
+                $ mio_walk_answer = "yes"
                 $ ks_mem("agent").log_event("overruled", day=day_name, what="walk_home")
                 $ mio_points += 1
                 p "My calendar's wrong. Let's go."
@@ -314,24 +316,51 @@ label after_school_fork:
         menu:
             "\"Sure. Let's go.\"":
                 $ walked_mio_home = True
+                $ mio_walk_answer = "yes"
                 $ mio_points += 1
                 show mio shy
                 mi "Okay! Okay. Good. Let's... yes."
+            "\"Not today. But thanks for asking.\"":
+                $ walked_mio_home = False
+                $ mio_walk_answer = "honest_no"
+                $ mio_points += 1
             "\"Sorry, I've got something.\"":
                 $ walked_mio_home = False
+                $ mio_walk_answer = "excuse"
     $ ks_route()["walked_mio_home"] = walked_mio_home
+    $ ks_route()["mio_walk_answer"] = mio_walk_answer
     python:
         for _gg in GIRL_IDS:
             ks_mem(_gg).set_flag("walked_mio_home", walked_mio_home)
+            ks_mem(_gg).set_flag("mio_walk_answer", mio_walk_answer)
     if walked_mio_home:
         call walk_mio_home
     else:
-        show mio neutral
-        mi "Of course! See you, [player_name]."
-        hide mio
-        with dissolve
-        n "She walks off alone. At the corner, she looks back once. You see it."
-        $ day_notes.append("Mio asked if you'd walk her home. You said you had something.")
+        if mio_walk_answer == "honest_no":
+            show mio shy
+            mi "Oh. Okay."
+            show mio open
+            mi "Thank you for saying it like that. Really."
+            show mio shy
+            mi "See you, [player_name]."
+            hide mio
+            with dissolve
+            n "She walks off alone. At the corner she looks back once, and this time she's smiling."
+            $ day_notes.append("Mio asked if you'd walk her home. You said not today, and thanked her for asking.")
+        elif mio_walk_answer == "excuse":
+            show mio neutral
+            mi "...Right. Of course! See you, [player_name]."
+            hide mio
+            with dissolve
+            n "She walks off alone. At the corner, she looks back once. You see it. She didn't quite believe you, and she let it go."
+            $ day_notes.append("Mio asked if you'd walk her home. You said you had something. She didn't quite believe it.")
+        else:
+            show mio neutral
+            mi "Of course! See you, [player_name]."
+            hide mio
+            with dissolve
+            n "She walks off alone. At the corner, she looks back once. You see it."
+            $ day_notes.append("Mio asked if you'd walk her home. You said you had something.")
         call afternoon_ai
     $ ks_sync_mio()
     return
@@ -458,8 +487,13 @@ label library_tuesday:
     elif mio_real:
         show mio neutral
         mi "Hi."
-        mi "You were busy earlier. That's okay. Really."
-        mi "I wasn't going to show you the notebook today anyway."
+        if mio_walk_answer == "honest_no":
+            show mio shy
+            mi "Thanks. For earlier. For just saying it."
+            mi "I wasn't going to show you the notebook today anyway."
+        else:
+            mi "You were busy earlier. That's okay. Really."
+            mi "I wasn't going to show you the notebook today anyway."
         menu:
             "\"I'm sorry about earlier.\"":
                 $ mio_points += 1
@@ -472,7 +506,10 @@ label library_tuesday:
                 mi "...It's not about you. It's a book."
             "\"Cool. See you.\"":
                 mi "See you."
-        $ day_notes.append("Mio was in the library. She said it was okay that you were busy.")
+        if mio_walk_answer == "honest_no":
+            $ day_notes.append("Mio was in the library. She thanked you for being honest earlier.")
+        else:
+            $ day_notes.append("Mio was in the library. She said it was okay that you were busy.")
     else:
         show mio neutral
         mi "Oh, hi. The library twice in two days. Are you joining the committee for real?"

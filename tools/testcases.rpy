@@ -350,7 +350,8 @@ testcase tuesday_walk:
     screenshot "f05_reflection_tue.png"
     click "No. Goodnight."
     advance until label "tbc_wednesday" timeout 30.0
-    $ assert ks_route()["walked_mio_home"] is True and mio_real and mio_points >= 7, mio_points
+    $ assert ks_route()["walked_mio_home"] is True and ks_route()["mio_walk_answer"] == "yes" and mio_real and mio_points >= 7, mio_points
+    $ assert ks_mem("local").data["flags"].get("mio_walk_answer") == "yes"
     $ assert ks_route()["teacher_answer"] == "can" and ks_route()["ran_reaction"] == "pushback"
     $ assert ks_mem("local").data["flags"]["preset"] == "push_back"
     $ assert len(ks_route()["reflections"]) == 2
@@ -497,7 +498,7 @@ testcase tuesday_nowalk:
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "tbc_wednesday" timeout 30.0
-    $ assert ks_route()["walked_mio_home"] is False and mio_real and friend_told == "truth"
+    $ assert ks_route()["walked_mio_home"] is False and ks_route().get("mio_walk_answer") is None and mio_real and friend_told == "truth"
     $ assert active == ["companion"] and ks_route()["drops"] == 1
     $ assert ks_route()["lean_set"]["compliance"] == 3
     $ assert any(e["type"] == "phone_notify" and e.get("when") == "class" for e in ks_mem("companion").data["events"])
@@ -812,6 +813,8 @@ testcase wed_sora_noinvite:
     advance until screen "choice" timeout 30.0
     click "Sorry, I've got something."
     advance until screen "input" timeout 60.0
+    $ assert ks_route()["mio_walk_answer"] == "excuse" and ks_route()["walked_mio_home"] is False
+    $ assert ks_mem("chatbot").data["flags"].get("mio_walk_answer") == "excuse"
     keysym "K_RETURN"
     advance until screen "choice" timeout 30.0
     click "Just returning a book."
@@ -985,6 +988,84 @@ testcase mio_answer:
     $ print("KARADA_TEST: mio_answer reached Tuesday")
     exit
 
+
+## Tuesday: an honest no to Mio's walk-home offer. She takes it warmly,
+## the flag is remembered, and the library opening thanks you for it.
+testcase tuesday_honest_no:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "She's funny"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "It's okay. Yeah, sort of"
+    advance until screen "choice" timeout 30.0
+    click "Which of these have you actually read?"
+    advance until screen "choice" timeout 30.0
+    click "Which book needed"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    type "good night"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    $ assert mio_real
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "Cool."
+    advance until screen "choice" timeout 30.0
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    screenshot "h00_mio_walk_options.png"
+    click "Not today. But thanks for asking."
+    pause 0.8
+    screenshot "h01_mio_honest_no.png"
+    advance until screen "input" timeout 60.0
+    $ assert ks_route()["mio_walk_answer"] == "honest_no" and ks_route()["walked_mio_home"] is False
+    $ assert ks_mem("chatbot").data["flags"].get("mio_walk_answer") == "honest_no"
+    $ assert any("not today" in (x if isinstance(x, str) else "").lower() for x in day_notes), day_notes
+    $ _pts = mio_points
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    screenshot "h02_library_honest_no.png"
+    click "I'm sorry about earlier."
+    advance until screen "input" timeout 60.0
+    $ assert any("honest earlier" in (x if isinstance(x, str) else "") for x in day_notes), day_notes
+    $ assert mio_points == _pts + 1, (mio_points, _pts)
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tbc_wednesday" timeout 30.0
+    $ assert ks_route()["mio_walk_answer"] == "honest_no" and ks_route()["walked_mio_home"] is False and mio_real
+    $ print("KARADA_TEST: tuesday_honest_no reached Wednesday")
+    exit
 
 
 ## Layout check for the LLM chat input: prompt sits high in the textbox,

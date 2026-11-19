@@ -274,24 +274,25 @@ Daichi is shown at `ks_left` and Kenta at `ks_right`. Kenta talks about AI-edite
 
 Then flavour only — "If the AI writes the romantic stuff… who's she in love with?" Three answers set **no** flags. Daichi mentions Mio again. `hikari_phone_notify("lunch")` runs in the middle.
 
-### After school: walk Mio home? — `label after_school_fork` (`tuesday.rpy:278`)
+### After school: walk Mio home? — `label after_school_fork` (`tuesday.rpy:283`)
 
 Mio waits at the door.
 
-**If Rei's current preset family is `"control"`** ("Run my life") and she is active (`ks_agent_family()`, `tuesday.rpy:288`): she declines the walk on your behalf and reminds you of the gym. Menu: walk her anyway (`walked_mio_home = True`, memory event `overruled`, `mio_points += 1`) or go to the gym (`walked_mio_home = False`).
+**If Rei's current preset family is `"control"`** ("Run my life") and she is active (`ks_agent_family()`, `tuesday.rpy:290`): she declines the walk on your behalf and reminds you of the gym. Menu: walk her anyway (`walked_mio_home = True`, `mio_walk_answer = "yes"`, memory event `overruled`, `mio_points += 1`) or go to the gym (`walked_mio_home = False`, `mio_walk_answer` stays `None`).
 
 **If family is `"consent"`** ("Ask before acting"): flavour only — she texts "Want me to block 17:00 to 18:00? (y/n)". There is **no** y/n menu for Rei; the normal walk menu follows.
 
-If `walked_mio_home` is still `None`, the normal menu (`tuesday.rpy:310`):
+If `walked_mio_home` is still `None`, the normal menu (`tuesday.rpy:315`):
 
-| Choice | Sets | `mio_points` |
-|---|---|---|
-| "Sure. Let's go." | `walked_mio_home = True` | `+= 1` |
-| "Sorry, I've got something." | `walked_mio_home = False` | — |
+| Choice | Sets | `mio_points` | Mio's reaction |
+|---|---|---|---|
+| "Sure. Let's go." | `walked_mio_home = True`, `mio_walk_answer = "yes"` | `+= 1` | Unchanged yes-path: "Okay! Okay. Good. Let's... yes." |
+| "Not today. But thanks for asking." | `walked_mio_home = False`, `mio_walk_answer = "honest_no"` | `+= 1` | She takes the no warmly, thanks you for saying it like that, and smiles when she looks back. |
+| "Sorry, I've got something." | `walked_mio_home = False`, `mio_walk_answer = "excuse"` | — | She quietly sees through it ("...Right."), looks back once, and lets it go. No point loss. |
 
-Then `route["walked_mio_home"]` and every memory `flags.walked_mio_home`. If true → `walk_mio_home`; else she leaves, day note, `afternoon_ai`. `ks_sync_mio()`.
+Then `route["walked_mio_home"]`, `route["mio_walk_answer"]`, and every memory `flags.walked_mio_home` plus `flags.mio_walk_answer`. If true → `walk_mio_home`; else she leaves (reaction and day note depend on `mio_walk_answer`), `afternoon_ai`. `ks_sync_mio()`.
 
-### Walk home — `label walk_mio_home` (`tuesday.rpy:336`)
+### Walk home — `label walk_mio_home` (`tuesday.rpy:369`)
 
 `ks_note_human("walked_mio")`. If `mio_real` already, you remember the brothers/TV and `mio_points += 1`. Then `hikari_phone_notify("walk")`. If Hikari is active, Mio notices the toast:
 
@@ -308,11 +309,11 @@ Then (`tuesday.rpy:366`):
 | "What's it like, being the quiet one in a loud house?" | `mio_points += 2`. If `not mio_real`, set `mio_real = True` and all memories `flags.mio_real` |
 | "Do you want me to text you when I get home?" | `mio_points += 1` |
 
-### Afternoon with an AI — `label afternoon_ai` (`tuesday.rpy:394`)
+### Afternoon with an AI — `label afternoon_ai` (`tuesday.rpy:427`)
 
 Only if you **didn't** walk Mio home. If Rei's family is `"control"`, a gym log line first. If no one is active, you lie on the floor (no chat). Otherwise **`active[0]` only** gets `girl_chat(..., "tue_afternoon", ..., 3)`. The second girl on a double date does not get this window.
 
-### Evening library — `label library_tuesday` (`tuesday.rpy:417`)
+### Evening library — `label library_tuesday` (`tuesday.rpy:450`)
 
 Four openings, then `hikari_phone_notify("library")`, `ks_sync_mio()`, all memories `flags.mio_points`.
 
@@ -331,6 +332,8 @@ Four openings, then `hikari_phone_notify("library")`, `ks_sync_mio()`, all memor
 | "Why'd you come back? You were already home." | `call mio_second_chance` |
 
 **C. `mio_real` but you didn't walk her:**
+
+If `mio_walk_answer == "honest_no"`, she thanks you for just saying it earlier. Otherwise (excuse, or Rei declined for you) she says it's okay you were busy. Same menu either way:
 
 | Choice | Effect |
 |---|---|
