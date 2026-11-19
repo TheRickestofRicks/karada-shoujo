@@ -219,19 +219,39 @@ SPRITE_KEY = {
     "kurosawa": dict(thresh=5, color_dist=0),
     "ran": dict(thresh=8, color_dist=0),
     # The flat-bg flood can seed from pants at the bottom edge and punch a
-    # hole in dark clothing. rembg's cutout is already clean for this one.
+    # hole in dark clothing. rembg's cutout is already clean for these.
     "kenta": dict(use_bg_key=False),
+    "daichi": dict(use_bg_key=False, punch_bottom_studio=True),
 }
+
+
+def punch_bottom_studio(rgba, lum_min=70, chroma_max=22, bottom=0.12):
+    """Clear leftover studio-gray pixels in the hem / inseam slit."""
+    w, h = rgba.size
+    y0 = int(h * (1.0 - bottom))
+    px = rgba.load()
+    for y in range(y0, h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            mx, mn = max(r, g, b), min(r, g, b)
+            if mx >= lum_min and (mx - mn) <= chroma_max:
+                px[x, y] = (r, g, b, 0)
+    return rgba
 
 
 def do_sprite(src, dst):
     who = os.path.basename(src).split("_")[0].lower()
-    kw = SPRITE_KEY.get(who, dict(thresh=14))
+    kw = dict(SPRITE_KEY.get(who, dict(thresh=14)))
+    punch = kw.pop("punch_bottom_studio", False)
     rgba = key_to_rgba(src, use_rembg=True, **kw)
     w, h = rgba.size
     rgba = rgba.crop((0, 0, w, int(h * CROP_FRAC)))
     scale = SPRITE_H / rgba.size[1]
     rgba = rgba.resize((max(1, int(rgba.size[0] * scale)), SPRITE_H), Image.LANCZOS)
+    if punch:
+        rgba = punch_bottom_studio(rgba)
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     rgba.save(dst)
     print("  sprite %s -> %s %s" % (os.path.basename(src), os.path.basename(dst), rgba.size))

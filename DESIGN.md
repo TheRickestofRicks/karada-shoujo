@@ -177,7 +177,7 @@ Neglect logging (`human_over_ai`) still runs on Wednesday as a fact (flag + refl
   - Hikari migrated to the desktop *becomes* the green CRT, plus a small blue star badge (her hair clip) in the corner.
   - Yuzu, Sora or Rei migrated *into* the companion app get the Hikari-style avatar body, with a star badge and a device-glow panel in their original colour (green / sky / amber).
   - Implemented in `art.rpy` (`girl_origin`, `ks_girl_dd`).
-- **Humans (Mio, Daichi, Kurosawa-sensei, Ran)** are ordinary sprites: Mio neutral / shy / open (the hidden branch), Daichi neutral / laugh / skeptical, Kurosawa neutral / stern / wry, Ran neutral (smug) / grin (phone up) / uneasy, Kenta neutral (mint windbreaker, futsal-club classmate). Backgrounds: bedroom (morning/night), cafeteria, library, classroom, dusk street, bookstore (Kanade Books), downtown (Ekimae plaza protest).
+- **Humans (Mio, Daichi, Kurosawa-sensei, Ran)** are ordinary sprites: Mio neutral / shy / open (the hidden branch), Daichi neutral / laugh / skeptical, Kurosawa neutral / stern / wry, Ran neutral (smug) / grin (phone up) / uneasy, Kenta neutral (mint windbreaker, futsal-club classmate). Daichi and Kenta are cut with rembg alone (`use_bg_key=False` in `tools/import_art.py`) so the flat-background flood cannot punch a hole in dark pants at the bottom edge; Daichi also has leftover studio gray cleared from the hem slit. Backgrounds: bedroom (morning/night), cafeteria, library, classroom, dusk street, bookstore (Kanade Books), downtown (Ekimae plaza protest).
 
 ## Later-week feature: the Yuzu upgrade
 
