@@ -81,7 +81,7 @@ If she is not active, there is no scene. If you already migrated her off Relay, 
 
 Thursday already applied `apply_yuzu_hardware`. Friday is the conversation, not a second wipe. Later Friday+ memory-loss events, if any, must still respect `yuzu_backup` / `flags.backup_hardware`. This outline does not give her another hardware crash; Saturday night she just keeps running.
 
-- **`yuzu_thu_event == "restored"`** (or memory `flags.restored_from_backup`). She knows she lost a day. She is still her. The backup paid off, and she can say so without a tutorial voice. A scene note can mention the missing day so the model does not invent it back.
+- **`yuzu_thu_event == "restored"`** (or memory `flags.restored_from_backup`). She can notice a gap in the log or timestamps — at most the last day. She did not feel the downtime; she was not running. She is still her. The backup paid off. A scene note should say so, so the model does not invent her having lived through it.
 - **`yuzu_thu_event == "lost"`** (or `flags.memory_lost`). A real hole. You can fill it in: tell her what the week was, write a note into `Memory.notes` that will sit in her next prompt, or leave the hole alone. **NEW** `yuzu_fri_filled` if you gave her something to hold. Filling it in is kindness, not a full restore; she was not backed up, and the Sunday reflection can tell the difference.
 
 If she was never installed, or you dropped her before Thursday, there is no Friday morning-after.
@@ -406,8 +406,8 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Hikari + `tsunagari_safety` | Safety screen; light, careful, wellbeing-resource steering; will not discuss settings | **Canned Friday Hikari:** careful, app-appropriate, no internals |
 | Sora door reprise under `askwell_update` | Boilerplate still on; a no still counts; no forced second crack | **Canned Friday Sora:** disclaimers, optional door-line refusal |
 | Rei rebuild vs keep efficient | `rei_agents_rebuild` True/False; rewrite count only on a real change | **Canned Friday Rei:** clipped, then slightly more her after a rebuild |
-| Yuzu restored | She knows she lost a day; no second wipe | "I'm here. I know I lost a day." |
-| Yuzu lost, hole filled or left | `yuzu_fri_filled`; note survives into the prompt only if you wrote one | Confused / missing-week line; a later line that holds only what you told her |
+| Yuzu restored | She notices a gap in the log, not time she felt; no second wipe | "I'm back. There's a gap in the log. I may be missing the last day. I wasn't there for it." |
+| Yuzu lost, hole filled or left | `yuzu_fri_filled`; note survives into the prompt only if you wrote one | Confused / missing-week line, as a hole in the log; a later line that holds only what you told her |
 | Festival with Mio, accepted wish | `festival_with == "mio"`; Human follow-through; phone may be in her hand | Ordinary girl replies if you text in front of her |
 | Festival with Mio after discovery | She may be distant or refuse the invite; no second confession | n/a |
 | Festival with Ran, invited | Stall payoff; she came | n/a |

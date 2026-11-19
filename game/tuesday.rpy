@@ -656,9 +656,9 @@ label kurosawa_essay_girl(gid):
 ## The essay is due Friday. Kurosawa's reaction belongs on the handover
 ## (Thursday / Friday); see DESIGN.md and the walkthrough hook.
 label evening_tuesday:
-    call yuzu_bsod_hint
     scene bg bedroom_night
     with fade
+    call yuzu_bsod_hint
     n "Night. Your feet hurt. Your essay for Kurosawa is a blank page with your name on it."
     call kurosawa_essay
     if not active:

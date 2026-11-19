@@ -933,19 +933,42 @@ label evening_chat:
 
 ## A once-only hint, Yuzu / local-slot routes only. The desktop
 ## bluescreens for four seconds; she comes back. It just sits there.
-## Monday night if she's already active; Tuesday morning or evening,
-## or Wednesday before the upgrade offer, if she arrived later.
+## Always plays in the night bedroom, then restores the previous
+## background. Monday night if she's already active; Tuesday morning
+## or evening, or Wednesday before the upgrade offer, if she arrived later.
+init python:
+    def ks_current_bg():
+        """The 'bg ...' image currently showing on master, or None."""
+        attrs = renpy.get_attributes("bg", layer="master")
+        if not attrs:
+            return None
+        return "bg " + " ".join(attrs)
+
+    def ks_restore_bg(name):
+        """Return to a background captured by ks_current_bg, if any."""
+        if not name or ks_current_bg() == name:
+            return
+        renpy.scene()
+        renpy.show(name)
+        renpy.with_statement(renpy.store.fade)
+
 label yuzu_bsod_hint:
     if "local" not in (active or []):
         return
     if ks_route().get("yuzu_bsod_seen"):
         return
     $ _yn = gname("local")
+    $ _bsod_restore = ks_current_bg()
+    if _bsod_restore != "bg bedroom_night":
+        scene bg bedroom_night
+        with fade
     n "The desktop stops. A blue screen, a stop code you don't read, a QR code you don't scan."
     n "The fan spins down. Four seconds. Then the login. Then her window, in the same corner."
     $ renpy.show(GIRL_INFO["local"]["sprite"], at_list=[ks_center])
     with dissolve
-    $ renpy.say(gchar("local"), "I'm here. That was 4 seconds. I counted.")
+    ## She is a local model: while the machine is off she experiences nothing.
+    ## She can notice a clock jump, not the seconds themselves.
+    $ renpy.say(gchar("local"), "I'm here. The clock jumped four seconds. I don't have them.")
     $ renpy.hide(GIRL_INFO["local"]["sprite"])
     with dissolve
     python:
@@ -955,6 +978,7 @@ label yuzu_bsod_hint:
         _m.set_flag("yuzu_bsod_seen", True)
         _m.log_event("bsod", day=store.day_name, seconds=4)
         store.day_notes.append("The desktop bluescreened for four seconds. " + _yn + " came back.")
+        ks_restore_bg(_bsod_restore)
     return
 
 

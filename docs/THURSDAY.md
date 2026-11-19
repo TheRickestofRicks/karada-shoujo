@@ -276,8 +276,8 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Sora + door prompt after `askwell_update` | Boilerplate *and* the Vega/Altair (or equivalent) crack in one reply; door / girlfriend prompt accepted word for word; refusal classifier still sees a no if she refused | **Canned Thursday Sora:** disclaimers + one dry Tanabata fact that is hers; a hedged or door-line refusal |
 | Hikari affection ≥ 70 | Event unlocks; daytime toasts; engagement banner still honest about being an app layer | Warmth classifier can stay as it is; toasts are scripted |
 | Rei after `relay_update` | Cold, clipped, still useful | **Canned Thursday Rei:** short, task-like, not her usual cadence |
-| Yuzu with Wednesday upgrade | Warning, crash, restore; she remembers enough | A "I'm back, I think I lost the last day" line |
-| Yuzu without backup | Warning, crash, real hole in context | Confused / missing-last-days line |
+| Yuzu with Wednesday upgrade | Warning, crash, restore; she notices a gap in the log, not time she felt | A "gap in the log / missing the last day / I wasn't there" line |
+| Yuzu without backup | Warning, crash, real hole in context | Confused / missing-last-days line, as a hole in the log, not time she lived through |
 | Deflector come-clean to Daichi only | `friend_told` becomes `"truth"`; framing menu; Mio's evening belief **unchanged** (soft lie still goes to B) | n/a |
 | Soft lie, fess up to Mio before the wish | Not B: C-late, hurt line, friendship or hold-back | n/a |
 | Linguistics lie, fess up to Mio | Not D2 and not A: C-late, hurt line about the cover story | n/a |

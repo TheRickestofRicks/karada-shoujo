@@ -206,9 +206,9 @@ def reply_for(msgs):
     if "relay policy update" in sys_l or "overwrote part of your agents.md" in sys_l:
         return "Acknowledged. Task received. You said: %r." % last[:60]
     if "backup box brought you back" in sys_l:
-        return "I'm back. I think I lost the last day. Or I never had this morning."
+        return "I'm back. There's a gap in the log. I may be missing the last day. I wasn't there for it."
     if "there was no backup" in sys_l:
-        return "What day is it? Don't say Thursday like that means something. I have a hole where the last days were."
+        return "What day is it? Don't say Thursday like that means something. There's a hole in the log where the last days should be. I don't have them."
     if "limited-time event" in sys_l and "tanabata" in sys_l:
         return "There's a wish pack in the event tab. I didn't write the copy. I still wanted you to open it."
     if "you are my girlfriend" in sys_l:
