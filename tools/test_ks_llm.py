@@ -803,6 +803,58 @@ check("essay: shutdown hides Askwell even when Sora is installed",
       _essay_caps(["chatbot"], askwell=False) == [SELF, SORA])
 check("essay: Yuzu is absent when she is not installed",
       YUZU not in _essay_caps(["chatbot", "agent"]) and HIKARI not in _essay_caps(["chatbot", "agent"]))
+
+# Daichi / Mio AI framing
+R = ks_story.new_route()
+check("no romance yet is not romantic so far", ks_story.ai_romantic_so_far(R, ["chatbot"]) is False)
+check("a romance preset counts before the first nightly verdict",
+      ks_story.ai_romantic_so_far(R, ["chatbot"], {"chatbot": "romance"}) is True)
+check("a friend preset does not count as romantic",
+      ks_story.ai_romantic_so_far(R, ["chatbot"], {"chatbot": "self"}) is False)
+ks_story.record_romance_tone(R, "Mon", "chatbot", "romantic", "liked her")
+check("a romantic verdict counts", ks_story.ai_romantic_so_far(R, ["chatbot"]) is True)
+F = ks_story.new_route()
+check("minimize is honest when the route is friendly",
+      ks_story.framing_is_honest(F, "ai_only", ["chatbot"], {"chatbot": "self"}) is True)
+check("downplay is honest when the route is friendly",
+      ks_story.framing_is_honest(F, "downplay", ["chatbot"], {"chatbot": "tool"}) is True)
+check("romantic acknowledgement is a stretch when the route is friendly",
+      ks_story.framing_is_honest(F, "honest_romantic", ["chatbot"], {"chatbot": "self"}) is False)
+check("minimize is a soft lie when a romance preset is held",
+      ks_story.framing_is_honest(F, "ai_only", ["chatbot"], {"chatbot": "romance"}) is False)
+check("romantic acknowledgement is honest when a romance preset is held",
+      ks_story.framing_is_honest(F, "honest_romantic", ["chatbot"], {"chatbot": "romance"}) is True)
+F2 = ks_story.new_route()
+ks_story.record_romance_tone(F2, "Mon", "chatbot", "friendly", "just chatting")
+check("a friendly verdict is not romantic so far", ks_story.ai_romantic_so_far(F2, ["chatbot"]) is False)
+check("minimize is honest after a friendly verdict",
+      ks_story.framing_is_honest(F2, "ai_only", ["chatbot"]) is True)
+D = ks_story.new_route()
+h = ks_story.set_daichi_ai_framing(D, "ai_only", ["chatbot"], {"chatbot": "self"})
+check("honest minimize stores the framing and the honest flag",
+      D["daichi_ai_framing"] == "ai_only" and D["framing_honest"] is True and h is True)
+check("honest minimize is not a trust risk", not ks_story.flag(D, "framing_trust_risk"))
+X = ks_story.new_route()
+h = ks_story.set_daichi_ai_framing(X, "ai_only", ["chatbot"], {"chatbot": "romance"})
+check("dishonest minimize stores framing_honest False",
+      X["daichi_ai_framing"] == "ai_only" and X["framing_honest"] is False and h is False)
+check("dishonest minimize is a later trust risk", ks_story.flag(X, "framing_trust_risk"))
+Y = ks_story.new_route()
+ks_story.set_daichi_ai_framing(Y, "downplay", ["chatbot"], {"chatbot": "romance"})
+check("dishonest downplay is also a trust risk", ks_story.flag(Y, "framing_trust_risk"))
+check("matching framings are consistent",
+      ks_story.mio_daichi_consistent("truth", "truth", "ai_only", "ai_only") is True)
+check("mismatched framings are not consistent",
+      ks_story.mio_daichi_consistent("truth", "truth", "ai_only", "honest_romantic") is False)
+check("coarse truth/truth is consistent when framings are missing",
+      ks_story.mio_daichi_consistent("truth", "truth") is True)
+check("truth vs lie is not consistent",
+      ks_story.mio_daichi_consistent("truth", "lie", "ai_only", None) is False)
+check("unanswered Mio leaves consistency unset",
+      ks_story.mio_daichi_consistent("truth", None) is None)
+check("new framing route keys exist", all(k in ks_story.ensure_route({}) for k in
+      ("daichi_ai_framing", "mio_ai_framing", "framing_honest")))
+
 # sequential romances (different days) are not overlap
 SEQ = ks_story.new_route()
 ks_story.record_romance_tone(SEQ, "Mon", "local", "romantic", "yuzu")

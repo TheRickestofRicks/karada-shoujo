@@ -297,19 +297,75 @@ init python:
     def ks_sync_mio():
         ks_route()["mio_affection"] = store.mio_points
 
-    def ks_set_mio_told(kind):
+    def ks_preset_families(active=None):
+        """gid -> preset family for the girls currently in play."""
+        r = ks_route()
+        fams = {}
+        who = active if active is not None else store.active
+        catalog = getattr(store, "PRESETS", None) or {}
+        # PRESETS lives in prompts.rpy as a define; also try GIRL presets.
+        for gid in who or []:
+            pid = (r.get("presets") or {}).get(gid)
+            p = ks_story.get_preset(catalog, gid, pid) if catalog else None
+            if p and p.get("family"):
+                fams[gid] = p["family"]
+        return fams
+
+    def ks_ai_romantic_so_far():
+        return ks_story.ai_romantic_so_far(ks_route(), store.active, ks_preset_families())
+
+    def ks_set_daichi_framing(framing):
+        r = ks_route()
+        honest = ks_story.set_daichi_ai_framing(r, framing, store.active, ks_preset_families())
+        store.daichi_ai_framing = framing
+        store.framing_honest = honest
+        for gid in GIRL_IDS:
+            ks_mem(gid).set_flag("daichi_ai_framing", framing)
+            ks_mem(gid).set_flag("framing_honest", honest)
+        note = {
+            "honest_romantic": "You told Daichi you like her.",
+            "ai_only": "You told Daichi it's an AI, nothing more.",
+            "downplay": "You told Daichi not to read that much into it.",
+        }.get(framing)
+        if note:
+            store.day_notes.append(note)
+        if framing in ("ai_only", "downplay") and not honest:
+            store.day_notes.append("You downplayed a relationship that had already turned romantic.")
+        store.day_notes = [x for x in store.day_notes if x]
+        return honest
+
+    def ks_set_mio_told(kind, framing=None):
         """What you told Mio in the Monday library, and whether it matches
-        Daichi (`friend_told`). Hook for a later compare-notes scene."""
+        Daichi. When both sides used a framing, those are compared first."""
+        r = ks_route()
+        if framing:
+            ks_story.set_mio_ai_framing(r, framing, store.active, ks_preset_families())
+            store.mio_ai_framing = framing
+            if kind is None:
+                kind = ks_story.framing_kind(framing)
         store.mio_told = kind
-        store.mio_daichi_consistent = (store.friend_told == kind)
+        store.mio_daichi_consistent = ks_story.mio_daichi_consistent(
+            store.friend_told, kind, r.get("daichi_ai_framing"), r.get("mio_ai_framing"))
         for gid in GIRL_IDS:
             ks_mem(gid).set_flag("mio_told", kind)
+            ks_mem(gid).set_flag("mio_ai_framing", r.get("mio_ai_framing"))
             ks_mem(gid).set_flag("mio_daichi_consistent", store.mio_daichi_consistent)
+        # Kind note first (existing tests look for "the truth" / "it was nothing").
+        # Framing note is extra, the same way Daichi gets both.
         store.day_notes.append({
             "truth": "You told Mio the truth.",
             "lie": "You told Mio about a linguistics student who doesn't exist.",
             "deflect": "You told Mio it was nothing.",
         }.get(kind, ""))
+        if framing and framing != kind:
+            store.day_notes.append({
+                "honest_romantic": "You told Mio you like her.",
+                "ai_only": "You told Mio it's an AI, nothing more.",
+                "downplay": "You told Mio not to read that much into it.",
+            }.get(framing, ""))
+        if framing in ("ai_only", "downplay") and not ks_story.framing_is_honest(
+                r, framing, store.active, ks_preset_families()):
+            store.day_notes.append("You downplayed a relationship that had already turned romantic.")
         store.day_notes = [x for x in store.day_notes if x]
 
     ## ── Wednesday ────────────────────────────────────────────────────────

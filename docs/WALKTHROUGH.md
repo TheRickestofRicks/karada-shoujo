@@ -171,21 +171,29 @@ Day spine (`script.rpy:90–100`):
 
 Uses `active[0]` as "the" girl (and `active[1]` if a double date). Always attempts `hikari_phone_notify("lunch")`.
 
-**If two girls are active** (`script.rpy:292`):
+**If two girls are active** or one: first choice is still truth / deflect / lie.
 
 | Choice | Sets | Notes |
 |---|---|---|
-| Tell him the truth: both names, they're AIs | `friend_told = "truth"` | Follow-up: "Do they know about each other?" → `both_know = True` or `False` |
-| Deflect: "Just a meme thread." | `friend_told = "deflect"` | |
+| Tell him the truth: name(s), they're AIs | `friend_told = "truth"`, then a **framing** menu | See below. |
+| Deflect: "Just a meme thread." | `friend_told = "deflect"` | No framing. |
 | Lie: "A girl from another university." | `friend_told = "lie"` | You say linguistics. He wants to meet her at Saturday's festival. |
 
-**If one girl** (`script.rpy:321`): the same three options. Truth has platform-flavoured teasing (local / companion / chatbot / agent) and, if `migrations` is non-empty, he asks whether she's still her. A flavour sub-menu ("She's funny" / "I don't know yet") sets **no** extra flags.
+**Framing menu** (`label daichi_ai_frame`), only on the truth path. This is where he would otherwise assume you're dating it. You pick:
 
-Then Daichi mentions the library committee and Mio. Every girl's memory gets `flags.friend_told`. A line is appended to `day_notes`. `friend_told` is also used later by Both eligibility / score and by Mio's wording.
+| Choice | `daichi_ai_framing` | `framing_honest` | Daichi's follow-up |
+|---|---|---|---|
+| "Yeah. She's funny." / "I don't know yet. We just met." (one girl); "Yeah. I like them." (two) | `honest_romantic` | True if a `romance_tone` verdict or a held romance preset says you've already been romantic with her; False otherwise (a stretch) | He keeps the dating assumption: platform-flavoured teasing, and if two girls, "Do they know about each other?" (`both_know`). |
+| "It's an AI." | `ai_only` | True if you have *not* been romantic with her so far; a soft lie if you have | No dating assumption. "Right. Just an AI. Not someone you're seeing." |
+| "Don't read that much into it." | `downplay` | Same honesty rule as `ai_only` | "Alright. I won't." He drops it. |
+
+A dishonest `ai_only` or `downplay` also sets `framing_trust_risk` (a later hook, not an immediate Respect ding). Honest framings are neutral-to-positive (a day note only).
+
+Then Daichi mentions the library committee and Mio. Every girl's memory gets `flags.friend_told` and, if framed, `flags.daichi_ai_framing` / `framing_honest`. `friend_told` is also used later by Both eligibility / score and by Mio's wording.
 
 ### Library with Mio — `label library_mio` (`script.rpy:381`)
 
-Mio's opening line depends on `friend_told` and whether you're double-dating (truth → she names them; lie → "girlfriend at another university"; deflect / else → "you looked happy"). Then `hikari_phone_notify("library")`.
+Mio's opening line depends on `friend_told` **and** `daichi_ai_framing` (truth + `honest_romantic` or unset → she heard you were "seeing" them; `ai_only` → he told her you were talking about an AI, not dating one; `downplay` → he said not to read into the phone, then mentioned the AI anyway; lie → "girlfriend at another university"; deflect / else → "you looked happy"). Then `hikari_phone_notify("library")`.
 
 First menu (`script.rpy`, `label library_mio`):
 
@@ -194,14 +202,14 @@ First menu (`script.rpy`, `label library_mio`):
 | "Your hair looks nice today." | `mio_points += 1` | stay menu |
 | "Can you help me with the reading list?" | `mio_points += 1` | stay menu |
 | "You're always the last one here." | jump `.real` | hidden branch |
-| Truth: "It's okay. Yeah, sort of. We just met. Her name's [girl]." (two girls: "They're called [A] and [B]. We just met.") | `mio_told = "truth"`; `mio_daichi_consistent = (friend_told == "truth")`; day note; short reaction | stay menu |
-| Lie: "Yeah. A girl at another university. She studies linguistics." | `mio_told = "lie"`; consistency vs `friend_told`; day note; short reaction | stay menu |
-| Deflect: "It's nothing, really. Don't worry about it." | `mio_told = "deflect"`; consistency vs `friend_told`; day note; short reaction | stay menu |
+| "It's okay. Yeah, sort of. We just met. Her name's [girl]." (two girls: "They're called [A] and [B].") | `mio_told = "truth"`, `mio_ai_framing = honest_romantic`; consistency vs Daichi's framing | stay menu |
+| "It's an AI." (only if `friend_told == "truth"`) | `mio_told = "truth"`, `mio_ai_framing = ai_only`; a dishonest minimize (romance already on the route) flags `framing_trust_risk` | stay menu |
+| "Don't read that much into it." (only if `friend_told == "truth"`) | `mio_told = "deflect"`, `mio_ai_framing = downplay`; same honesty / trust-risk rule | stay menu |
+| Lie: "Yeah. A girl at another university. She studies linguistics." | `mio_told = "lie"`; consistency vs Daichi | stay menu |
+| Deflect: "It's nothing, really. Don't worry about it." | only if you did **not** tell Daichi the truth (when you did, downplay replaces this so the seven-or-eight options still fit above the textbox) | stay menu |
 | "I should get going." | day note; `ks_sync_mio()`; **leave** | return |
 
-Answering her (the three options above) is optional. Skipping them leaves `mio_told` and `mio_daichi_consistent` as `None`. The flags are also written to every girl's memory. **Hook, not written:** a later scene where Mio and Daichi compare notes and notice whether you were consistent. Until then, Wednesday's `ks_mio_ai_ref` still follows `friend_told` only. Mio's reactions stay respectful even if you contradict what she already heard.
-
-Truth and lie/deflect are both offered no matter what you told Daichi, so you can match him or change the story.
+`mio_daichi_consistent` is True when both sides used the same framing, or (if a framing is missing) when `friend_told == mio_told`. Answering is optional; skipping leaves those flags `None`. **Hook, not written:** a later scene where Mio and Daichi compare notes, and where `framing_trust_risk` can come due. Until then, Wednesday's `ks_mio_ai_ref` still follows `friend_told` only. Mio's reactions stay respectful even if you contradict what she already heard.
 
 Stay menu (`script.rpy:428`), only if you didn't leave or jump:
 
@@ -272,10 +280,12 @@ Then `route["ran_festival_setup"] = True` (she mentions Saturday's stall). A day
 
 ### Lunch: Daichi brings Kenta — `label lunch_kenta` (`tuesday.rpy:214`)
 
-Daichi is shown at `ks_left` and Kenta at `ks_right`. Kenta talks about AI-edited texts to his girlfriend. Dialogue branches on `friend_told`:
+Daichi is shown at `ks_left` and Kenta at `ks_right`. Kenta talks about AI-edited texts to his girlfriend. Dialogue branches on `friend_told` and `daichi_ai_framing`:
 
-- `"truth"`: he reacts to one girl, two girls, or (if you already dropped everyone) "you looked lonely."
-- `"lie"`: "the guy with the linguistics girlfriend." Menu (`tuesday.rpy:236`): invent "Yuzuha" (day note only) **or** come clean → `friend_told = "truth"`, all memories updated.
+- `"truth"` + `honest_romantic` (or no framing, for old saves): he reacts as if you're dating one, or two, or (if you already dropped everyone) "you looked lonely."
+- `"truth"` + `ai_only`: "Daichi says you run an AI? Like, you just use it. Not... dating it."
+- `"truth"` + `downplay`: "Daichi said not to read into the phone thing. Then he told me anyway."
+- `"lie"`: "the guy with the linguistics girlfriend." Menu: invent "Yuzuha" (day note only) **or** come clean → `friend_told = "truth"`, all memories updated, then the same framing menu as Monday (`daichi_ai_frame`).
 - else (deflect / unset): Daichi says you're still pretending it's a meme thread. **No come-clean option on this path.**
 
 Then flavour only — "If the AI writes the romantic stuff… who's she in love with?" Three answers set **no** flags. Daichi mentions Mio again. `hikari_phone_notify("lunch")` runs in the middle.

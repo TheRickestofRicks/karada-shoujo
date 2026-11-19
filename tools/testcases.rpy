@@ -160,6 +160,8 @@ testcase double_then_drop:
     screenshot "c01_daichi_double.png"
     click "Two of them"
     advance until screen "choice" timeout 30.0
+    click "Yeah. I like them."
+    advance until screen "choice" timeout 30.0
     click "Not exactly"
     advance until screen "choice" timeout 30.0
     click "Stop seeing one"
@@ -490,6 +492,10 @@ testcase tuesday_nowalk:
     click "Cool."
     advance until screen "choice" timeout 30.0
     click "Come clean"
+    advance until screen "choice" timeout 30.0
+    click "Yeah. I like them."
+    advance until screen "choice" timeout 30.0
+    click "Not exactly"
     advance until screen "choice" timeout 30.0
     click "Ask her."
     advance until screen "choice" timeout 30.0
@@ -939,6 +945,8 @@ testcase phone_talk:
     advance until screen "choice" timeout 30.0
     click "Tell him the truth"
     advance until screen "choice" timeout 30.0
+    click "Yeah. I like them."
+    advance until screen "choice" timeout 30.0
     click "Not exactly"
     advance until screen "choice" timeout 30.0
     screenshot "pt02_double_talk_options.png"
@@ -1002,6 +1010,7 @@ testcase mio_answer:
     click "It's okay. Yeah, sort of"
     advance until screen "choice" timeout 30.0
     $ assert mio_told == "truth" and mio_daichi_consistent is True, (mio_told, mio_daichi_consistent, friend_told)
+    $ assert ks_route()["daichi_ai_framing"] == "honest_romantic" and ks_route()["mio_ai_framing"] == "honest_romantic"
     $ assert ks_mem("chatbot").data["flags"].get("mio_told") == "truth"
     $ assert ks_mem("chatbot").data["flags"].get("mio_daichi_consistent") is True
     $ assert any("You told Mio the truth." in (x if isinstance(x, str) else "") for x in day_notes), day_notes
@@ -1481,6 +1490,10 @@ testcase afternoon_split:
     advance until screen "choice" timeout 30.0
     click "Come clean"
     advance until screen "choice" timeout 30.0
+    click "Yeah. I like them."
+    advance until screen "choice" timeout 30.0
+    click "Not exactly"
+    advance until screen "choice" timeout 30.0
     click "Ask her."
     advance until screen "choice" timeout 30.0
     click "Put it away"
@@ -1546,6 +1559,98 @@ label ks_debug_input:
     $ assert len(_ks_long) >= 500, len(_ks_long)
     $ _ks_said = renpy.input("Message Sora  (leave empty to stop)", default=_ks_long, length=800)
     return
+
+## Honest minimize: a friendly (not romantic) Sora run tells Daichi
+## "It's an AI." and says the same to Mio. The framing is honest, the
+## two stories match, and it is not a later trust risk.
+testcase framing_honest_min:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "It's an AI."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    $ assert friend_told == "truth"
+    $ assert ks_route()["daichi_ai_framing"] == "ai_only" and ks_route()["framing_honest"] is True
+    $ assert not ks_story.flag(ks_route(), "framing_trust_risk")
+    click "It's an AI."
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["mio_ai_framing"] == "ai_only"
+    $ assert mio_told == "truth" and mio_daichi_consistent is True, (mio_told, mio_daichi_consistent, ks_route()["daichi_ai_framing"], ks_route()["mio_ai_framing"])
+    $ assert ks_route()["framing_honest"] is True and not ks_story.flag(ks_route(), "framing_trust_risk")
+    click "Nah, I've got stuff."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ print("KARADA_TEST: framing_honest_min reached Tuesday")
+    exit
+
+
+## Dishonest minimize: Sora is on a romance preset, you tell Daichi
+## "It's an AI." (a soft lie vs the route), then acknowledge her to Mio.
+## The stories don't match, and a later trust risk is flagged.
+testcase framing_dishonest_min:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Act as my girlfriend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "It's an AI."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    $ assert friend_told == "truth"
+    $ assert ks_route()["daichi_ai_framing"] == "ai_only" and ks_route()["framing_honest"] is False
+    $ assert ks_story.flag(ks_route(), "framing_trust_risk")
+    click "It's okay. Yeah, sort of"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["mio_ai_framing"] == "honest_romantic"
+    $ assert mio_daichi_consistent is False, (mio_daichi_consistent, ks_route()["daichi_ai_framing"], ks_route()["mio_ai_framing"])
+    $ assert ks_story.flag(ks_route(), "framing_trust_risk")
+    click "Nah, I've got stuff."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ print("KARADA_TEST: framing_dishonest_min reached Tuesday")
+    exit
+
 
 testcase input_wrap:
     run Start("ks_debug_input")

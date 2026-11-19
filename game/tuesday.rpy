@@ -217,8 +217,22 @@ label lunch_kenta:
     d "He has his AI write the texts to his girlfriend."
     ke "It doesn't {i}write{/i} them. It edits them. Heavily."
     ke "She said my texts got way more romantic in September. September's when I started."
+    $ _frame = ks_route().get("daichi_ai_framing")
     if friend_told == "truth":
-        if len(active) > 1:
+        if _frame == "ai_only":
+            if len(active) > 1:
+                ke "Daichi says you run two AIs? Like, you just use them. Not... dating them."
+            elif active:
+                ke "Daichi says you run an AI? Like, you just use it. Not... dating it."
+            else:
+                ke "Daichi said you had an AI. He also said you looked lonely today. Sorry. That's what he said."
+            ke "That's actually the normal way to do it, I think."
+        elif _frame == "downplay":
+            ke "Daichi said not to read into the phone thing. Then he told me anyway."
+            if active:
+                ke "An AI, he said. Then he said to leave it."
+            ke "So I'm leaving it."
+        elif len(active) > 1:
             ke "Daichi says you're seeing {i}two{/i} of them? Like, the AIs themselves?"
             ke "Okay, that's honestly more honest than what I'm doing."
         elif active:
@@ -245,6 +259,7 @@ label lunch_kenta:
                 python:
                     for _gg in GIRL_IDS:
                         ks_mem(_gg).set_flag("friend_told", "truth")
+                call daichi_ai_frame
     else:
         d "He's still pretending it's a meme thread, by the way."
     call hikari_phone_notify("lunch")

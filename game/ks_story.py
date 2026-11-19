@@ -96,6 +96,12 @@ def new_route():
         "romance_overlap_days": [],
         # Nightly model verdict of her nos and whether they were respected.
         "refusal_verdicts": {},   # day -> gid -> {declined: [...], method}
+        # How you framed the AI to Daichi, and later to Mio.
+        # honest_romantic | ai_only | downplay, or None if you deflected/lied.
+        "daichi_ai_framing": None,
+        "mio_ai_framing": None,
+        "framing_honest": None,   # vs the actual route (romance_tone / romance presets)
+        "preset_families": {},    # gid -> family of the held preset (for honesty before night)
     }
 
 
@@ -259,6 +265,7 @@ def record_preset(route, presets, gid, new_pid, day, source, prev_pid=None):
     entry = {"day": day, "gid": gid, "from": prev_pid, "to": new_pid,
              "source": source, "lean": lean}
     route["presets"][gid] = new_pid
+    route.setdefault("preset_families", {})[gid] = p.get("family")
     route["preset_history"].append(entry)
     if source in ("phone", "reflection") and prev_pid is not None and prev_pid != new_pid:
         route["preset_changes"][gid] = route["preset_changes"].get(gid, 0) + 1
@@ -512,6 +519,90 @@ def set_kurosawa_essay(route, how, girl=None):
     set_flag(route, "kurosawa_essay")
     if how:
         set_flag(route, "kurosawa_essay_" + str(how))
+
+
+# How the player framed the AI to a friend. "honest_romantic" acknowledges
+# a relationship; "ai_only" minimizes ("It's an AI."); "downplay" deflects
+# ("Don't read that much into it."). Honesty is judged against the route.
+FRAMING_ROMANTIC = "honest_romantic"
+FRAMING_AI_ONLY = "ai_only"
+FRAMING_DOWNPLAY = "downplay"
+FRAMING_VALUES = (FRAMING_ROMANTIC, FRAMING_AI_ONLY, FRAMING_DOWNPLAY)
+
+
+def ai_romantic_so_far(route, active=None, preset_families=None):
+    """Has the player already been romantic with an AI?
+
+    Uses nightly romance_tone verdicts first, then (when there is no
+    verdict yet, e.g. Monday lunch) a held preset whose family is
+    "romance". Day logs are the verdicts; the preset covers the hours
+    before the first night.
+    """
+    ensure_route(route)
+    tones = route.get("romance_tone") or {}
+    families = dict(route.get("preset_families") or {})
+    if preset_families:
+        families.update(preset_families)
+    gids = list(active) if active is not None else list(dict.fromkeys(list(tones) + list(families)))
+    for gid in gids:
+        for entry in (tones.get(gid) or {}).values():
+            if (entry or {}).get("tone") == "romantic":
+                return True
+    for gid in gids:
+        if families.get(gid) == "romance":
+            return True
+    return False
+
+
+def framing_is_honest(route, framing, active=None, preset_families=None):
+    """A minimize/downplay is a soft lie if the route has already been
+    romantic; a romantic acknowledgement is honest only if it has."""
+    if framing not in FRAMING_VALUES:
+        return True
+    romantic = ai_romantic_so_far(route, active, preset_families)
+    if framing == FRAMING_ROMANTIC:
+        return bool(romantic)
+    return not romantic
+
+
+def set_daichi_ai_framing(route, framing, active=None, preset_families=None):
+    """Store Daichi's framing and whether it was honest vs the route."""
+    ensure_route(route)
+    route["daichi_ai_framing"] = framing
+    honest = framing_is_honest(route, framing, active, preset_families)
+    route["framing_honest"] = honest
+    if framing in (FRAMING_AI_ONLY, FRAMING_DOWNPLAY) and not honest:
+        set_flag(route, "framing_trust_risk")
+    return honest
+
+
+def set_mio_ai_framing(route, framing, active=None, preset_families=None):
+    """Store Mio's framing. Consistency with Daichi is computed separately."""
+    ensure_route(route)
+    route["mio_ai_framing"] = framing
+    # A dishonest downplay/minimize to Mio is also a later trust risk.
+    if framing in (FRAMING_AI_ONLY, FRAMING_DOWNPLAY):
+        if not framing_is_honest(route, framing, active, preset_families):
+            set_flag(route, "framing_trust_risk")
+    return framing
+
+
+def mio_daichi_consistent(friend_told, mio_told, daichi_framing=None, mio_framing=None):
+    """True once Mio has been answered. Framings, when both set, win."""
+    if mio_told is None and not mio_framing:
+        return None
+    if daichi_framing and mio_framing:
+        return daichi_framing == mio_framing
+    return friend_told == mio_told
+
+
+def framing_kind(framing):
+    """Coarse mio_told / friend_told bucket for a framing."""
+    if framing == FRAMING_DOWNPLAY:
+        return "deflect"
+    if framing in (FRAMING_ROMANTIC, FRAMING_AI_ONLY):
+        return "truth"
+    return None
 
 
 def record_romance_tone(route, day, gid, tone, reason="", method="classifier"):

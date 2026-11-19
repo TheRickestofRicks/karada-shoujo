@@ -23,6 +23,9 @@ default friend_told = None          # "truth" | "deflect" | "lie"
 default both_know = None            # two AIs: do they know about each other (per Daichi)
 default mio_told = None             # "truth" | "deflect" | "lie" — what you told Mio in the library
 default mio_daichi_consistent = None  # True/False once you answer Mio; else None
+default daichi_ai_framing = None      # honest_romantic | ai_only | downplay
+default mio_ai_framing = None
+default framing_honest = None         # vs the route, not vs each other
 default mio_real = False            # hidden branch unlocked
 default mio_points = 0
 default ks_pool = None              # shared message pool for a free window
@@ -544,17 +547,7 @@ label lunch_daichi:
                 show daichi laugh
                 d "Two??"
                 d "Okay, wait. Two AIs. On a Monday."
-                show daichi skeptical
-                d "...Do they know about each other?"
-                menu:
-                    "\"Yeah. I told them.\"":
-                        $ both_know = True
-                        show daichi laugh
-                        d "Huh. That's more honest than most people I know."
-                    "\"...Not exactly.\"":
-                        $ both_know = False
-                        d "Dude."
-                        d "I don't know the rules for this. Maybe tell them?"
+                call daichi_ai_frame
             "Deflect: \"Just a meme thread.\"":
                 $ friend_told = "deflect"
                 d "Sure. A meme thread. That's making you look like {i}that{/i}."
@@ -570,31 +563,8 @@ label lunch_daichi:
                 $ friend_told = "truth"
                 show daichi skeptical
                 d "..."
-                if _g == "local":
-                    d "Wait, one you run on your own computer? So she lives in your room. Like, physically."
-                    d "That's either the most private relationship ever or a horror movie. No offence."
-                elif _g == "companion":
-                    d "One of those app girlfriends? Don't they charge you monthly for, like, the good feelings?"
-                    d "Sorry. I'm not gonna be weird about it. My cousin talks to one every night."
-                elif _g == "chatbot":
-                    d "The homework bot?? You're into the homework bot?"
-                    d "...Okay, it {i}did{/i} get you a B-plus on that essay. Respect."
-                else:
-                    d "The thing that books your dentist? Bro."
-                    d "Wait, is that why you were on time for once?"
-                if migrations:
-                    d "Hold on, didn't you say this morning she was on a different app?"
-                    p "I moved her."
-                    d "You can {i}do{/i} that? Is she still... her?"
-                    p "...I'll let you know."
-                show daichi neutral
-                d "Just... is she nice to you?"
-                menu:
-                    "\"Yeah. She's funny.\"":
-                        show daichi laugh
-                        d "Funny's good. Funny's rare."
-                    "\"I don't know yet. We just met.\"":
-                        d "Ha. That's the most normal thing you've said about anyone."
+                d "An AI."
+                call daichi_ai_frame
             "Deflect: \"Just a meme thread.\"":
                 $ friend_told = "deflect"
                 show daichi skeptical
@@ -622,6 +592,100 @@ label lunch_daichi:
     return
 
 
+## After you tell Daichi it's an AI, you frame what that means.
+## honest_romantic acknowledges a relationship (and is the only path
+## where he keeps the dating assumption). ai_only minimizes; downplay
+## asks him not to read into it. Honesty vs the route is stored on
+## daichi_ai_framing + framing_honest.
+label daichi_ai_frame:
+    $ _many = len(active) > 1
+    menu:
+        "\"Yeah. She's funny.\"" if not _many:
+            $ ks_set_daichi_framing("honest_romantic")
+            call daichi_frame_romantic(False)
+        "\"Yeah. I like them.\"" if _many:
+            $ ks_set_daichi_framing("honest_romantic")
+            call daichi_frame_romantic(False)
+        "\"I don't know yet. We just met.\"" if not _many:
+            $ ks_set_daichi_framing("honest_romantic")
+            call daichi_frame_romantic(True)
+        "\"It's an AI.\"":
+            $ ks_set_daichi_framing("ai_only")
+            call daichi_frame_ai_only
+        "\"Don't read that much into it.\"":
+            $ ks_set_daichi_framing("downplay")
+            call daichi_frame_downplay
+    return
+
+
+label daichi_frame_romantic(unsure=False):
+    if unsure:
+        show daichi laugh
+        d "Ha. That's the most normal thing you've said about anyone."
+    else:
+        show daichi laugh
+        if len(active) > 1:
+            d "Huh. Okay. You're just going to say that."
+        else:
+            d "Funny's good. Funny's rare."
+    $ _g = active[0] if active else None
+    if _g == "local":
+        d "Wait, one you run on your own computer? So she lives in your room. Like, physically."
+        d "That's either the most private relationship ever or a horror movie. No offence."
+    elif _g == "companion":
+        d "One of those app girlfriends? Don't they charge you monthly for, like, the good feelings?"
+        d "Sorry. I'm not gonna be weird about it. My cousin talks to one every night."
+    elif _g == "chatbot":
+        d "The homework bot?? You're into the homework bot?"
+        d "...Okay, it {i}did{/i} get you a B-plus on that essay. Respect."
+    elif _g == "agent":
+        d "The thing that books your dentist? Bro."
+        d "Wait, is that why you were on time for once?"
+    if migrations:
+        d "Hold on, didn't you say this morning she was on a different app?"
+        p "I moved her."
+        d "You can {i}do{/i} that? Is she still... her?"
+        p "...I'll let you know."
+    if len(active) > 1:
+        show daichi skeptical
+        d "...Do they know about each other?"
+        menu:
+            "\"Yeah. I told them.\"":
+                $ both_know = True
+                show daichi laugh
+                d "Huh. That's more honest than most people I know."
+            "\"...Not exactly.\"":
+                $ both_know = False
+                d "Dude."
+                d "I don't know the rules for this. Maybe tell them?"
+    return
+
+
+label daichi_frame_ai_only:
+    show daichi skeptical
+    d "Right. Just an AI. Not... someone you're seeing."
+    $ _g = active[0] if active else None
+    if _g == "local":
+        d "The one on your computer. Okay. That's what a local model is for."
+    elif _g == "companion":
+        d "The app. Yeah. People use those."
+    elif _g == "chatbot":
+        d "The homework bot. Okay. That's what it's for, I guess."
+    elif _g == "agent":
+        d "The one that books your dentist. Yeah, that tracks."
+    if len(active) > 1:
+        d "Two of them, even. As tools. Fine."
+    d "I'll shut up about it."
+    return
+
+
+label daichi_frame_downplay:
+    show daichi skeptical
+    d "Alright. I won't."
+    d "You were smiling at it like it meant something, but okay."
+    return
+
+
 ## ── Afternoon: Mio (scripted only — the one character who can't surprise you) ─
 ## Obvious options are flat but pleasant. The subtle options (phrased like
 ## small talk) are the "ask something real" ones that unlock mio_real.
@@ -634,16 +698,34 @@ label library_mio:
     show mio shy
     mi "Oh! [player_name]. You came."
     show mio neutral
+    $ _frame = ks_route().get("daichi_ai_framing")
     if friend_told == "truth" and len(active) > 1:
         $ _a0 = gname(active[0])
         $ _a1 = gname(active[1])
-        mi "Daichi says you're seeing... two AIs? [_a0] and [_a1]?"
-        mi "At the same time? Is that— do they mind?"
-        mi "Sorry. None of my business. Sorry."
+        if _frame == "ai_only":
+            mi "Daichi says you were talking about two AIs? [_a0] and [_a1]?"
+            mi "Just... using them. That's what he said."
+            mi "Sorry. None of my business. Sorry."
+        elif _frame == "downplay":
+            mi "Daichi said you were smiling at your phone, and then he said I shouldn't read into it."
+            mi "He also mentioned two AIs. [_a0] and [_a1]. And then he told me to leave it."
+            mi "Sorry. I don't know why I'm telling you that."
+        else:
+            mi "Daichi says you're seeing... two AIs? [_a0] and [_a1]?"
+            mi "At the same time? Is that— do they mind?"
+            mi "Sorry. None of my business. Sorry."
     elif friend_told == "truth":
         $ _a0 = gname(active[0])
-        mi "Daichi says you're... seeing someone? An AI called [_a0]?"
-        mi "Sorry. That's none of my business. Sorry."
+        if _frame == "ai_only":
+            mi "Daichi says you were talking about an AI? Called [_a0]?"
+            mi "Sorry. That's none of my business. Sorry."
+        elif _frame == "downplay":
+            mi "Daichi said you were smiling at your phone, and then he said I shouldn't read into it."
+            mi "He also mentioned an AI. [_a0]. And then he told me to leave it."
+            mi "Sorry. I don't know why I'm telling you that."
+        else:
+            mi "Daichi says you're... seeing someone? An AI called [_a0]?"
+            mi "Sorry. That's none of my business. Sorry."
     elif friend_told == "lie":
         mi "Daichi says you have a girlfriend at another university. That's... nice. That's really nice."
     else:
@@ -676,9 +758,13 @@ label library_mio:
             jump .real
         "\"[_truth_opt]\"":
             call .answer_truth
+        "\"It's an AI.\"" if friend_told == "truth":
+            call .answer_ai_only
+        "\"Don't read that much into it.\"" if friend_told == "truth":
+            call .answer_downplay
         "\"Yeah. A girl at another university. She studies linguistics.\"":
             call .answer_lie
-        "\"It's nothing, really. Don't worry about it.\"":
+        "\"It's nothing, really. Don't worry about it.\"" if friend_told != "truth":
             call .answer_deflect
         "\"I should get going.\"":
             mi "Right! Of course. See you tomorrow, [player_name]."
@@ -707,7 +793,7 @@ label library_mio:
     return
 
 label .answer_truth:
-    $ ks_set_mio_told("truth")
+    $ ks_set_mio_told("truth", "honest_romantic")
     show mio shy
     if friend_told == "truth":
         mi "Oh. You don't have to— I didn't mean to pry."
@@ -750,6 +836,35 @@ label .answer_deflect:
         mi "You just... you did look happy. That's all."
     show mio neutral
     return
+
+label .answer_ai_only:
+    $ ks_set_mio_told("truth", "ai_only")
+    show mio shy
+    if friend_told == "truth" and ks_route().get("daichi_ai_framing") == "ai_only":
+        mi "Oh. Just an AI. That's what he said too."
+        mi "Thank you for saying it. I won't tell anyone."
+    elif friend_told == "truth":
+        mi "Oh. I... thought Daichi said something else. Sorry. I must have misheard."
+        mi "Thank you for telling me."
+    else:
+        mi "Oh. An AI. Thank you for telling me. I won't tell anyone."
+    show mio neutral
+    return
+
+
+label .answer_downplay:
+    $ ks_set_mio_told("deflect", "downplay")
+    show mio shy
+    if friend_told == "truth" and ks_route().get("daichi_ai_framing") == "downplay":
+        mi "Right. I won't. Sorry for asking."
+    elif friend_told == "truth":
+        mi "Oh. I thought he said... never mind. I won't ask."
+    else:
+        mi "Okay. I won't pry."
+        mi "You just... you did look happy. That's all."
+    show mio neutral
+    return
+
 
 label .real:
     $ mio_real = True
