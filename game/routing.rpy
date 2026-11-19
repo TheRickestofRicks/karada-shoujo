@@ -216,6 +216,14 @@ init python:
             m.set_flag("summarizer", True)
             m.log_event("summarizer_installed", day=store.day_name, why=why)
 
+    def ks_both():
+        return ks_story.both_status(ks_route(), store.active, store.mio_real, store.friend_told)
+
+    def ks_both_ending():
+        ai = gname(store.active[0]) if store.active else "her"
+        return ks_story.ending_text("both", ai, store.friend_told)
+
     def ks_leans():
         return ks_story.ending_leans(ks_route(), store.active, store.mio_real,
-                                     any(store.mirror_flags.values()), store.migrations)
+                                     any(store.mirror_flags.values()), store.migrations,
+                                     store.friend_told)

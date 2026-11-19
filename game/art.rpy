@@ -47,8 +47,8 @@ image bg cafeteria     = ks_file("images/bg/cafeteria.png",       Solid("#8a6f52
 image bg library       = ks_file("images/bg/library.png",         Solid("#4d3b2f"), (1280, 720))
 image bg classroom     = ks_file("images/bg/classroom.png",       Solid("#5a4a3a"), (1280, 720))
 image bg street_dusk   = ks_file("images/bg/street_dusk.png",     Solid("#4a3a5a"), (1280, 720))
-## Wednesday. Dedicated art can be dropped in later (tools/import_art.py:
-## bookstore, downtown); until then they reuse tinted existing backgrounds.
+## Wednesday: Kanade Books and Ekimae plaza (generated art in art_src/,
+## imported by tools/import_art.py). Tinted fallbacks if the files are missing.
 image bg bookstore     = ks_file("images/bg/bookstore.png",
                                  Transform(ks_file("images/bg/library.png", Solid("#6b5440"), (1280, 720)),
                                            matrixcolor=BrightnessMatrix(0.06) * SaturationMatrix(1.15)),

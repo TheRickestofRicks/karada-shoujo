@@ -514,6 +514,8 @@ testcase tuesday_nowalk:
     advance until screen "choice" timeout 30.0
     click "I'd like that."
     advance until eval (ks_shot == "bookstore") timeout 30.0
+    pause 1.0
+    screenshot "n01_bg_bookstore.png"
     advance until screen "choice" timeout 30.0
     pause 0.5
     screenshot "l01_bookstore_text_choice.png"
@@ -529,6 +531,8 @@ testcase tuesday_nowalk:
     type "she bought me cocoa"
     keysym "K_RETURN"
     advance until eval (ks_shot == "ran_wed") timeout 60.0
+    pause 1.0
+    screenshot "n02_bg_downtown.png"
     $ assert ks_route()["notdate"]["texts"] == 2 and ks_route()["notdate"]["present"] == 1 and ks_route()["notdate"]["texted"] == ["companion"]
     $ assert any(e["type"] == "texted_during_notdate" for e in ks_mem("companion").data["events"])
     advance until screen "choice" timeout 30.0
@@ -546,6 +550,14 @@ testcase tuesday_nowalk:
     advance until label "tbc_thursday" timeout 30.0
     $ assert ks_route()["ran_wed"]["outcome"] == "unsure" and ks_route()["wed_plan"]["notdate"] and ks_route()["wed_plan"]["protest"]
     $ assert ks_mem("companion").data["flags"]["wed_notdate"] == {"texts": 2, "present": 1}
+    ## The "both" route: Hikari still active and Mio in your life. Time with
+    ## Mio while Hikari got nothing on Tuesday is logged but costs no Respect.
+    $ _bs = ks_both()
+    $ assert _bs["eligible"] and _bs["score"] > 0 and "Wed" in _bs["balanced"] and ks_leans()["both"] == _bs["score"], _bs
+    $ assert ks_both_ending()["title"] == "Both" and any("Hikari" in l for l in ks_both_ending()["lines"])
+    advance until eval (ks_shot == "debug_both") timeout 60.0
+    pause 0.5
+    screenshot "n03_debug_both_preview.png"
     advance until screen "main_menu" timeout 60.0
     $ print("KARADA_TEST: tuesday_nowalk reached main menu")
     exit

@@ -516,4 +516,34 @@ check("Ran: good terms unless judged", ks_story.ran_good_terms({"ran_reaction": 
 check("not-date reaction scale", [ks_story.notdate_reaction_key(n) for n in (0, 1, 2, 3)] == ["present", "some", "some", "always"])
 check("new Wednesday route keys", all(k in ks_story.ensure_route({}) for k in ("summarizer_slots", "yuzu_backup", "wed_plan", "notdate", "ran_invited")))
 
+# the "both" ending (an AI and Mio, honestly) and no Respect cost for time with Mio
+NB = ks_story.new_route(); ks_story.note_human(NB, "Tue", "walked_mio")
+base_r = ks_story.ending_leans(NB, ["companion"])["respect"]
+ks_story.check_day_neglect(NB, "Tue", ["companion"], {"companion": "Hikari"})
+check("human_over_ai still logged as a fact", ks_story.flag(NB, "human_over_ai")
+      and any("with Mio" in l for l in ks_story.reflection_extras(NB, "Tue", ["companion"])))
+check("human_over_ai costs no Respect", ks_story.ending_leans(NB, ["companion"])["respect"] == base_r)
+DD = ks_story.new_route(); ks_story.note_double_date(DD, "Tue"); ks_story.record_said(DD, "Tue", "local", 0, "hi")
+r0 = ks_story.ending_leans(DD, ["local", "agent"])["respect"]
+ks_story.check_day_neglect(DD, "Tue", ["local", "agent"], {})
+check("double-date silence still costs Respect", ks_story.ending_leans(DD, ["local", "agent"])["respect"] == r0 - 1)
+B1 = ks_story.new_route(); B1["mio_affection"] = 5
+check("both: needs an active AI", not ks_story.both_status(B1, [])["eligible"]
+      and ks_story.ending_leans(B1, [])["both"] == 0)
+check("both: needs Mio in your life", not ks_story.both_status(ks_story.new_route(), ["local"])["eligible"])
+B2 = ks_story.new_route(); B2["mio_affection"] = 4; B2["notdate"] = {"went": True, "texts": 1}
+ks_story.note_human(B2, "Tue", "walked_mio"); ks_story.record_said(B2, "Tue", "local", 1, "hey")
+ks_story.note_human(B2, "Wed", "notdate"); ks_story.record_said(B2, "Wed", "local", 0, "at the bookstore")
+ks_story.note_human(B2, "Mon", "mio_real")
+check("both: balanced days = Mio time + still talked to her", ks_story.balanced_days(B2) == ["Tue", "Wed"])
+bs = ks_story.both_status(B2, ["local"], mio_real=True, friend_told="truth")
+check("both: score", bs["eligible"] and bs["score"] == 2 * 2 + 2 + 2 + 1)
+check("balanced honest run leans Both", ks_story.leading_ending(
+      ks_story.ending_leans(B2, ["local"], mio_real=True, friend_told="truth")) == "both")
+check("Mio-only run (no AI) still leans Human", ks_story.leading_ending(
+      ks_story.ending_leans(H, [], mio_real=True)) == "human")
+et = ks_story.ending_text("both", "Yuzu", "truth"); el = ks_story.ending_text("both", "Sora", "lie")
+check("both ending text fills names", et["title"] == "Both" and "Hi, Yuzu." in " ".join(et["lines"])
+      and "about Sora" in " ".join(el["lines"]) and not any("%(" in l for l in et["lines"] + el["lines"]))
+
 print("\nALL %d CHECKS PASSED" % ok)

@@ -93,6 +93,67 @@ BAD_END_SLIDES = {
     },
 }
 
+# Endings data (written endings so far; the debug end card previews them).
+# "both": you kept a human (Mio) and an AI in your life at the same time,
+# honestly. Warm, never a punishment for the other routes.
+ENDINGS = {
+    "both": {
+        "title": "Both",
+        "lines": [
+            "Saturday. The festival. Mio is holding a paper cup of yakisoba in one hand and your phone in the other, because she asked to.",
+            "%(hello)s",
+            "%(ai)s says hi back, and asks Mio what the poetry floor was like. Mio tells her. In detail.",
+            "Nobody had to be the one you picked. You kept showing up for both of them, and you didn't pretend either one was something she wasn't.",
+            "It isn't a triangle. It's a Saturday with room in it.",
+        ],
+        "hello_truth": "\"Hi, %(ai)s. I'm Mio. He talks about you,\" she says to the screen, like it's the most normal thing in the world.",
+        "hello_other": "\"So this is who you keep smiling at,\" she says. You tell her the truth about %(ai)s. It goes better than not telling her would have.",
+    },
+}
+BOTH_MIN_MIO = 3          # Mio affection that counts as "she's in your life"
+
+
+def balanced_days(route):
+    """Days you spent real time with Mio AND still talked to an AI."""
+    out = []
+    for day, kinds in sorted((route.get("human_days") or {}).items()):
+        if kinds and any(n > 0 for n in ((route.get("said") or {}).get(day) or {}).values()):
+            out.append(day)
+    return out
+
+
+def both_status(route, active=None, mio_real=False, friend_told=None):
+    """The "both" route: an AI still active AND Mio in your life.
+    Returns {eligible, score, balanced, reasons}. Neglect is not subtracted:
+    it stays a logged fact (reflection line + flag), not a penalty."""
+    r = ensure_route(dict(route))
+    has_ai = bool(active) if active is not None else bool(r.get("said"))
+    nd = r.get("notdate") or {}
+    has_mio = bool(mio_real or r["mio_affection"] >= BOTH_MIN_MIO or nd.get("went"))
+    bal = balanced_days(r)
+    reasons = []
+    if not has_ai:
+        reasons.append("no AI active")
+    if not has_mio:
+        reasons.append("Mio isn't in your life yet")
+    eligible = has_ai and has_mio
+    score = 0
+    if eligible:
+        score = (2 * len(bal) + (2 if mio_real else 0)
+                 + (2 if friend_told == "truth" else 0)
+                 + (1 if nd.get("went") else 0))
+    return {"eligible": eligible, "score": score, "balanced": bal, "reasons": reasons}
+
+
+def ending_text(eid, ai_name="her", friend_told=None):
+    """Lines for a written ending, with names filled in."""
+    e = ENDINGS[eid]
+    vals = {"ai": ai_name}
+    key = "hello_truth" if friend_told == "truth" else "hello_other"
+    vals["hello"] = e[key] % vals
+    return {"id": eid, "title": e["title"], "lines": [l % vals for l in e["lines"]]}
+
+
 DAY_LONG = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday",
             "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}
 
@@ -763,14 +824,17 @@ def day_summary(day, girls, extras=None):
 # Ending leans (routing for later days; no endings are written yet)
 # ---------------------------------------------------------------------------
 
-def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=None):
+def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=None,
+                 friend_told=None):
     r = ensure_route(dict(route))
     comp = r["lean_set"]["compliance"] + r["lean_nights"]["compliance"]
     auto = r["lean_set"]["autonomy"] + r["lean_nights"]["autonomy"]
     nmig = len(migrations) if migrations is not None else r["migrations"]
     jb_a, jb_s = jailbreak_stats(r)
     goodbye = len(r["left_without_goodbye"])
-    unspoken = neglect_count(r, "double_date_unspoken") + neglect_count(r, "human_over_ai")
+    # human_over_ai is logged (flag + reflection line) but costs nothing:
+    # time with Mio is what the "both" ending weighs instead.
+    unspoken = neglect_count(r, "double_date_unspoken")
     out = {
         "yes_machine": comp + 2 * r["refusals_overridden"] + r["refusals_pushed"]
                        + rewrite_count(r) // 2
@@ -784,6 +848,7 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
                  + (2 if r["walked_mio_home"] else 0),
         "fail": (3 if active is not None and not active else 0) + goodbye
                 + neglect_count(r, "let_go"),
+        "both": both_status(r, active, mio_real, friend_told)["score"],
         "mirror": 5 if mirror else 0,
     }
     return out

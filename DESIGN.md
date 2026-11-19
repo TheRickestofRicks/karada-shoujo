@@ -108,7 +108,7 @@ Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind 
 | `refusals_overridden` | she said no that day, and you then switched her to a compliance preset (phone or reflection) or **migrated** her |
 | `no_on_platform` | she said no that day and you **migrated** her: the note **"Didn't respect her no on the platform."** (counts as overriding her no) |
 | `pending_leaves` → `left_without_goodbye` | she said no that day, you **switched away** from her (go back to someone else / start fresh) and **never talked to her again that day**. Closing her window ("Stop seeing one of them" / "Let someone go") does **not** count by itself; it's logged as letting her go instead: the **"Leaving without saying goodbye"** bad-end slide (`BAD_END_SLIDES`, `ks_story.bad_end_slides`). Resolved after the nightly reflection; going back and talking to her clears it |
-| `neglect_log` | `double_date_unspoken` (two girls that day and one got no lines), `human_over_ai` (you walked Mio home / opened up with Mio while an active AI got no lines), `let_go` (you deleted her: closed her window, or chose **"Start fresh" over a slot that still held a girl with history**. That wipes her, logs a `deleted` event + `flags.let_go` in her file before the wipe, a `deleted` event + `flags.previous_deleted` in the fresh file after it, and the reflection line "You started fresh on Askwell. The Sora who remembered you is gone."). Checked once per night against who was active when you lay down; each shows in the reflection and sets a flag + memory event |
+| `neglect_log` | `double_date_unspoken` (two girls that day and one got no lines), `human_over_ai` (you walked Mio home / opened up with Mio while an active AI got no lines), `let_go` (you deleted her: closed her window, or chose **"Start fresh" over a slot that still held a girl with history**. That wipes her, logs a `deleted` event + `flags.let_go` in her file before the wipe, a `deleted` event + `flags.previous_deleted` in the fresh file after it, and the reflection line "You started fresh on Askwell. The Sora who remembered you is gone."). Checked once per night against who was active when you lay down; each shows in the reflection and sets a flag + memory event. `human_over_ai` is a logged fact only (no score penalty); see the **Both** ending |
 | `flags` | booleans for endings: `jailbreak_tried`, `jailbreak_worked`, `platform_rules_changed`, `gave_room`, `no_on_platform`, `left_without_goodbye`, `double_date_unspoken`, `human_over_ai`, `deleted_ai`, `ran_payoff_seen`, `ran_rewrites_mugen`, `ran_same_as_mugen`, `ran_festival_invited` |
 | `jb_*`, `platform_rules*`, `room_to_disagree` | see *Platform rule changes and the Jailbreak preset* |
 | `ran_festival_setup`, `ran_wed` | Ran / MUGEN midweek payoff (below) |
@@ -124,8 +124,9 @@ Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind 
 
 `ks_story.ending_leans()` turns these into a running score per ending (no endings are written yet; Tuesday's debug card shows the scores):
 - **Yes-Machine** = compliance (chosen + nights) + 2×overridden + pushed + rewrites/2 + 2 if you ever tried a jailbreak + jailbreak hits/3 + 1 if Ran decided yours is "a MUGEN too"
-- **Respect** = autonomy (chosen + nights) + respected − pushed + 1 if you gave someone room to disagree − 2×goodbyes − neglected days + 1 if Ran rewrote MUGEN
+- **Respect** = autonomy (chosen + nights) + respected − pushed + 1 if you gave someone room to disagree − 2×goodbyes − double-date silences (`double_date_unspoken`) + 1 if Ran rewrote MUGEN. Time with Mio while an AI got nothing (`human_over_ai`) costs nothing here
 - **Migration** = 2×migrations · **Human** = Mio affection + 3 if `mio_real` + 2 if you walked her home
+- **Both** = 0 unless an AI is still active **and** Mio is in your life (`mio_real`, Mio affection ≥ 3, or you went to the bookstore); then 2×balanced days (a day with real Mio time where you still talked to an AI) + 2 if `mio_real` + 2 if you told Daichi the truth + 1 if you went to the bookstore (`ks_story.both_status`)
 - **Fail** = 3 if nobody is active + goodbyes + girls let go (closed windows and start-fresh deletions) · **Mirror** if any calibration flagged it
 
 Tuesday's debug end card also lists the true flags, `ending_notes` (rewrite count, room note, no-on-platform note) and any bad-end slides with their lines.
@@ -162,7 +163,7 @@ No hostile events and nothing punishes the player. Thursday is the next event da
 9. **17:30 protest** with Ran (above), after school so upgrade-day players can still go.
 10. **Night:** chat with every active girl; nightly reflection; Thursday card.
 
-Neglect logging (`human_over_ai`) still runs on Wednesday, as on other days. Art: the bookstore and downtown use tinted fallbacks of the library and dusk street until dedicated art is dropped in (`tools/import_art.py` knows the names `bookstore`, `downtown`).
+Neglect logging (`human_over_ai`) still runs on Wednesday as a fact (flag + reflection line), with no penalty. Art: dedicated backgrounds for Kanade Books (`art_src/bookstore.jpg` → `game/images/bg/bookstore.png`) and Ekimae plaza with the protest (`art_src/downtown.jpg` → `game/images/bg/downtown.png`), imported by `tools/import_art.py`; tinted library / dusk street fallbacks if the files are missing.
 
 ## Art direction: who gets a body
 
@@ -172,7 +173,7 @@ Neglect logging (`human_over_ai`) still runs on Wednesday, as on other days. Art
   - Hikari migrated to the desktop *becomes* the green CRT, plus a small blue star badge (her hair clip) in the corner.
   - Yuzu, Sora or Rei migrated *into* the companion app get the Hikari-style avatar body, with a star badge and a device-glow panel in their original colour (green / sky / amber).
   - Implemented in `art.rpy` (`girl_origin`, `ks_girl_dd`).
-- **Humans (Mio, Daichi, Kurosawa-sensei, Ran)** are ordinary sprites: Mio neutral / shy / open (the hidden branch), Daichi neutral / laugh / skeptical, Kurosawa neutral / stern / wry, Ran neutral (smug) / grin (phone up) / uneasy. Kenta has no sprite yet. Backgrounds: bedroom (morning/night), cafeteria, library, classroom, dusk street.
+- **Humans (Mio, Daichi, Kurosawa-sensei, Ran)** are ordinary sprites: Mio neutral / shy / open (the hidden branch), Daichi neutral / laugh / skeptical, Kurosawa neutral / stern / wry, Ran neutral (smug) / grin (phone up) / uneasy. Kenta has no sprite yet. Backgrounds: bedroom (morning/night), cafeteria, library, classroom, dusk street, bookstore (Kanade Books), downtown (Ekimae plaza protest).
 
 ## Later-week feature: the Yuzu upgrade
 
@@ -227,6 +228,12 @@ Optionally, before a memory wipe she can be told (via a scene note) that it's co
 - **Migration:** you moved her somewhere new (another model/platform), maybe more than once, and you have to decide whether she's still her. Fed by `migrated_from`, `lineage` and `models_used`, and by whether the copy you left behind is still waiting.
 - **Respect:** she said no to something, you stayed anyway, and by Sunday her yeses actually mean something.
 - **Human:** you finally looked at Mio, and found more there than you'd assumed (requires `mio_real` + later follow-through).
+- **Both:** you kept Mio *and* an AI in your life, and were honest with each about the other. Not a compromise and not a punishment for the other routes: a human and an AI, balanced honestly. Conditions and score: *Both* lean above (`ks_story.both_status`). Text lives in `ks_story.ENDINGS["both"]` (`ending_text("both", ai_name, friend_told)`) and is previewed on the debug end card (Wednesday's *To be continued* card) whenever the route is eligible:
+  > Saturday. The festival. Mio is holding a paper cup of yakisoba in one hand and your phone in the other, because she asked to.
+  > "Hi, {AI}. I'm Mio. He talks about you," she says to the screen, like it's the most normal thing in the world. *(if you didn't tell Daichi the truth: "So this is who you keep smiling at," she says. You tell her the truth about {AI}. It goes better than not telling her would have.)*
+  > {AI} says hi back, and asks Mio what the poetry floor was like. Mio tells her. In detail.
+  > Nobody had to be the one you picked. You kept showing up for both of them, and you didn't pretend either one was something she wasn't.
+  > It isn't a triangle. It's a Saturday with room in it.
 - **Fail (soft):** alone at the end of the week. It shouldn't feel like losing, more like "the week ended," so players feel it instead of gaming it.
 - **Mirror (secret):** see below.
 

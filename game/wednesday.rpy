@@ -521,6 +521,16 @@ label tbc_thursday:
         $ _wp = ks_quote(repr(ks_route()["wed_plan"]))
         n "{color=#888}[[debug] wed_plan: [_wp]{/color}"
         n "{color=#888}[[debug] leans: [_lq]{/color}"
+        $ _bs = ks_both()
+        $ _bq = ks_quote("eligible=%s score=%s balanced=%s%s" % (_bs["eligible"], _bs["score"], ",".join(_bs["balanced"]) or "none", (" (" + "; ".join(_bs["reasons"]) + ")") if _bs["reasons"] else ""))
+        n "{color=#888}[[debug] both route: [_bq]{/color}"
+        if _bs["eligible"]:
+            $ ks_shot = "debug_both"
+            python:
+                _be = ks_both_ending()
+                renpy.say(n, "{color=#888}[[debug] ending preview: " + ks_quote(_be["title"]) + "{/color}")
+                for _l in _be["lines"]:
+                    renpy.say(n, "{color=#888}    " + ks_quote(_l) + "{/color}")
         $ _fl = ks_quote(", ".join(sorted(k for k, v in ks_route()["flags"].items() if v)) or "none")
         n "{color=#888}[[debug] flags: [_fl]{/color}"
         python:
