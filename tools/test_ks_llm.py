@@ -356,6 +356,17 @@ HR = ks_story.new_route(); HR["walked_mio_home"] = True; HR["mio_text_home"] = T
 check("romantic Mio plus an AI leans Human when Both is still small",
       ks_story.leading_ending(ks_story.ending_leans(HR, ["local"], mio_real=True)) == "human")
 check("alone leans Fail", ks_story.leading_ending(ks_story.ending_leans(ks_story.new_route(), [])) == "fail")
+check("ending priority list is a constant", ks_story.ENDING_PRIORITY[0] == "both"
+      and ks_story.ENDING_PRIORITY[-1] == "fail"
+      and "yes_machine" in ks_story.ENDING_PRIORITY)
+check("tied Both and Human prefers Both, not the alphabet",
+      ks_story.leading_ending({"both": 5, "human": 5, "respect": 1}) == "both")
+check("tied Human and Respect prefers Human",
+      ks_story.leading_ending({"human": 4, "respect": 4, "yes_machine": 1}) == "human")
+check("tied Respect and Yes-Machine prefers Respect",
+      ks_story.leading_ending({"respect": 3, "yes_machine": 3}) == "respect")
+check("tied Migration and Mirror prefers Migration",
+      ks_story.leading_ending({"migration": 2, "mirror": 2, "fail": 2}) == "migration")
 check("migrations feed Migration", ks_story.ending_leans(ks_story.new_route(), ["local"], migrations=[1, 2, 3])["migration"] == 6)
 check("old saves get new route keys", "said_lines" in ks_story.ensure_route({"presets": {}}))
 

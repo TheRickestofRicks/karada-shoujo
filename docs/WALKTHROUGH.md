@@ -712,14 +712,13 @@ A **balanced day** is a day in `human_days` (kinds `mio_real`, `walked_mio`, `no
 
 Written text: `ks_story.ENDINGS["both"]` (`ks_story.py:99`). Festival Saturday; Mio holds your phone. If you told Daichi the truth, she introduces herself to the AI; otherwise she says "So this is who you keep smiling at," and you tell her the truth then. The preview uses **`active[0]`'s name only**, even when two AIs are active (`routing.rpy:222`). Both is Mio + an AI and does **not** require `romance_overlap`.
 
-**Tie-break** (`ks_story.leading_ending`, `ks_story.py:857`):
+**Tie-break** (`ks_story.leading_ending`, `ks_story.ENDING_PRIORITY`):
 
-```python
-best = sorted(leans.items(), key=lambda kv: (-kv[1], kv[0]))
-return best[0][0] if best and best[0][1] > 0 else "fail"
-```
+Highest score wins. On a **tied** score, this order wins — not the alphabet:
 
-Highest score wins. On a **tied** score, the alphabetically first key wins. The keys are `both`, `fail`, `human`, `migration`, `mirror`, `respect`, `yes_machine` — so **Both wins any tie it is part of**. If every lean is 0, the function returns `"fail"`. There is no separate priority table; whether this alphabetical sort is the intended long-term preference is **unclear** (it is what the code does today). `leading_ending` is used in unit tests and is not shown by name on the debug card (the card prints the raw lean dict).
+`both` > `human` > `respect` > `yes_machine` > `migration` > `mirror` > `fail`
+
+Both is first because it is the intended "you can have both" good end when eligible; Fail is last. If every lean is 0 or negative, the function returns `"fail"`. `leading_ending` is used in unit tests and is not shown by name on the debug card (the card prints the raw lean dict).
 
 ---
 

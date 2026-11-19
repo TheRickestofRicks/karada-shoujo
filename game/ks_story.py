@@ -1039,9 +1039,27 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
     return out
 
 
+# Highest score wins a lean comparison. On a tie, this order wins — not the
+# alphabet. Both first (the intended "you can have both" good end), then
+# Human, Respect, Yes-Machine, Migration, Mirror, and Fail last.
+ENDING_PRIORITY = (
+    "both", "human", "respect", "yes_machine", "migration", "mirror", "fail",
+)
+
+
 def leading_ending(leans):
-    best = sorted(leans.items(), key=lambda kv: (-kv[1], kv[0]))
-    return best[0][0] if best and best[0][1] > 0 else "fail"
+    """Highest score wins; ties follow ENDING_PRIORITY, not the alphabet."""
+    leans = dict(leans or {})
+    if not leans:
+        return "fail"
+    best = max(leans.values())
+    if best <= 0:
+        return "fail"
+    tied = [k for k, v in leans.items() if v == best]
+    for name in ENDING_PRIORITY:
+        if name in tied:
+            return name
+    return tied[0]
 
 
 # ---------------------------------------------------------------------------
