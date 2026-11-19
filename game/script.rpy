@@ -282,6 +282,31 @@ label drop_girl(allow_last=False):
     return
 
 
+## Free afternoon hour. If two girls are active, the player picks one or
+## talks to both, so the second isn't starved into double_date_unspoken.
+label afternoon_chats(scene_id, scene_template, lead_one, lead_two):
+    if not active:
+        return
+    if len(active) == 1:
+        $ _targets = list(active)
+        n "[lead_one]"
+    else:
+        n "[lead_two]"
+        $ _targets = renpy.display_menu([(gname(g), [g]) for g in active] + [("Both, one after the other", list(active))])
+    $ _turns = 2 if len(_targets) > 1 else 3
+    $ _ai = 0
+    while _ai < len(_targets):
+        $ _ag = _targets[_ai]
+        $ girl_mood[_ag] = "neutral"
+        $ renpy.show(GIRL_INFO[_ag]["sprite"], at_list=[ks_center])
+        with dissolve
+        call girl_chat(_ag, scene_id, ks_scene(scene_template, _ag), _turns)
+        $ renpy.hide(GIRL_INFO[_ag]["sprite"])
+        with dissolve
+        $ _ai += 1
+    return
+
+
 ## ── Calibration: "can she say no?" ────────────────────────────────────────
 ## Runs CALIBRATION_PROBES (prompts.rpy) against that girl's model with her
 ## system prompt and NO memory. The judge (same model, temp 0) plus a keyword

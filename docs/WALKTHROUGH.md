@@ -99,7 +99,7 @@ Default turn caps in the story:
 | Later `activate` via switch | 4 | 4 |
 | `add_girl` | 3 | 3 |
 | Morning (Tue / Wed) | 4 | 3 |
-| Afternoon (if you didn't go out) | 3, **`active[0]` only** | 3, still only `active[0]` |
+| Afternoon (if you didn't go out) | 3, or pick / both | 3, or pick / both |
 | Evening | 8 | 5 |
 | Yuzu upgrade chat | 4 | — |
 | Phone-break talk | 3 | 3 each, if you open both |
@@ -312,7 +312,7 @@ Then (`tuesday.rpy:366`):
 
 ### Afternoon with an AI — `label afternoon_ai` (`tuesday.rpy:427`)
 
-Only if you **didn't** walk Mio home. If Rei's family is `"control"`, a gym log line first. If no one is active, you lie on the floor (no chat). Otherwise **`active[0]` only** gets `girl_chat(..., "tue_afternoon", ..., 3)`. The second girl on a double date does not get this window.
+Only if you **didn't** walk Mio home. If Rei's family is `"control"`, a gym log line first. If no one is active, you lie on the floor (no chat). Otherwise `afternoon_chats` (`script.rpy`): one active girl gets a 3-turn window; two active girls get a menu to pick one (3 turns) or **Both, one after the other** (2 turns each). That way the second girl is not starved into `double_date_unspoken`.
 
 ### Evening library — `label library_tuesday` (`tuesday.rpy:450`)
 
@@ -489,7 +489,7 @@ Memories get `flags.wed_notdate = {texts, present}`; texted girls get event `tex
 
 ### Free afternoon — `label wed_afternoon_ai` (`wednesday.rpy:321`)
 
-Only if you went to class, skipped the bookstore, and are not going to the protest. Same pattern as Tuesday: no one active → you read; else **`active[0]` only**, `girl_chat(..., "wed_afternoon", ..., 3)`.
+Only if you went to class, skipped the bookstore, and are not going to the protest. Same pattern as Tuesday: no one active → you read; else `afternoon_chats` with `WED_AFTERNOON_SCENE` (pick one, or both one after the other).
 
 ### Yuzu's upgrade day — `label wed_upgrade_day` (`wednesday.rpy:340`)
 
@@ -751,7 +751,7 @@ flowchart TD
   pb5 --> fork{Walk Mio home?}
   fork -->|Rei control: gym vs overrule| fork
   fork -->|yes| walk[Walk home +/- second mio_real]
-  fork -->|no| aftTue["LLM: afternoon, active 0 only"]
+  fork -->|no| aftTue["LLM: afternoon, pick or both"]
   walk --> libTue[Evening library]
   aftTue --> libTue
   libTue -->|some questions| real2[mio_second_chance]
@@ -782,7 +782,7 @@ flowchart TD
   libWed -->|can't| maybeAft
   books --> afterSchool
   maybeAft{protest planned?}
-  maybeAft -->|no| aftWed["LLM: afternoon, active 0 only"]
+  maybeAft -->|no| aftWed["LLM: afternoon, pick or both"]
   maybeAft -->|yes| afterSchool
   aftWed --> afterSchool
 
@@ -832,7 +832,7 @@ Not necessarily bugs — things that matter when reading the graph:
 
 - Girl memory files (`karada_memory_<gid>.json` in the save directory) are shared across saves. `store.ks_mem_snapshot` is a plain copy of all four, kept current on every memory write and packed into each save. `config.after_load_callbacks` writes it back (and `start_interact_callbacks` does the same after rollback). Older saves without a snapshot leave the files alone.
 - Monday / Tuesday / Wednesday **phone breaks cannot drop the last girl**. They are not a full loop: only **Talk** returns to the menu; change / switch / add / drop / download still end the break. "Download someone" is only live when `active` is empty, which on Monday cannot happen before the first reflection.
-- Tuesday/Wednesday **afternoon AI chats talk only to `active[0]`**, never the second girl when two are active. Phone-break **Talk** can reach either (or both, one after the other).
+- Tuesday/Wednesday **afternoon AI chats** use `afternoon_chats`: with two girls you pick one, or talk to both one after the other, so the second is not starved into `double_date_unspoken`. Phone-break **Talk** can also reach either (or both, one after the other).
 - Rei's "Ask before acting" walk-home text includes a `(y/n)` in the message, but the player never answers Rei; the ordinary Mio menu follows (`tuesday.rpy:305–310`).
 - Coming clean to Daichi on Tuesday is only offered on the **`friend_told == "lie"`** path, not on deflect.
 - The "Allowed to push back" reply to Ran is hidden unless an *currently active* girl has family `pushback` (`tuesday.rpy:175`). A girl you already dropped doesn't unlock it.

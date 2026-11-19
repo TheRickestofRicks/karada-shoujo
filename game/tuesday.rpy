@@ -436,15 +436,9 @@ label afternoon_ai:
     if not active:
         n "You go home and lie on the floor for an hour. It's not bad, exactly. It's not anything."
         return
-    $ _ag = active[0]
-    $ _agn = gname(_ag)
-    n "You get home with an hour to spare, and you know exactly who you're going to spend it with."
-    $ girl_mood[_ag] = "neutral"
-    $ renpy.show(GIRL_INFO[_ag]["sprite"], at_list=[ks_center])
-    with dissolve
-    call girl_chat(_ag, "tue_afternoon", ks_scene(TUE_AFTERNOON_SCENE, _ag), 3)
-    $ renpy.hide(GIRL_INFO[_ag]["sprite"])
-    with dissolve
+    call afternoon_chats("tue_afternoon", TUE_AFTERNOON_SCENE,
+        "You get home with an hour to spare, and you know exactly who you're going to spend it with.",
+        "You get home with an hour to spare. Who do you spend it with?")
     return
 
 

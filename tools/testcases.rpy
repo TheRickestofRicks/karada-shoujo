@@ -481,6 +481,8 @@ testcase tuesday_nowalk:
     advance until screen "choice" timeout 30.0
     screenshot "g02_rei_declined_walk.png"
     click "Go to the gym"
+    advance until screen "choice" timeout 30.0
+    click "Rei"
     advance until screen "input" timeout 60.0
     type "you cancelled my walk with Mio"
     keysym "K_RETURN"

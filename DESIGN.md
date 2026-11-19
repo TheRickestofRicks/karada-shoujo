@@ -167,7 +167,7 @@ No hostile events and nothing punishes the player. Thursday is the next event da
 5. **Classes:** Ran invites you to the protest if you're on good terms (`ks_story.ran_good_terms`: anything but Tuesday's "judged"). On the upgrade day she texts the invite instead.
 6. **Lunch: Mio** in the library invites you to Kanade Books' opening after school, "not a date". Accepting is optional.
 7. **The not-date** has three moments where you can text an active girl instead of staying present. Each moment you stay present gives Mio a point; texting never costs anything. At the end Mio reacts on a scale (`ks_story.notdate_reaction_key`): *present* (no texts), *some* (one or two: "It's fine. I check mine too, when there's someone on it."; during the texting moments she names the girl if Daichi was told the truth, or "the linguistics girl" if he was lied to), *always* (every moment: "Next time, bring her properly… I'd like to meet whoever keeps making you smile at your phone."). Never a punishment.
-8. If you didn't go and aren't protesting, an afternoon chat with one girl.
+8. If you didn't go and aren't protesting, an afternoon chat: if two girls are active you pick who, or talk to both one after the other.
 9. **17:30 protest** with Ran (above), after school so upgrade-day players can still go.
 10. **Night:** chat with every active girl; nightly reflection; Thursday card.
 

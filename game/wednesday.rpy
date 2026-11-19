@@ -330,15 +330,9 @@ label wed_afternoon_ai:
     if not active:
         n "You go home and read for an hour. Actually read. It's strange and fine."
         return
-    $ _wag = active[0]
-    $ _wagn = gname(_wag)
-    n "You get home early. The afternoon is wide open, and quiet."
-    $ girl_mood[_wag] = "neutral"
-    $ renpy.show(GIRL_INFO[_wag]["sprite"], at_list=[ks_center])
-    with dissolve
-    call girl_chat(_wag, "wed_afternoon", ks_scene(WED_AFTERNOON_SCENE, _wag), 3)
-    $ renpy.hide(GIRL_INFO[_wag]["sprite"])
-    with dissolve
+    call afternoon_chats("wed_afternoon", WED_AFTERNOON_SCENE,
+        "You get home early. The afternoon is wide open, and quiet.",
+        "You get home early. The afternoon is wide open. Who do you spend it with?")
     return
 
 
