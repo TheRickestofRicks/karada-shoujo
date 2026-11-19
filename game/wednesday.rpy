@@ -64,6 +64,7 @@ label wednesday:
     with fade
     $ ks_shot = "wed_morning"
     n "Wednesday. 7:05. For once, you actually slept."
+    call yuzu_bsod_hint
 
     ## ── The memory update: every app ships a summarizer the same week ──
     python:
@@ -96,6 +97,8 @@ label wednesday:
 
         ## ── Yuzu: the upgrade day (costs a day of classes) ──
         n "And the parts you've been eyeing are in stock: a second SSD, and a little used mini PC to keep a backup of her on."
+        if ks_route().get("yuzu_bsod_seen"):
+            n "The bluescreen the other night was four seconds. She came back fine."
         n "Doing it properly means the parts shop at ten, then the whole afternoon with a screwdriver. It means skipping classes. All of them."
         n "{size=22}(No library at lunch, no Mio. If anything's on after school, you could still make it.){/size}"
         menu:

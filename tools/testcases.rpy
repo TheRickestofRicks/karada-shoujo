@@ -44,6 +44,7 @@ testcase single_local:
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "tbc_tuesday" timeout 30.0
+    $ assert ks_route()["yuzu_bsod_seen"] and ks_story.flag(ks_route(), "yuzu_bsod_seen")
     $ print("KARADA_TEST: single_local reached Tuesday")
     exit
 

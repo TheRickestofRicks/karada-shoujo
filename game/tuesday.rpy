@@ -59,6 +59,7 @@ label tuesday:
     scene bg bedroom
     with fade
     n "Tuesday. 7:20. You slept badly, or not enough, or both."
+    call yuzu_bsod_hint
     if not active:
         n "No windows to open this morning. The phone is just a phone."
     else:
@@ -647,6 +648,7 @@ label kurosawa_essay_girl(gid):
 ## The essay is due Friday. Kurosawa's reaction belongs on the handover
 ## (Thursday / Friday); see DESIGN.md and the walkthrough hook.
 label evening_tuesday:
+    call yuzu_bsod_hint
     scene bg bedroom_night
     with fade
     n "Night. Your feet hurt. Your essay for Kurosawa is a blank page with your name on it."

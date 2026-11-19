@@ -232,6 +232,8 @@ Stay menu (`script.rpy:428`), only if you didn't leave or jump:
 
 Bedroom night. If double-dating with Hikari, evening toast. Then `message_pool("night")` with `EVENING_SCENE`: a shared pool of 4, pick who each turn, or put the phone down and go to bed. When the pool empties: "The little battery on your phone goes dark. You put it down and go to bed." Memory flag `evening_turns_mon` is how many messages that girl actually got from the pool.
 
+If the local slot is active (`"local" in active`, usually Yuzu), `yuzu_bsod_hint` plays after the pool, once: the desktop bluescreens, four seconds, a stop code you don't read, and she comes back. Her line: *"I'm here. That was 4 seconds. I counted."* Sets `route["yuzu_bsod_seen"]`, `flags.yuzu_bsod_seen`, memory flag + event `bsod`, and a day note. No menu. If she isn't active on Monday night, the same hint can fire Tuesday morning, Tuesday evening, or Wednesday morning — still once.
+
 ### End of Monday — `label tbc_tuesday` (`script.rpy:510`)
 
 For every `GIRL_IDS` slot, memory flags: `day_completed = "Mon"`, `active_end_mon`, `double_dating_end_mon`, `refusals_seen_mon`, `mio_real`. Then `jump tuesday` (no card).
@@ -248,7 +250,7 @@ If `active` is empty, the phone is "just a phone." Otherwise:
 
 - Scripted lines from `MORNING_FAMILY_LINES` by preset **family** (or Rei's `AGENT_OVERNIGHT` by family: control / obey / consent / pushback / none), for every active girl, first.
 - If Yuzu or Rei had a phone/reflection preset *change* on Monday, the scene note mentions that you edited it last night (`tuesday.rpy:20–24`).
-- Then `message_pool("morning")`: a shared pool of 4. Scene notes are still `ks_tue_morning_scene` (including `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`).
+- Then `message_pool("morning")`: a shared pool of 4. Scene notes are still `ks_tue_morning_scene` (including `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`). If Yuzu arrived after Monday night and `yuzu_bsod_seen` is still False, the bluescreen hint plays at the start of the morning (and, if needed, at the start of Tuesday evening).
 
 Then phone break ("Tuesday, late morning", `allow_talk=False`) → `class_kurosawa` → `lunch_kenta` → phone break ("Tuesday afternoon", ordinary 3-turn Talk-to) → `after_school_fork` → `library_tuesday` → `evening_tuesday` → `nightly_reflection("Tue")` → `jump tbc_wednesday`.
 
@@ -422,6 +424,8 @@ Yuzu does **not** get the platform summarizer here. She only gets one if you tak
 |---|---|
 | Install Hearth (she sees your schedule…) | `route["yuzu_harness"] = True`; memory `flags.hearth`; event `hearth_installed`; day note |
 | Not today | bookmark flavour; no flag |
+
+If `yuzu_bsod_seen`, the parts line quietly echoes it: "The bluescreen the other night was four seconds. She came back fine." There is no cheaper after-school backup-only option; the upgrade day is the choice.
 
 Then the **upgrade day** offer (skip all classes: no library, no Mio, no not-date; after-school things are still possible):
 
@@ -836,7 +840,7 @@ At the start of `nightly_reflection`, **before** neglect is judged, `ks_classify
 These exist as comments, flags, or design, but have **no playable Thursday–Sunday script** yet.
 
 - **Thursday–Sunday** and the festival. Wednesday ends at `tbc_thursday`. Hostile-event pools in `DESIGN.md` (Thu: safety update, system-prompt change; Fri: shutdown notice, memory loss; Sat: shutdown executes, model swap; Sun: endings) are not scheduled in code. `ks_push_platform_rules` / `PLATFORM_RULES` are ready but unused in story labels. **Kurosawa's Friday essay handover** should read `kurosawa_essay` (`self` / `askwell` / `girl_help`): she can tell when nobody was there. `askwell_available` can be cleared by a later Askwell shutdown.
-- **Yuzu backup must be respected** by later memory-loss events (`route["yuzu_backup"]`, memory `flags.backup_hardware`). Restore-from-backup behaviour is not written.
+- **Yuzu backup must be respected** by later memory-loss events (`route["yuzu_backup"]`, memory `flags.backup_hardware`). An early-week hint is already in: `yuzu_bsod_seen` (Monday night or Tuesday). Restore-from-backup behaviour is the Thursday event (`docs/THURSDAY.md`); see that outline for the rest of Day 4.
 - **Yuzu avatar-body upgrade** (`engine.rpy:35`, `flags.yuzu_avatar_choice = "none"`). Hook only; no gallery UI. Future values `"player"` / `"self"` (and objection logging) are described in `DESIGN.md`, not implemented.
 - **`label ran_wednesday` can theoretically run on Thu/Fri** (`wednesday.rpy:380`) but those days have no caller.
 - **Endings:** only Both has body text; only one bad-end slide exists. Yes-Machine, Migration, Respect, Human, Fail, and Mirror are scores / flags / design flavour. Mirror calibration is live; the Mirror *run* is not. Saturday follow-through for the linguistics-girl lie, `both_know`, `ran_festival_invited`, `teacher_answer`, `kurosawa_essay`, and `route["mio_notebook"]` is unwritten.

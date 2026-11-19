@@ -79,6 +79,7 @@ def new_route():
         "yuzu_harness": False,    # Hearth harness installed: Yuzu sees the schedule, sets reminders
         "yuzu_upgrade": False,    # skipped school to upgrade her (summarizer + backup hardware)
         "yuzu_backup": False,     # backup hardware: later negative events must respect it
+        "yuzu_bsod_seen": False,  # Mon/Tue hint: the desktop bluescreened once; she came back
         "wed_plan": {},           # {"school", "upgrade", "notdate", "protest"}
         "ran_invited": None,      # Wed: True / False (False = not on good terms; no invite)
         "notdate": None,          # {"went": bool, "texts": n, "present": n, "texted": [gid]}

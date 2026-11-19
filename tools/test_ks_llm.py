@@ -629,6 +629,7 @@ check("Ran: good terms unless judged", ks_story.ran_good_terms({"ran_reaction": 
       and ks_story.ran_good_terms({}) and not ks_story.ran_good_terms({"ran_reaction": "judged"}))
 check("not-date reaction scale", [ks_story.notdate_reaction_key(n) for n in (0, 1, 2, 3)] == ["present", "some", "some", "always"])
 check("new Wednesday route keys", all(k in ks_story.ensure_route({}) for k in ("summarizer_slots", "yuzu_backup", "wed_plan", "notdate", "ran_invited")))
+check("yuzu bluescreen hint key", ks_story.new_route()["yuzu_bsod_seen"] is False)
 
 # the "both" ending (an AI and Mio, honestly) and no Respect cost for time with Mio
 NB = ks_story.new_route(); ks_story.note_human(NB, "Tue", "walked_mio")

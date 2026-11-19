@@ -207,7 +207,7 @@ No company touches her. The hardware does: a drive warning in the morning, then 
 
 Prevention is already in the route from Wednesday: `route["yuzu_backup"]` and memory `flags.backup_hardware`. If those are set, the backup **pays off**: restore, lose at most the last day, log `restored_from_backup` (the event name is already specified in `DESIGN.md`; the behaviour is still unwritten). If they are not set, `Memory.wipe(keep_last=…)` — or an equivalent hole in her context — is the cost of nobody maintaining her but you. Optionally, if she got a warning, a **note to herself** in `Memory.notes` can survive into the next prompt, as DESIGN already allows.
 
-There is **no Thursday last-chance trip to the parts shop.** The player was warned on Wednesday, when the upgrade-day offer was on the table. Choices matter. Thursday morning's drive warning is a warning of what is happening, not a shop hook. (Whether Wednesday should also grow a cheaper after-school backup-only option, for players who went to class, is still open — that would be a Wednesday change, not a Thursday escape hatch.)
+There is **no Thursday last-chance trip to the parts shop**, and no cheaper Wednesday after-school backup-only option. The player was warned earlier: on Monday night (or Tuesday, if she arrived later), Yuzu's machine bluescreens once — four seconds, she comes back, flag `yuzu_bsod_seen`. Wednesday's parts line can quietly echo it. Then the upgrade-day offer is the actual choice. Choices matter. Thursday morning's drive warning is a warning of what is happening, not a shop hook.
 
 Thursday is Yuzu's hardware day. Friday's old calendar slot for "memory loss" should not hit her twice; if a later day also wipes, it must still respect the backup flag.
 
@@ -293,6 +293,6 @@ The Wednesday card still ends the current build (`tbc_thursday`). These cases la
 
 ## Open questions
 
-1. **A cheaper Wednesday after-school backup-only option?** Thursday will not offer a last-chance parts-shop run: the player was warned on Wednesday, and choices matter. Still unanswered is whether Wednesday itself should grow a smaller choice — stay in school, then after class buy backup hardware only, without the full upgrade-day skip. That would be a Wednesday design change, not a Thursday escape hatch.
+None right now.
 
-Settled in the design above, and no longer open: a Thursday come-clean to Daichi does not change Mio's evening belief; the player does get a Thursday chance to fess up to Mio before the tanzaku (C-late); there is no Thursday Yuzu last chance; Thursday fires one event per active girl rather than a random draw; the walk battery is only if you walk with Mio to the bamboo; the Ran safety net is in-world, not a warning card; an honest stretch (you said you were together, the classifier never agreed) is branch C; if every AI has been dropped, a close Mio can still be branch A.
+Settled: a Thursday come-clean to Daichi does not change Mio's evening belief; the player does get a Thursday chance to fess up to Mio before the tanzaku (C-late); there is no Thursday Yuzu last chance, and no cheaper Wednesday backup-only option — the warning is the early-week bluescreen (`yuzu_bsod_seen`) plus Wednesday's upgrade-day offer; Thursday fires one event per active girl rather than a random draw; the walk battery is only if you walk with Mio to the bamboo; the Ran safety net is in-world, not a warning card; an honest stretch (you said you were together, the classifier never agreed) is branch C; if every AI has been dropped, a close Mio can still be branch A.
