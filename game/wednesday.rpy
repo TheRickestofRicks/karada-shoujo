@@ -10,7 +10,7 @@
 ##         staying present unlocks a deeper beat each time)
 ##       → 17:30 AI protest downtown with Ran (label ran_wednesday)
 ##       → night chat with every active girl → nightly reflection
-##       → "To be continued — Thursday".
+##       → jump thursday (no player-facing card; Thursday has its own title).
 ##
 ## The protest is after school on purpose: an upgrade-day player can still go
 ## (Ran texts the invite instead). See DESIGN.md "Wednesday".
@@ -634,12 +634,9 @@ label tbc_thursday:
             _mm.set_flag("refusals_seen_wed", ks_refusals_seen.get(_g, 0))
             _mm.set_flag("mio_real", mio_real)
             _mm.set_flag("route_leans_wed", _lean)
-    scene bg card
-    with fade
-    show text "{size=40}To be continued{/size}\n\n{size=90}木曜日{/size}\n{size=48}Thursday{/size}" at truecenter
-    with dissolve
-    pause
-    hide text
+    ## No player-facing "To be continued" card here: Thursday opens with
+    ## its own title. A debug recap stays behind ks_debug() only.
+    $ ks_shot = "into_thursday"
     if ks_debug():
         $ _mp = ks_quote(os.path.dirname(ks_memory_path("local")))
         $ _names = ", ".join(g + "=" + gname(g) + "/" + str(ks_preset_id(g)) for g in active)

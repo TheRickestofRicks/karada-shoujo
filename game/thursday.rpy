@@ -86,6 +86,8 @@ label thu_morning:
         else:
             n "The desktop makes a sound it shouldn't."
         n "A warning you don't have time to finish reading. Then the fan, then the stop."
+        $ ks_set_machine_down("local", True)
+        $ ks_shot = "yuzu_down"
         $ _yev = ks_story.apply_yuzu_hardware(ks_mem("local"), ks_route(), "Thu")
         if _yev == "restored":
             n "Four seconds. Then twelve. Then the little blue light on the backup box, and her window, almost where you left it."
@@ -94,6 +96,8 @@ label thu_morning:
             n "The screen stays dark long enough that you count past four."
             n "When her window comes back, it's thinner than it was."
             $ day_notes.append("The desktop crashed. There was no backup. " + _yn + " lost a stretch of herself.")
+        $ ks_set_machine_down("local", False)
+        $ ks_shot = "yuzu_up"
 
     if not active:
         n "No windows to open. You make toast. The kitchen is very quiet."

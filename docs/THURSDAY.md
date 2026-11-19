@@ -157,7 +157,7 @@ Proposed flow. Label names are suggestions, not code.
 | **Walk to the bamboo** (optional) | If you go with Mio, a short walk. The walk battery of 2 applies, with the same Tuesday costs (a text costs `mio_points`, not below 0, and is not a romance signal). If you have not already fessed up, this is the second (or only) chance to tell her before the wish. Phone use can thin the evening, but it should not skip the confession by itself — the wish scene still happens if the closeness gate passed. | `active`, `mio_points`, `mio_thu_truth` | Walk-text flags if you reuse them (`mio_walk_distracted` is Tuesday-specific; prefer a **NEW** `thu_walk_texts` if needed). **NEW** `mio_thu_truth` if the fess-up happens here. |
 | **Tanzaku evening** | School courtyard bamboo, shotengai lights maybe in the distance. Mio writes, folds, hangs, then the branch above — including C-late if you told her today. You may hang a strip of your own. | Closeness, belief/truth, and `mio_thu_truth`; which AI is active (for the discovery interrupt) | **NEW** `mio_confession` (including `"friendship_late"` / `"held_back"`), **NEW** `mio_tanzaku` (what she wrote: `romantic` / `friendship` / `private` / `withdrawn`), **NEW** `player_tanzaku`, **NEW** `tanabata_with_mio`. Human / Respect / Both leans as below. `ks_note_human(...)` if this is real Mio time. `framing_trust_risk` *comes due* on discovery (the flag already exists; the scene is **NEW**). |
 | **Night** | Night battery of 4, then `nightly_reflection("Thu")` as usual (romance-tone and refusal classifiers, neglect, platform-rule reflection lines, Yuzu wipe or restore notes). | All of the above | `romance_tone` for Thu, refusal verdicts, reflection notes. |
-| **Card** | To be continued — Friday. Debug recap as on Wednesday. | leans, new flags | `day_completed = "Thu"` in memories. |
+| **Card** | To be continued — Friday. Players see the Friday-coming card only; the debug recap stays behind `ks_debug()`. | leans, new flags | `day_completed = "Thu"` in memories. |
 
 Saturday / Sunday (not written here, only planted): the ending card can read `mio_confession` and `tanabata_with_mio` (and Saturday attendance, **NEW** when that day exists) to say whether you went to the summer festival together.
 
@@ -287,7 +287,7 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Ran: already invited her to the stall | No rescue scene required | n/a |
 | Two or three girls active | Each event fires; morning/afternoon/night pools still cap at 4 | Combined mocks |
 
-Thursday is playable (`game/thursday.rpy`). The Wednesday card (`tbc_thursday`) recaps and jumps into Thursday; the day ends on a *To be continued: Friday* card. Play-throughs: `thu_wish_accept` (also covers the Sora door crack and the Ran safety net), `thu_wish_decline`, `thu_discovery`, `thu_friendship_wish`, `thu_fess_held`, `thu_yuzu_backup`, `thu_yuzu_lost`. The confession selector and Yuzu hardware helper are also unit-tested in `tools/test_ks_llm.py`.
+Thursday is playable (`game/thursday.rpy`). Wednesday's `tbc_thursday` jumps straight into Thursday (no player-facing card; Thursday has its own title). The day ends on a *To be continued: Friday* card, with no player-facing debug. Play-throughs: `thu_wish_accept` (also covers the Sora door crack and the Ran safety net), `thu_wish_decline`, `thu_discovery`, `thu_friendship_wish`, `thu_fess_held`, `thu_yuzu_backup`, `thu_yuzu_lost`. The confession selector and Yuzu hardware helper are also unit-tested in `tools/test_ks_llm.py`.
 
 ---
 

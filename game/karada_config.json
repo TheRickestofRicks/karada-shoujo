@@ -27,8 +27,8 @@
     "afternoon": 4,
     "night": 4
   },
-  "debug": true,
-  "_debug_help": "true = show calibration results, model ids, memory paths, and the companion affection meter in-game (useful while testing).",
+  "debug": false,
+  "_debug_help": "true = show calibration results, model ids, memory paths, the Wednesday/Thursday recap, and the companion affection meter. Only appears in a developer build (the Ren'Py launcher). Players never see this, even if the flag is left on in a packaged game.",
   "girls": {
     "_help": "Per-girl overrides. Any key left empty uses the shared value above. Point one girl at a different model or server to test a 'model swap'.",
     "local": {

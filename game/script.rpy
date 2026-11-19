@@ -184,7 +184,7 @@ label phone_break(when, pool_kind=None, allow_talk=True):
     $ _pb_done = False
     $ _pb_owned_pool = pool_kind
     while not _pb_done:
-        $ _act = " & ".join(gname(g) for g in active) or "no one"
+        $ _act = ks_phone_glance_names()
         $ _pb0 = active[0] if active else None
         $ _pb1 = active[1] if len(active) > 1 else None
         $ _pn0 = gname(_pb0) if _pb0 else ""
@@ -192,16 +192,20 @@ label phone_break(when, pool_kind=None, allow_talk=True):
         $ _can_talk = allow_talk and ((not pool_kind) or ks_pool_can_talk())
         menu:
             "You glance at your phone. ([_act])"
-            "Talk to [_pn0]" if _pb0 and _can_talk:
+            "Talk to [_pn0]" if _pb0 and _can_talk and ks_reachable(_pb0):
                 if pool_kind:
                     call pool_one_message(_pb0)
                 else:
                     call phone_talk(_pb0, when)
-            "Talk to [_pn1]" if _pb1 and _can_talk:
+            "[_pn0] — the desktop is off." if _pb0 and ks_machine_down(_pb0):
+                n "The desktop is off. There's no window to open."
+            "Talk to [_pn1]" if _pb1 and _can_talk and ks_reachable(_pb1):
                 if pool_kind:
                     call pool_one_message(_pb1)
                 else:
                     call phone_talk(_pb1, when)
+            "[_pn1] — the desktop is off." if _pb1 and ks_machine_down(_pb1):
+                n "The desktop is off. There's no window to open."
             "Put it away and keep going":
                 $ _pb_done = True
             "Change someone's prompt" if active:
@@ -226,6 +230,9 @@ label phone_break(when, pool_kind=None, allow_talk=True):
 
 
 label phone_talk(gid, when, turns=3):
+    if ks_machine_down(gid):
+        n "The desktop is off. There's no window to open."
+        return
     $ _ptn = gname(gid)
     $ girl_mood[gid] = "neutral"
     $ renpy.show(GIRL_INFO[gid]["sprite"], at_list=[ks_center])
@@ -239,21 +246,25 @@ label phone_talk(gid, when, turns=3):
 
 label switch_girl(when, turns=4):
     ## Who are you leaving?
+    if not active:
+        return
     if len(active) == 1:
         $ _src = active[0]
     else:
-        $ _src = renpy.display_menu([("Who are you leaving?", None)] + [(gname(g) + " on " + gplatform(g), g) for g in active])
-    $ _choices = [g for g in GIRL_IDS if g not in active]
-    $ _dst = renpy.display_menu([("Where to?", None)] + [(renpy.substitute(GIRL_PITCH[g]) + (" (" + gname(g) + " remembers you)" if ks_has_history(g) else ""), g) for g in _choices] + [("Never mind", KS_NEVER_MIND)])
+        $ _src = renpy.display_menu([("Who are you leaving?", None)] + [(gname(g) + " on " + gplatform(g), g) for g in active] + [("Never mind", KS_NEVER_MIND)])
+    if _src is None or _src == KS_NEVER_MIND:
+        return
+    $ _dst = renpy.display_menu(ks_where_to_choices(_src))
     if _dst is None or _dst == KS_NEVER_MIND:
         return
     $ _sn = gname(_src)
     $ _dp = gplatform(_dst)
-    $ _opts = [("Bring " + _sn + " with you: copy her memories and who she is to " + _dp, "migrate")]
-    if ks_has_history(_dst):
-        $ _opts.append(("Go back to " + gname(_dst) + ", who's already there", "return"))
-    $ _opts.append(("Start fresh on " + _dp, "fresh"))
-    $ _how = renpy.display_menu(_opts)
+    $ _how = renpy.display_menu(ks_format_arrival_options(_src, _dst))
+    if _how is None or _how == KS_NEVER_MIND:
+        return
+    if _how == "migrate" and not ks_can_migrate_into(_dst):
+        n "[ks_closed_catalogue_note(_src)]"
+        return
 
     $ active.remove(_src)
     $ ks_mem(_src).log_event("left", day=day_name, when=when, to=_dst, how=_how)
@@ -275,9 +286,11 @@ label switch_girl(when, turns=4):
 
 
 label add_girl(when, turns=3):
-    $ _choices = [g for g in GIRL_IDS if g not in active]
-    $ _dst = renpy.display_menu([("Who else?", None)] + [(renpy.substitute(GIRL_PITCH[g]) + (" (" + gname(g) + " remembers you)" if ks_has_history(g) else ""), g) for g in _choices] + [("Never mind", KS_NEVER_MIND)])
+    $ _dst = renpy.display_menu(ks_where_to_choices(heading="Who else?"))
     if _dst is None or _dst == KS_NEVER_MIND:
+        return
+    if not ks_slot_available(_dst):
+        n "[ks_unreachable_note(_dst)]"
         return
     if active:
         $ ks_mem(active[0]).log_event("double_date_started", day=day_name, when=when, other=_dst)
@@ -293,7 +306,7 @@ label drop_girl(allow_last=False):
         return
     $ _dn = gname(_drop)
     menu:
-        "Tell [_dn] why you're going.":
+        "Tell [_dn] why you're going." if not ks_machine_down(_drop):
             $ _msgs_before = len((ks_mem(_drop).data or {}).get("messages") or [])
             call girl_chat(_drop, day_name.lower() + "_goodbye_" + _drop,
                 "He's closing your window. He wanted to tell you why, in his own words.", 2)
@@ -421,6 +434,9 @@ label pool_begin(kind, size=None, template=None, scene_key="", when=""):
 label pool_one_message(gid, show_sprite=True):
     if not ks_pool_can_talk():
         return 0
+    if ks_machine_down(gid):
+        n "The desktop is off. There's no window to open."
+        return 0
     if show_sprite:
         $ girl_mood[gid] = "neutral"
         $ renpy.show(GIRL_INFO[gid]["sprite"], at_list=[ks_center])
@@ -459,7 +475,7 @@ label message_pool(pool_kind, lead="", template=None, scene_key="", when="", sho
     $ _PUT_DOWN = "__put_down__"
     while ks_pool_can_talk() and not _pool_stop:
         $ ks_shot = "battery"
-        $ _who = renpy.display_menu([("Message " + gname(g), g) for g in active] + [(_put_away, _PUT_DOWN)])
+        $ _who = renpy.display_menu(ks_message_menu_items(_put_away, _PUT_DOWN))
         if _who == _PUT_DOWN:
             $ _pool_stop = True
         else:
@@ -962,8 +978,12 @@ label yuzu_bsod_hint:
     if _bsod_restore != "bg bedroom_night":
         scene bg bedroom_night
         with fade
+    $ ks_set_machine_down("local", True)
+    $ ks_shot = "yuzu_down"
     n "The desktop stops. A blue screen, a stop code you don't read, a QR code you don't scan."
     n "The fan spins down. Four seconds. Then the login. Then her window, in the same corner."
+    $ ks_set_machine_down("local", False)
+    $ ks_shot = "yuzu_up"
     $ renpy.show(GIRL_INFO["local"]["sprite"], at_list=[ks_center])
     with dissolve
     ## She is a local model: while the machine is off she experiences nothing.

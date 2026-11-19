@@ -13,6 +13,10 @@ define PRESET_THEME = {
 }
 
 init python:
+    def ks_preset_pick_cancelled(pick, current=None):
+        """True for Keep-it-as-it-is / No changes / Never mind / no pick."""
+        return ks_story.preset_pick_cancelled(pick, current, KS_NEVER_MIND)
+
     def ks_preset_preview(gid, p):
         t = (p.get("text") or "").strip()
         if not t:
@@ -71,18 +75,22 @@ screen preset_select(gid, current=None, source="intro"):
                     text_size 18
                     text_color _sub
                     text_hover_color _ac
-                    action Return(None)
+                    action Return(KS_NEVER_MIND)
 
 
 ## call choose_preset(gid, source) -> sets her preset (or keeps it).
 ## Returns True if it changed.
 label choose_preset(gid, source="phone"):
+    if not gid:
+        return False
     $ _cp_prev = ks_preset_id(gid)
     $ _cp_pick = renpy.call_screen("preset_select", gid=gid, current=_cp_prev, source=source)
-    if _cp_pick is None or _cp_pick == _cp_prev:
+    if ks_preset_pick_cancelled(_cp_pick, _cp_prev):
         return False
     $ ks_set_preset(gid, _cp_pick, source)
     $ _cp_obj = ks_preset_obj(gid)
+    if not _cp_obj:
+        return False
     $ _cp_lab = _cp_obj["label"]
     $ _cp_nm = gname(gid)
     if gid == "local":
@@ -116,9 +124,18 @@ label choose_preset(gid, source="phone"):
 label change_prompt(source="phone"):
     if not active:
         return False
-    if len(active) == 1:
-        $ _chp = active[0]
+    $ _chp_opts = [g for g in active if ks_reachable(g)]
+    if not _chp_opts:
+        n "There's no settings screen to open. The desktop is off."
+        return False
+    if len(_chp_opts) == 1:
+        $ _chp = _chp_opts[0]
     else:
-        $ _chp = renpy.display_menu([("Whose settings?", None)] + [(gname(g) + " (" + ks_surface(g) + ")", g) for g in active])
+        $ _chp = renpy.display_menu([("Whose settings?", None)] + [(gname(g) + " (" + ks_surface(g) + ")", g) for g in _chp_opts] + [("Never mind", KS_NEVER_MIND)])
+    if _chp is None or _chp == KS_NEVER_MIND or ks_preset_pick_cancelled(_chp):
+        return False
+    if ks_machine_down(_chp):
+        n "The desktop is off. You can't edit her file right now."
+        return False
     call choose_preset(_chp, source)
     return _return

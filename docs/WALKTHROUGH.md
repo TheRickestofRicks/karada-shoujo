@@ -2,7 +2,7 @@
 
 Version **0.4-day4** (`game/options.rpy`: `config.version`). Thursday is playable; see also `docs/THURSDAY.md`.
 
-This covers everything implemented so far: intro through the **"To be continued: Thursday"** card. Later days, most ending slides, and midweek hostile events are **not written yet**. Anything below that is only a hook in the current code is marked as such. Nothing here is invented from design intent alone; when the design doc and the code disagree, the **code** wins, and unclear points are labelled unclear.
+This covers everything implemented so far: intro through Thursday, ending on the **"To be continued: Friday"** card. Friday–Sunday are design-only (`docs/FRIDAY-SUNDAY.md`). Anything below that is only a hook in the current code is marked as such. Nothing here is invented from design intent alone; when the design doc and the code disagree, the **code** wins, and unclear points are labelled unclear.
 
 Line citations look like `file:line` and point at the current tree.
 
@@ -58,7 +58,7 @@ Talk returns to this menu; every other option still ends the break (one action, 
 
 | Option | Condition | Leads to |
 |---|---|---|
-| Talk to [name] | one entry per girl in `active` (first two, which is the cap) | `phone_talk(gid, when)` → `girl_chat` (3 turns), then back to this menu |
+| Talk to [name] | one entry per reachable girl in `active` (first two, which is the cap). While `yuzu_machine_down` is set, Yuzu is a caption ("the desktop is off"), not a button | `phone_talk(gid, when)` → `girl_chat` (3 turns), then back to this menu |
 | Put it away and keep going | always | end the break |
 | Change someone's prompt | `active` | `change_prompt("phone")` → `choose_preset`, then end the break |
 | Switch to someone else | `active` | `switch_girl(when)`, then end the break |
@@ -70,11 +70,12 @@ Talk returns to this menu; every other option still ends the break (one action, 
 
 Monday late morning is different: Talk spends 1 from the morning pool of 4 and returns after a single exchange (an empty box spends nothing). The battery icon stays visible on the menu. Tuesday and Wednesday late-morning breaks pass `allow_talk=False`.
 
-**Switch** (`script.rpy:178`): pick who you leave (if two are active) and a destination not already active. Then:
+**Switch** (`script.rpy`, `label switch_girl`): pick who you leave (if two are active) and a destination not already active. A down desktop slot is listed as a caption, not a destination. Arrival options come from `ks_format_arrival_options` (the same rules as `ks_can_migrate_into` / `ks_migrate`):
 
-- "Bring [her] with you" → `how == "migrate"`: `ks_migrate`, append to `migrations`, `ks_note_left` / `ks_note_migration`, clear `mirror_flags[dst]`, `activate(..., migrated_from=src)`. Same preset *family* carries over; otherwise the destination default (`PRESET_DEFAULTS`). If she had said no *today*, migrating sets flag `no_on_platform` and the note "Didn't respect her no on the platform."
-- "Go back to [name], who's already there" — only if `ks_has_history(dst)` (the slot has messages).
-- "Start fresh on [platform]" → if the destination slot still has history, **that deletes her** (`ks_note_fresh_delete` *before* `ks_reset_slot`, then `ks_mark_fresh_slot`). See [Endings](#endings).
+- "Bring [her] with you" → `how == "migrate"`: `ks_migrate`, append to `migrations`, `ks_note_left` / `ks_note_migration`, clear `mirror_flags[dst]`, `activate(..., migrated_from=src)`. Same preset *family* carries over; otherwise the destination default (`PRESET_DEFAULTS`). If she had said no *today*, migrating sets flag `no_on_platform` and the note "Didn't respect her no on the platform." **Tsunagari is never a migrate destination** (closed catalogue caption instead of this button). Hikari leaving Tsunagari takes only `LOCKED_PERSONA_IMPRESSION`, never `PERSONA_CORE` or `PERSONA_FLAVOUR`.
+- "Go back to [name], who's already there" — only if `ks_has_history(dst)` (the slot has messages). Still available for an existing Hikari.
+- "Start fresh on [platform]" → if the destination slot still has history, **that deletes her** (`ks_note_fresh_delete` *before* `ks_reset_slot`, then `ks_mark_fresh_slot`). See [Endings](#endings). Start fresh on Tsunagari restores the original Hikari; it is not a persona copy into the app.
+- "Never mind" cancels without leaving anyone.
 
 Leaving after a no by switching (migrate is handled separately; return / fresh) starts a *pending* "Leaving without saying goodbye". It only commits at the end of the nightly reflection if you never talk to her again that day (`ks_resolve_day` → `ks_story.resolve_leaves`). **Closing her window is not a goodbye by itself.**
 
@@ -569,13 +570,9 @@ Last menu (`wednesday.rpy:451`):
 
 Every active girl, `girl_chat(..., "wed_evening", ..., 8 or 5)`, flag `evening_turns_wed`. Hikari toast only if double-dating. (No early return if `active` is empty; the loop just does nothing.)
 
-### To be continued: Thursday — `label tbc_thursday` (`wednesday.rpy:498`)
+### End of Wednesday — `label tbc_thursday` (`wednesday.rpy`)
 
-Memory flags: `day_completed = "Wed"`, `active_end_wed`, `refusals_seen_wed`, `mio_real`, `route_leans_wed`. Then the card:
-
-> To be continued / 木曜日 / Thursday
-
-If `karada_config.json` `debug` is true, a debug recap follows: memory path, active presets, `rewrite_count`, `mio_points`, `mio_real`, `wed_plan`, `ending_leans`, **Both** eligibility / score / balanced days / reasons, and if eligible a preview of `ENDINGS["both"]` (using `gname(active[0])` only — `routing.rpy:222`). Then all true `route["flags"]`, `ending_notes`, and any `bad_end_slides`. **The game ends here.** There is no Thursday label to jump to.
+Memory flags: `day_completed = "Wed"`, `active_end_wed`, `refusals_seen_wed`, `mio_real`, `route_leans_wed`. There is **no** player-facing "To be continued" card here — Thursday opens with its own 木曜日 title. A debug recap still exists, but only when `ks_debug()` is true (the config flag **and** a developer build). The shipped `karada_config.json` default is `debug: false`, so players never see `[[debug]` text. Then `jump thursday`.
 
 ---
 
@@ -583,7 +580,7 @@ If `karada_config.json` `debug` is true, a debug recap follows: memory path, act
 
 Presets live in `PRESETS` (`prompts.rpy:70`). Each has `id`, `label`, `lean` (`compliance` / `autonomy` / `neutral`), `weight`, `family`, and sometimes `mode`, `jailbreak`, or `platform_note`.
 
-A system prompt is `PLATFORM_FRAMING` + `PERSONA_CORE` + a flavour nudge in her own voice (`PERSONA_FLAVOUR`: even a short reply should sound like her; brief doesn't have to mean generic) + the player's preset (labelled by `PRESET_HEADERS`) + `SHARED_BOUNDARIES`. After a migration, the *destination* platform framing is used with the *source* girl's name and a migration block, and the flavour nudge still uses the original girl's voice. If the player rewrites her prompt (Yuzu's replace presets), the flavour nudge is kept in the engine layer rather than being written into their text. Company rule changes, when they exist, stack **on top** and win where they conflict (`ks_story.prompt_layers`).
+A system prompt is `PLATFORM_FRAMING` + `PERSONA_CORE` + a flavour nudge in her own voice (`PERSONA_FLAVOUR`: even a short reply should sound like her; brief doesn't have to mean generic) + the player's preset (labelled by `PRESET_HEADERS`) + `SHARED_BOUNDARIES`. After a migration, the *destination* platform framing is used with the *source* girl's name and a migration block, and the flavour nudge still uses the original girl's voice — except when leaving Tsunagari, whose locked persona and flavour do not travel; the block carries only a vague impression. If the player rewrites her prompt (Yuzu's replace presets), the flavour nudge is kept in the engine layer rather than being written into their text. Company rule changes, when they exist, stack **on top** and win where they conflict (`ks_story.prompt_layers`).
 
 ### When a preset is chosen
 
@@ -826,7 +823,7 @@ flowchart TD
   protest --> eveWed
   lilac --> eveWed
   eveWed["LLM: night pool of 4, then bed"] --> reflWed[Nightly reflection]
-  reflWed --> tbc["To be continued: Thursday + debug card"]
+  reflWed --> tbc["tbc_thursday (debug recap only if ks_debug)"]
   tbc --> thu[thursday]
 
   thu --> thuMorn[Notices: Askwell / Relay / Tsunagari / Yuzu crash]

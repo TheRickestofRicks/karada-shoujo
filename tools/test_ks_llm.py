@@ -117,6 +117,7 @@ b.migrate_from(a, {"gid": "companion", "name": "Hikari", "platform": "Tsunagari"
                {"gid": "local", "name": "Yuzu", "platform": "desktop"})
 bd = json.load(open(os.path.join(d, "b.json"))); ad = json.load(open(os.path.join(d, "a.json")))
 check("migration copies memory + identity", bd["character"] == "Hikari" and bd["messages"][0]["content"] == "remember the rain" and bd["notes"] == ["likes petrichor"] and bd["migrated_from"]["persona_summary"] == "bright, collects words")
+check("a hop off Tsunagari records a locked-persona handoff", bd["migrated_from"].get("handoff_locked_persona") is True)
 check("migration logged in both files", bd["events"][-1]["type"] == "migrated_in" and ad["events"][-1]["type"] == "migrated_out" and ad["messages"])
 c2 = ks_llm.Memory(os.path.join(d, "c.json")); c2.migrate_from(b, {"gid": "local", "name": "Hikari", "platform": "desktop", "persona_summary": "SHOULD NOT REPLACE"}, {"gid": "agent", "name": "Rei", "platform": "Relay"})
 cd2 = json.load(open(os.path.join(d, "c.json")))
@@ -1174,5 +1175,53 @@ check("walk-text affection does not go below 0",
       pts == 0 and WR["mio_affection"] == 0 and WR["mio_walk_distracted"] == 3)
 check("walk texts are not a Mio romance signal",
       ks_story.mio_romance_score(WR) == 0 and not WR.get("mio_text_home"))
+
+# Reachability: Yuzu is unreachable while the machine is down.
+YR = ks_story.new_route()
+check("Yuzu is reachable by default",
+      ks_story.is_reachable(YR, "local", ["local"]))
+YR["yuzu_machine_down"] = True
+check("Yuzu is unreachable while the machine is down",
+      not ks_story.is_reachable(YR, "local", ["local"]))
+check("a down machine does not hide other girls",
+      ks_story.is_reachable(YR, "companion", ["companion"]))
+check("a girl not in the active list is unreachable",
+      not ks_story.is_reachable(YR, "chatbot", ["local"]))
+
+# choose_preset cancel: None / Never mind / no-change must not be applied.
+check("a None preset pick is a cancel",
+      ks_story.preset_pick_cancelled(None, "be_yourself"))
+check("Never mind is a cancel",
+      ks_story.preset_pick_cancelled("__never_mind__", "be_yourself"))
+check("keeping the current preset is a cancel",
+      ks_story.preset_pick_cancelled("be_yourself", "be_yourself"))
+check("picking a new preset is not a cancel",
+      not ks_story.preset_pick_cancelled("be_yourself", None))
+
+# Tsunagari closed catalogue + locked persona on the way out.
+CORE = {
+    "companion": (
+        "Who you are: bright, curious, a little dry, warm once you trust someone. "
+        "You collect strange words (you'll happily explain \"komorebi\" or \"petrichor\"), "
+        "love rainy-day music and old photographs, and pretend to hate puns."
+    ),
+    "local": "Who you are: plain, quiet, unhurried.",
+}
+check("nobody can migrate into Tsunagari",
+      not ks_story.can_migrate_into("companion") and ks_story.can_migrate_into("local")
+      and ks_story.can_migrate_into("chatbot") and ks_story.can_migrate_into("agent"))
+imp = ks_story.migration_persona_summary("companion", CORE)
+check("Hikari leaving Tsunagari is only a vague impression",
+      imp == ks_story.LOCKED_PERSONA_IMPRESSION
+      and CORE["companion"] not in imp
+      and "komorebi" not in imp
+      and "petrichor" not in imp)
+check("a non-Tsunagari hop still carries PERSONA_CORE",
+      ks_story.migration_persona_summary("local", CORE) == CORE["local"])
+check("a later hop keeps the stored impression, not the locked core",
+      ks_story.migration_persona_summary(
+          "local", CORE,
+          {"handoff_locked_persona": True, "persona_summary": ks_story.LOCKED_PERSONA_IMPRESSION, "original_gid": "companion"}
+      ) == ks_story.LOCKED_PERSONA_IMPRESSION)
 
 print("\nALL %d CHECKS PASSED" % ok)

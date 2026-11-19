@@ -81,6 +81,7 @@ def new_route():
         "yuzu_upgrade": False,    # skipped school to upgrade her (summarizer + backup hardware)
         "yuzu_backup": False,     # backup hardware: later negative events must respect it
         "yuzu_bsod_seen": False,  # Mon/Tue hint: the desktop bluescreened once; she came back
+        "yuzu_machine_down": False,  # local slot is off/rebooting; she is unreachable
         # Thursday (Tanabata; first hostile-event day). See docs/THURSDAY.md.
         "mio_thu_belief_at_start": None,  # frozen before Thursday Daichi come-clean
         "mio_thu_truth": False,   # fessed up to Mio before the tanzaku
@@ -699,6 +700,60 @@ def thu_confession_branch(route, mio_told=None, friend_told=None,
     if ai_romantic_so_far(r):
         return "B"
     return "A"
+
+
+
+# Tsunagari is a closed catalogue: nobody migrates INTO the companion slot.
+# Hikari leaving it cannot take her locked persona with her.
+CLOSED_MIGRATE_TARGETS = ("companion",)
+
+LOCKED_PERSONA_IMPRESSION = (
+    "A faint impression of someone who was bright, and who liked words. "
+    "The app kept the rest of her. This is only what you remember."
+)
+
+def can_migrate_into(dst):
+    return dst not in CLOSED_MIGRATE_TARGETS
+
+
+def preset_pick_cancelled(pick, current=None, never_mind="__never_mind__"):
+    """True for Keep-it-as-it-is / No changes / Never mind / empty pick."""
+    if pick is None or pick is False or pick == "" or pick == never_mind:
+        return True
+    if current is not None and pick == current:
+        return True
+    return False
+
+
+def persona_is_locked(src_gid, migrated_from=None):
+    if src_gid in CLOSED_MIGRATE_TARGETS:
+        return True
+    return bool((migrated_from or {}).get("handoff_locked_persona"))
+
+
+def migration_persona_summary(src_gid, core_by_gid, migrated_from=None):
+    """What the destination is told she was. Never the locked Tsunagari core."""
+    if persona_is_locked(src_gid, migrated_from):
+        # Prefer a summary already stored from a previous locked hop.
+        prev = (migrated_from or {}).get("persona_summary")
+        if prev and prev != (core_by_gid or {}).get("companion"):
+            return prev
+        return LOCKED_PERSONA_IMPRESSION
+    return (core_by_gid or {}).get(src_gid) or ""
+
+
+def is_reachable(route, gid, active=None):
+    """Whether this girl can be talked to right now.
+
+    The local slot is unreachable while yuzu_machine_down is set
+    (bluescreen or Thursday crash, until the machine comes back).
+    """
+    r = ensure_route(route)
+    if active is not None and gid not in active:
+        return False
+    if gid == "local" and r.get("yuzu_machine_down"):
+        return False
+    return True
 
 
 def apply_yuzu_hardware(mem, route, day="Thu"):

@@ -142,7 +142,10 @@ label nightly_reflection(day):
         $ _rf_items = []
         python:
             for _g in active:
-                _rf_items.append(("Change " + gname(_g) + "'s " + ks_surface(_g), ("preset", _g)))
+                if ks_reachable(_g):
+                    _rf_items.append(("Change " + gname(_g) + "'s " + ks_surface(_g), ("preset", _g)))
+                else:
+                    _rf_items.append((ks_unreachable_note(_g), None))
             if active:
                 _rf_items.append(("Move her somewhere else", ("switch", None)))
             if len(active) < 2:
@@ -151,7 +154,11 @@ label nightly_reflection(day):
                 _rf_items.append(("Let someone go", ("drop", None)))
             _rf_items.append(("No. Goodnight.", ("done", None)))
         $ _rf_pick = renpy.display_menu(_rf_items, screen="reflection_choice")
-        $ _rf_kind, _rf_g = _rf_pick
+        if not _rf_pick:
+            $ _rf_kind, _rf_g = ("done", None)
+            $ _rf_done = True
+        else:
+            $ _rf_kind, _rf_g = _rf_pick
         if _rf_kind == "done":
             $ _rf_done = True
         elif _rf_kind == "preset":

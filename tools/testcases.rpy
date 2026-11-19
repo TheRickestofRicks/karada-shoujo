@@ -78,6 +78,12 @@ testcase switch_migrate_double:
     screenshot "b02_migrated_on_local.png"
     ## Nickname has no desktop equivalent -> Yuzu-slot default (Be yourself).
     $ assert ks_preset_id("local") == "be_yourself", ks_preset_id("local")
+    $ _sp = ks_system_prompt("local")
+    $ assert PERSONA_CORE["companion"] not in _sp, _sp
+    $ assert "komorebi" not in _sp and "the girlfriend who's always there" not in _sp, _sp
+    $ assert "word you've been collecting" not in _sp, _sp
+    $ assert ks_story.LOCKED_PERSONA_IMPRESSION in _sp
+    $ assert (ks_mem("local").data.get("migrated_from") or {}).get("handoff_locked_persona")
     $ assert ks_route()["preset_history"][-1]["source"] == "migration"
     $ assert ks_story.rewrite_count(ks_route()) == 0
     type "is it still you?"
@@ -436,7 +442,8 @@ testcase tuesday_walk:
     $ _rl = "\n".join(refl_lines)
     $ assert "skipped classes" in _rl and "Hearth" in _rl and "protest" in _rl, _rl
     click "No. Goodnight."
-    advance until label "tbc_thursday" timeout 30.0
+    advance until eval (day_name == "Thu") timeout 30.0
+    $ assert day_name == "Thu" and not ks_debug()
     $ assert ks_story.flag(ks_route(), "ran_rewrites_mugen") and ks_leans()["respect"] > 0
     $ assert ks_mem("local").data["flags"]["day_completed"] == "Wed"
     $ print("KARADA_TEST: tuesday_walk reached Thursday")
@@ -593,7 +600,8 @@ testcase tuesday_nowalk:
     $ _rl = "\n".join(refl_lines)
     $ assert "texted a little" in _rl and "protest" in _rl, _rl
     click "No. Goodnight."
-    advance until label "tbc_thursday" timeout 30.0
+    advance until eval (day_name == "Thu") timeout 30.0
+    $ assert day_name == "Thu" and not ks_debug()
     $ assert ks_route()["ran_wed"]["outcome"] == "unsure" and ks_route()["wed_plan"]["notdate"] and ks_route()["wed_plan"]["protest"]
     $ assert ks_mem("companion").data["flags"]["wed_notdate"] == {"texts": 2, "present": 1}
     ## The "both" route: Hikari still active and Mio in your life. Time with
@@ -601,9 +609,8 @@ testcase tuesday_nowalk:
     $ _bs = ks_both()
     $ assert _bs["eligible"] and _bs["score"] > 0 and "Wed" in _bs["balanced"] and ks_leans()["both"] == _bs["score"], _bs
     $ assert ks_both_ending()["title"] == "Both" and any("Hikari" in l for l in ks_both_ending()["lines"])
-    advance until eval (ks_shot == "debug_both") timeout 60.0
     pause 0.5
-    screenshot "n03_debug_both_preview.png"
+    screenshot "n03_thursday_title.png"
     $ print("KARADA_TEST: tuesday_nowalk reached Thursday")
     exit
 
@@ -794,7 +801,7 @@ testcase after_no:
     $ assert any("never went back" in l for l in refl_lines), refl_lines
     click "Move her somewhere"
     advance until screen "choice" timeout 30.0
-    click "the companion app"
+    click "agent that does things"
     advance until screen "choice" timeout 30.0
     click "Bring Yuzu"
     advance until screen "input" timeout 60.0
@@ -977,7 +984,8 @@ testcase wed_sora_noinvite:
     $ _rl = "\n".join(refl_lines)
     $ assert "Ran didn't talk to you today" in _rl and "texted a little" in _rl, _rl
     click "No. Goodnight."
-    advance until label "tbc_thursday" timeout 30.0
+    advance until eval (day_name == "Thu") timeout 30.0
+    $ assert day_name == "Thu" and not ks_debug()
     $ assert not ks_story.flag(ks_route(), "ran_payoff_seen")
     $ print("KARADA_TEST: wed_sora_noinvite reached Thursday")
     exit
@@ -1074,7 +1082,8 @@ testcase bookstore_present:
     $ _rl = "\n".join(refl_lines)
     $ assert "didn't look at your phone once" in _rl, _rl
     click "No. Goodnight."
-    advance until label "tbc_thursday" timeout 30.0
+    advance until eval (day_name == "Thu") timeout 30.0
+    $ assert day_name == "Thu" and not ks_debug()
     $ print("KARADA_TEST: bookstore_present reached Thursday")
     exit
 
@@ -2465,6 +2474,10 @@ testcase thu_yuzu_backup:
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "thursday" timeout 90.0
+    advance until eval (ks_shot == "yuzu_down") timeout 30.0
+    $ assert ks_route()["yuzu_machine_down"] and not ks_reachable("local")
+    advance until eval (ks_shot == "yuzu_up") timeout 30.0
+    $ assert not ks_route()["yuzu_machine_down"] and ks_reachable("local")
     advance until screen "choice" timeout 60.0
     $ assert ks_route()["yuzu_thu_event"] == "restored"
     $ assert ks_mem("local").data["flags"].get("restored_from_backup") is True
@@ -2496,6 +2509,7 @@ testcase thu_yuzu_backup:
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "tbc_friday" timeout 30.0
+    $ assert not ks_debug()
     $ assert ks_route()["yuzu_thu_event"] == "restored"
     $ print("KARADA_TEST: thu_yuzu_backup reached Friday")
     exit
@@ -2580,6 +2594,10 @@ testcase thu_yuzu_lost:
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "thursday" timeout 90.0
+    advance until eval (ks_shot == "yuzu_down") timeout 30.0
+    $ assert ks_route()["yuzu_machine_down"] and not ks_reachable("local")
+    advance until eval (ks_shot == "yuzu_up") timeout 30.0
+    $ assert not ks_route()["yuzu_machine_down"] and ks_reachable("local")
     advance until screen "choice" timeout 60.0
     $ assert ks_route()["yuzu_backup"] is False
     $ assert ks_route()["yuzu_thu_event"] == "lost"
@@ -2601,8 +2619,47 @@ testcase thu_yuzu_lost:
     advance until screen "choice" timeout 60.0
     click "Put the phone down and go to bed"
     advance until screen "reflection_choice" timeout 30.0
+    click "Change Yuzu"
+    advance until screen "preset_select" timeout 30.0
+    click "Keep it as it is"
+    advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "tbc_friday" timeout 30.0
+    $ assert not ks_debug()
     $ assert ks_route()["yuzu_thu_event"] == "lost" and not ks_route()["tanabata_with_mio"]
     $ print("KARADA_TEST: thu_yuzu_lost reached Friday")
+    exit
+
+
+## Tsunagari is a closed catalogue: the arrival menu offers no "Bring her"
+## into the companion app. Go back / Start fresh / Never mind stay available.
+testcase tsunagari_closed_migrate:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Switch to someone else"
+    advance until screen "choice" timeout 30.0
+    click "the companion app"
+    advance until screen "choice" timeout 30.0
+    $ _items = renpy.get_screen("choice").scope["items"]
+    $ _btns = [i.caption for i in _items if i.action is not None]
+    $ _caps = [i.caption for i in _items if i.action is None]
+    $ assert not any(c.startswith("Bring ") for c in _btns), _btns
+    $ assert any("closed catalogue" in c for c in _caps), _caps
+    $ assert any(c.startswith("Start fresh") for c in _btns), _btns
+    click "Never mind"
+    advance until screen "choice" timeout 30.0
+    $ assert active == ["chatbot"]
+    $ print("KARADA_TEST: tsunagari_closed_migrate refused bring-into-app")
     exit

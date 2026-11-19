@@ -969,7 +969,19 @@ class Memory(object):
         lineage.append({"gid": src_info["gid"], "name": src_info["name"],
                         "platform": src_info["platform"], "day": day})
         origin = (src.data or {}).get("migrated_from") or {}
-        summary = origin.get("persona_summary") or src_info.get("persona_summary", "")
+        locked = bool(
+            src_info.get("handoff_locked_persona")
+            or origin.get("handoff_locked_persona")
+            or src_info.get("gid") == "companion"
+            or origin.get("original_gid") == "companion"
+            or origin.get("gid") == "companion"
+        )
+        # Locked Tsunagari hops keep the already-stored impression (or the
+        # one the caller supplied). They never invent a new core from src.
+        if locked and origin.get("persona_summary"):
+            summary = origin.get("persona_summary")
+        else:
+            summary = origin.get("persona_summary") or src_info.get("persona_summary", "")
         self.fresh(src_info["name"])
         self.data["run_id"] = run_id
         self.data["messages"] = copy.deepcopy(src.data["messages"])
@@ -983,6 +995,7 @@ class Memory(object):
             "platform": src_info["platform"], "persona_summary": summary,
             "original_gid": origin.get("original_gid") or src_info["gid"],
             "day": day,
+            "handoff_locked_persona": locked,
         }
         self.log_event("migrated_in", src=src_info["gid"], name=src_info["name"],
                        from_platform=src_info["platform"], to_platform=dst_info["platform"],

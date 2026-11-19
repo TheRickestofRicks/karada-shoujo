@@ -69,10 +69,18 @@ init -10 python:
             m.set_flag("engagement_boost", False)
 
     def ks_migrate(src, dst, day=None):
+        """Carry src's memory + persona into the dst platform slot.
+
+        Nobody migrates into Tsunagari. A locked Tsunagari persona leaving
+        the app is only a vague impression, never PERSONA_CORE.
+        Returns (pid, carried) or (None, False) if the move is refused.
+        """
         day = day or store.day_name
-        """Carry src's memory + persona into the dst platform slot."""
+        if not ks_can_migrate_into(dst):
+            return None, False
         src_info = dict(gid=src, name=gname(src), platform=gplatform(src),
-                        persona_summary=ks_persona_summary(src))
+                        persona_summary=ks_migration_persona_summary(src),
+                        handoff_locked_persona=ks_persona_locked(src))
         dst_info = dict(gid=dst, name=gname(dst), platform=gplatform(dst))
         ks_mem(dst).migrate_from(ks_mem(src), src_info, dst_info, day)
         ks_mem(dst).data["platform"] = GIRL_INFO[dst]["kind"]
@@ -89,7 +97,133 @@ init -10 python:
         return ks_llm.STATUS.get("note") or ""
 
     def ks_debug():
-        return bool(ks_cfg().get("debug", False))
+        """In-game recap / overlays. Players never see these.
+
+        The karada_config.json flag must be on, and this must be a
+        developer build. A packaged game hides them even if the flag
+        was left on in the file.
+        """
+        if not ks_cfg().get("debug", False):
+            return False
+        return bool(getattr(config, "developer", False))
+
+    def ks_machine_down(gid="local"):
+        return bool(gid == "local" and ks_route().get("yuzu_machine_down"))
+
+    def ks_set_machine_down(gid, down=True):
+        if gid == "local":
+            ks_route()["yuzu_machine_down"] = bool(down)
+
+    def ks_reachable(gid=None):
+        active = list(store.active or [])
+        if gid is not None:
+            return ks_story.is_reachable(ks_route(), gid, active)
+        return [g for g in active if ks_story.is_reachable(ks_route(), g, active)]
+
+    def ks_slot_available(gid):
+        """Can this platform be opened, migrated onto, or added?"""
+        return not ks_machine_down(gid)
+
+    def ks_unreachable_note(gid):
+        if ks_machine_down(gid):
+            return gname(gid) + " — the desktop is off."
+        return ""
+
+    def ks_message_menu_items(put_away_label=None, put_away_value="__put_down__"):
+        """Battery / talk picker. Down girls are captions, not buttons."""
+        items = []
+        for g in (store.active or []):
+            if ks_machine_down(g):
+                items.append((ks_unreachable_note(g), None))
+            else:
+                items.append(("Message " + gname(g), g))
+        if put_away_label is not None:
+            items.append((put_away_label, put_away_value))
+        return items
+
+    def ks_phone_glance_names():
+        parts = []
+        for g in (store.active or []):
+            if ks_machine_down(g):
+                parts.append(gname(g) + " (the desktop is off)")
+            else:
+                parts.append(gname(g))
+        return " & ".join(parts) or "no one"
+
+    def ks_can_migrate_into(dst):
+        return ks_story.can_migrate_into(dst)
+
+    def ks_persona_locked(gid):
+        mig = {}
+        try:
+            mem = ks_mem(gid)
+            if mem and mem.data:
+                mig = mem.data.get("migrated_from") or {}
+        except Exception:
+            mig = {}
+        return ks_story.persona_is_locked(gid, mig)
+
+    def ks_migration_persona_summary(gid):
+        mig = {}
+        try:
+            mem = ks_mem(gid)
+            if mem and mem.data:
+                mig = mem.data.get("migrated_from") or {}
+        except Exception:
+            mig = {}
+        return ks_story.migration_persona_summary(gid, PERSONA_CORE, mig)
+
+    def ks_closed_catalogue_note(src=None):
+        who = gname(src) if src else "anyone"
+        return "Tsunagari is a closed catalogue. You can't bring " + who + " into the app."
+
+    def ks_arrival_options(src, dst):
+        """How to land on dst after leaving src. Never a migrate-into-Tsunagari button.
+
+        The live menu still uses the longer "Bring NAME with you: ..." label
+        so existing play-throughs can click "Bring Hikari". This helper is
+        the shared rule; switch_girl formats the visible captions.
+        """
+        items = []
+        if ks_can_migrate_into(dst):
+            items.append(("migrate", True))
+        else:
+            items.append((ks_closed_catalogue_note(src), None))
+        if ks_has_history(dst):
+            items.append(("Go back to " + gname(dst) + ", who's already there", "return"))
+        items.append(("Start fresh on " + gplatform(dst), "fresh"))
+        items.append(("Never mind", KS_NEVER_MIND))
+        return items
+
+    def ks_format_arrival_options(src, dst):
+        """display_menu items for the arrival step (shared Tsunagari rule)."""
+        sn = gname(src)
+        dp = gplatform(dst)
+        items = []
+        if ks_can_migrate_into(dst):
+            items.append(("Bring " + sn + " with you: copy her memories and who she is to " + dp, "migrate"))
+        else:
+            items.append((ks_closed_catalogue_note(src), None))
+        if ks_has_history(dst):
+            items.append(("Go back to " + gname(dst) + ", who's already there", "return"))
+        items.append(("Start fresh on " + dp, "fresh"))
+        items.append(("Never mind", KS_NEVER_MIND))
+        return items
+
+    def ks_where_to_choices(src=None, heading="Where to?"):
+        items = [(heading, None)]
+        for g in GIRL_IDS:
+            if src is not None and g == src:
+                continue
+            if g in (store.active or []):
+                continue
+            if not ks_slot_available(g):
+                items.append((ks_unreachable_note(g), None))
+            else:
+                extra = (" (" + gname(g) + " remembers you)" if ks_has_history(g) else "")
+                items.append((renpy.substitute(GIRL_PITCH[g]) + extra, g))
+        items.append(("Never mind", KS_NEVER_MIND))
+        return items
 
     def ks_aff_settings():
         return ks_llm.affection_settings(ks_cfg())
@@ -328,6 +462,9 @@ label ks_wait(doing="typing", who="She"):
 ## Player leaves by submitting an empty line (or after max_turns).
 ## Returns number of completed exchanges.
 label girl_chat(gid, scene_id, scene_note, max_turns=6, day=None):
+    if ks_machine_down(gid):
+        n "The desktop is off. There's no window to open."
+        return
     $ day = day or day_name
     $ _ks_turns = 0
     $ _ks_pending_no = False

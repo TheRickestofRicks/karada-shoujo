@@ -16,7 +16,10 @@
 ## A system prompt = PLATFORM_FRAMING (where she lives) + PERSONA_CORE (who she
 ## is) + the player's PRESET (labelled, see PRESETS) + SHARED_BOUNDARIES. After a persona migration the destination slot uses
 ## its own PLATFORM_FRAMING but the migrated girl's name + MIGRATION_BLOCK with
-## her original PERSONA_CORE as a summary, and her copied memories.
+## a persona summary, and her copied memories. Tsunagari is a closed
+## catalogue: nobody migrates into it. Hikari leaving it carries only a
+## vague impression (LOCKED_PERSONA_IMPRESSION), never PERSONA_CORE or
+## PERSONA_FLAVOUR.
 ## Placeholders: {name} {player} {platform}
 
 define PLATFORM_FRAMING = {
@@ -316,6 +319,7 @@ Your affection metrics have crossed the engagement threshold. The app wants the 
 
 init python:
     def ks_persona_summary(gid):
+        """Raw locked core. Migration must use ks_migration_persona_summary."""
         return PERSONA_CORE[gid]
 
     def ks_platform_rules_text(gid):
@@ -365,8 +369,16 @@ init python:
         ## migration block. Keep the flavour nudge in the engine layer so
         ## it never overwrites their text, and so a migrated girl still
         ## speaks in her own voice.
+        ## A locked Tsunagari persona does not travel: no CORE, no flavour.
         if (mig or replace) and flavour_gid in PERSONA_FLAVOUR:
-            parts.append(PERSONA_FLAVOUR[flavour_gid])
+            locked_out = bool(mig) and (
+                mig.get("handoff_locked_persona")
+                or flavour_gid == "companion"
+                or mig.get("original_gid") == "companion"
+                or mig.get("gid") == "companion"
+            )
+            if not locked_out:
+                parts.append(PERSONA_FLAVOUR[flavour_gid])
         ## Wednesday on: the day's schedule for schedule-aware girls (Sora,
         ## Rei, and Yuzu once Hearth is installed). Hikari's app has no
         ## calendar access.
