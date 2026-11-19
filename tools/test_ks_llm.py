@@ -926,4 +926,57 @@ res = ks_llm.classify_day_refusals(cfg(18997, model="x"), slog, "Sora")
 check("refusal classifier down -> error, no keyword fallback",
       res["method"] == "error" and res["declined"] == [])
 
+
+# ---------------------------------------------------------------------------
+# Shared message pool
+# ---------------------------------------------------------------------------
+check("default morning pool is 4", ks_story.pool_size("morning") == 4)
+check("default walk pool is 2", ks_story.pool_size("walk") == 2)
+check("default afternoon and night pools are 4",
+      ks_story.pool_size("afternoon") == 4 and ks_story.pool_size("night") == 4)
+check("config can override a pool size",
+      ks_story.pool_size("morning", {"message_pool": {"morning": 6}}) == 6)
+check("bad config falls back to the default",
+      ks_story.pool_size("walk", {"message_pool": {"walk": "nope"}}) == 2)
+
+P = ks_story.new_pool("afternoon")
+check("new pool starts full",
+      P["left"] == 4 and P["size"] == 4 and P["ended"] is None and ks_story.pool_can_spend(P))
+check("spending one message drains the pool",
+      ks_story.spend_pool(P, "local") and P["left"] == 3 and P["spent"] == ["local"])
+ks_story.spend_pool(P, "chatbot")
+ks_story.spend_pool(P, "local")
+check("the fourth spend empties the pool",
+      ks_story.spend_pool(P, "agent") and P["left"] == 0 and P["ended"] == "empty")
+check("an empty pool will not spend",
+      ks_story.spend_pool(P, "local") is False and P["left"] == 0 and P["ended"] == "empty")
+check("unspoken are the active girls who got no messages",
+      ks_story.pool_unspoken(P, ["local", "chatbot", "agent", "companion"]) == ["companion"])
+
+E = ks_story.new_pool("night")
+ks_story.spend_pool(E, "local")
+ks_story.end_pool(E, "put_down")
+check("putting the phone down ends with messages left",
+      E["ended"] == "put_down" and E["left"] == 3)
+check("an ended pool will not spend",
+      ks_story.spend_pool(E, "local") is False)
+
+# Walk distraction: costs affection, not a romance signal
+WR = ks_story.new_route()
+pts, line = ks_story.note_walk_distracted(WR, "local", 3)
+check("first walk text costs 1 and uses Mio's first line",
+      pts == 2 and WR["mio_walk_distracted"] == 1 and WR["mio_walk_texts"] == ["local"]
+      and line == "You're looking at your phone."
+      and WR["mio_affection"] == 2
+      and ks_story.mio_romance_score(WR) == 0)
+pts, line = ks_story.note_walk_distracted(WR, "chatbot", pts)
+check("second walk text uses Mio's second line",
+      pts == 1 and line == "You can finish that. I don't mind walking quietly."
+      and WR["mio_walk_texts"] == ["local", "chatbot"])
+pts, line = ks_story.note_walk_distracted(WR, "local", 0)
+check("walk-text affection does not go below 0",
+      pts == 0 and WR["mio_affection"] == 0 and WR["mio_walk_distracted"] == 3)
+check("walk texts are not a Mio romance signal",
+      ks_story.mio_romance_score(WR) == 0 and not WR.get("mio_text_home"))
+
 print("\nALL %d CHECKS PASSED" % ok)

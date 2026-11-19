@@ -25,6 +25,10 @@ default mio_told = None             # "truth" | "deflect" | "lie" — what you t
 default mio_daichi_consistent = None  # True/False once you answer Mio; else None
 default mio_real = False            # hidden branch unlocked
 default mio_points = 0
+default ks_pool = None              # shared message pool for a free window
+default ks_pool_template = None     # scene template or None (kind dispatches)
+default ks_pool_when = ""           # phone-break 'when' string, if any
+default ks_pool_scene_key = ""      # e.g. tue_afternoon, mon_evening
 
 ## One-line pitches for the platform slots (choice menus).
 define GIRL_PITCH = {
@@ -90,7 +94,7 @@ label monday:
     call activate(_first, "Monday morning, before class", 5)
 
     n "8:10. You have to leave in five minutes."
-    call phone_break("Monday, late morning")
+    call phone_break("Monday, late morning", "morning")
 
     call lunch_daichi
     call phone_break("Monday afternoon")
@@ -159,20 +163,36 @@ label activate(gid, when, turns=4, migrated_from=None, _mig_carried=False):
 ## ── Phone break: talk, switch, migrate, add an AI ───────────────────────
 ## Talk returns to this menu so you can check in, then do something else
 ## or put the phone away. Any other action still ends the break.
-label phone_break(when):
+## Late-morning breaks share the morning message pool (4): each Talk to
+## spends 1 and comes back. Mid-day and pre-evening breaks keep a short
+## 3-turn Talk-to; those are not the afternoon or night pools.
+label phone_break(when, pool_kind=None, allow_talk=True):
+    if pool_kind:
+        if (not ks_pool) or ks_pool.get("kind") != pool_kind or ks_pool.get("ended"):
+            call pool_begin(pool_kind, when=when)
+        else:
+            show screen ks_message_battery
     $ _pb_done = False
+    $ _pb_owned_pool = pool_kind
     while not _pb_done:
         $ _act = " & ".join(gname(g) for g in active) or "no one"
         $ _pb0 = active[0] if active else None
         $ _pb1 = active[1] if len(active) > 1 else None
         $ _pn0 = gname(_pb0) if _pb0 else ""
         $ _pn1 = gname(_pb1) if _pb1 else ""
+        $ _can_talk = allow_talk and ((not pool_kind) or ks_pool_can_talk())
         menu:
             "You glance at your phone. ([_act])"
-            "Talk to [_pn0]" if _pb0:
-                call phone_talk(_pb0, when)
-            "Talk to [_pn1]" if _pb1:
-                call phone_talk(_pb1, when)
+            "Talk to [_pn0]" if _pb0 and _can_talk:
+                if pool_kind:
+                    call pool_one_message(_pb0)
+                else:
+                    call phone_talk(_pb0, when)
+            "Talk to [_pn1]" if _pb1 and _can_talk:
+                if pool_kind:
+                    call pool_one_message(_pb1)
+                else:
+                    call phone_talk(_pb1, when)
             "Put it away and keep going":
                 $ _pb_done = True
             "Change someone's prompt" if active:
@@ -190,6 +210,8 @@ label phone_break(when):
             "Stop seeing one of them" if len(active) > 1:
                 call drop_girl
                 $ _pb_done = True
+    if _pb_owned_pool:
+        $ ks_pool_finish("put_down")
     $ renpy.block_rollback()
     return
 
@@ -282,28 +304,183 @@ label drop_girl(allow_last=False):
     return
 
 
-## Free afternoon hour. If two girls are active, the player picks one or
-## talks to both, so the second isn't starved into double_date_unspoken.
+## Shared message pool for free windows (morning, walk, afternoon, night).
+## One battery, shown as a small segmented icon. Each message to any
+## active girl spends 1; the player picks who, or puts the phone down.
+init python:
+    def ks_pool_size(kind):
+        return ks_story.pool_size(kind, ks_cfg())
+
+    def ks_pool_can_talk():
+        return ks_story.pool_can_spend(store.ks_pool)
+
+    def ks_battery_seg_color(i):
+        pool = store.ks_pool or {}
+        left = int(pool.get("left") or 0)
+        if i < left:
+            if left <= 1:
+                return "#ffd36a"
+            return "#7dff9a"
+        return "#1a2430"
+
+    def ks_pool_scene_id_for(gid):
+        kind = (store.ks_pool or {}).get("kind")
+        key = store.ks_pool_scene_key or ""
+        if kind == "morning":
+            if store.day_name in ("Tue", "Wed"):
+                return store.day_name.lower() + "_morning"
+            when = store.ks_pool_when or "Monday, late morning"
+            return ks_phone_scene_id(gid, when)
+        if kind == "walk":
+            return store.day_name.lower() + "_walk_" + gid
+        if key:
+            return key
+        return store.day_name.lower() + "_" + (kind or "chat")
+
+    def ks_pool_scene_note(gid):
+        kind = (store.ks_pool or {}).get("kind")
+        tmpl = store.ks_pool_template
+        if kind == "morning":
+            if store.day_name == "Tue":
+                return ks_tue_morning_scene(gid)
+            if store.day_name == "Wed":
+                return ks_wed_morning_scene(gid)
+            when = store.ks_pool_when or "Monday, late morning"
+            return ks_phone_scene(gid, when)
+        if kind == "walk":
+            return ks_scene(TUE_WALK_TEXT_SCENE, gid)
+        if tmpl:
+            return ks_scene(tmpl, gid)
+        return ks_phone_scene(gid, store.ks_pool_when or "")
+
+    def ks_pool_finish(how="put_down"):
+        if store.ks_pool:
+            ks_story.end_pool(store.ks_pool, how)
+        renpy.hide_screen("ks_message_battery")
+
+
+## The battery icon: a small, readable segmented bar that drains per message.
+screen ks_message_battery():
+    zorder 95
+    if ks_pool and int(ks_pool.get("size") or 0) > 0:
+        $ _left = int(ks_pool.get("left") or 0)
+        $ _size = int(ks_pool.get("size") or 0)
+        frame:
+            xalign 0.98
+            yalign 0.14
+            background Solid("#121826f0")
+            padding (10, 8)
+            hbox:
+                spacing 10
+                yalign 0.5
+                hbox:
+                    spacing 0
+                    yalign 0.5
+                    frame:
+                        background Solid("#e8f0e8")
+                        padding (3, 3)
+                        hbox:
+                            spacing 3
+                            for _i in range(_size):
+                                frame:
+                                    xsize 14
+                                    ysize 22
+                                    background Solid(ks_battery_seg_color(_i))
+                    frame:
+                        yalign 0.5
+                        xsize 5
+                        ysize 12
+                        background Solid("#e8f0e8")
+                text "[_left]/[_size]" size 18 color "#e8f0e8" yalign 0.5
+
+
+label pool_begin(kind, size=None, template=None, scene_key="", when=""):
+    $ ks_pool_template = template
+    $ ks_pool_scene_key = scene_key
+    $ ks_pool_when = when
+    $ ks_pool = ks_story.new_pool(kind, size, ks_cfg())
+    show screen ks_message_battery
+    return
+
+
+## One message from the current pool (used by the picker and by morning Talk-to).
+## Spending happens only if she actually received a line. Empty input is free.
+label pool_one_message(gid, show_sprite=True):
+    if not ks_pool_can_talk():
+        return 0
+    if show_sprite:
+        $ girl_mood[gid] = "neutral"
+        $ renpy.show(GIRL_INFO[gid]["sprite"], at_list=[ks_center])
+        with dissolve
+    call girl_chat(gid, ks_pool_scene_id_for(gid), ks_pool_scene_note(gid), 1)
+    $ _sent = _return
+    if _sent:
+        $ ks_story.spend_pool(ks_pool, gid)
+    if show_sprite:
+        $ renpy.hide(GIRL_INFO[gid]["sprite"])
+        with dissolve
+    return _sent
+
+
+## Free window: pick who to message each turn, or put the phone down.
+## pool_kind: "morning" / "afternoon" / "night" / "walk".
+## For a walk, the girl sprite stays off (Mio is already on screen) and
+## on_walk_text is called after each spent message.
+label message_pool(pool_kind, lead="", template=None, scene_key="", when="", show_sprite=True, on_walk_text=False, keep_open=False):
+    if not active:
+        return
+    if (not ks_pool) or ks_pool.get("kind") != pool_kind or ks_pool.get("ended"):
+        call pool_begin(pool_kind, template=template, scene_key=scene_key, when=when)
+    else:
+        $ ks_pool_template = template
+        $ ks_pool_scene_key = scene_key
+        $ ks_pool_when = when
+        show screen ks_message_battery
+    if lead:
+        n "[lead]"
+    $ _pool_stop = False
+    ## display_menu treats a None value as a caption, not a button, so the
+    ## put-away action has to be a real sentinel (otherwise testers and
+    ## players could never actually put the phone down).
+    $ _put_away = "Put the phone down and go to bed" if pool_kind == "night" else ("Put the phone away" if pool_kind == "walk" else "Put the phone down")
+    $ _PUT_DOWN = "__put_down__"
+    while ks_pool_can_talk() and not _pool_stop:
+        $ ks_shot = "battery"
+        $ _who = renpy.display_menu([("Message " + gname(g), g) for g in active] + [(_put_away, _PUT_DOWN)])
+        if _who == _PUT_DOWN:
+            $ _pool_stop = True
+        else:
+            call pool_one_message(_who, show_sprite)
+            if on_walk_text and _return:
+                call walk_distract_after(_who)
+    if _pool_stop:
+        $ ks_pool_finish("put_down")
+        if pool_kind == "night":
+            n "You put the phone down and go to bed."
+        elif pool_kind == "walk":
+            n "You put the phone away."
+    else:
+        $ ks_pool_finish("empty")
+        if pool_kind == "night":
+            n "The little battery on your phone goes dark. You put it down and go to bed."
+        elif pool_kind == "afternoon":
+            n "The hour is gone."
+        elif pool_kind == "morning":
+            n "That's all the time you have this morning."
+        elif pool_kind == "walk":
+            n "You put the phone away for the rest of the walk."
+    if keep_open:
+        ## Caller (a following phone break) may still want the icon; we already closed.
+        pass
+    return
+
+
+## Free afternoon hour. A shared pool of 4, not a one-or-both split.
 label afternoon_chats(scene_id, scene_template, lead_one, lead_two):
     if not active:
         return
-    if len(active) == 1:
-        $ _targets = list(active)
-        n "[lead_one]"
-    else:
-        n "[lead_two]"
-        $ _targets = renpy.display_menu([(gname(g), [g]) for g in active] + [("Both, one after the other", list(active))])
-    $ _turns = 2 if len(_targets) > 1 else 3
-    $ _ai = 0
-    while _ai < len(_targets):
-        $ _ag = _targets[_ai]
-        $ girl_mood[_ag] = "neutral"
-        $ renpy.show(GIRL_INFO[_ag]["sprite"], at_list=[ks_center])
-        with dissolve
-        call girl_chat(_ag, scene_id, ks_scene(scene_template, _ag), _turns)
-        $ renpy.hide(GIRL_INFO[_ag]["sprite"])
-        with dissolve
-        $ _ai += 1
+    $ _lead = lead_one if len(active) == 1 else lead_two
+    call message_pool("afternoon", _lead, template=scene_template, scene_key=scene_id)
     return
 
 
@@ -608,33 +785,24 @@ label .real:
     return
 
 
-## ── Evening: every active girl gets a chat ──────────────────────────────
+## ── Evening: a shared night pool of 4, then bed ────────────────────────
 label evening_chat:
     scene bg bedroom_night
     with fade
     n "Night. The ramen is on its second refill of hot water."
+    if not active:
+        n "You fall asleep with the room dark."
+        return
     if ks_companion_active() and len(active) > 1:
         call hikari_phone_notify("evening")
-    $ _turns = 8 if len(active) == 1 else 5
-    $ _queue = list(active)
-    if len(_queue) > 1:
-        $ _a0 = gname(_queue[0])
-        $ _a1 = gname(_queue[1])
-        n "Two windows waiting: [_a0] and [_a1]."
-    while _queue:
-        $ _g = _queue.pop(0)
-        $ _pn = gname(_g)
-        $ girl_mood[_g] = "neutral"
-        $ renpy.show(GIRL_INFO[_g]["sprite"], at_list=[ks_center])
-        with dissolve
-        n "[_pn] is still there, as if she's waiting to see whether you'll come back."
-        call girl_chat(_g, "mon_evening", ks_scene(EVENING_SCENE, _g), _turns)
-        $ ks_mem(_g).set_flag("evening_turns_mon", _return)
-        if _return == 0:
-            n "You don't say anything to her tonight. The screen dims, eventually."
-        $ renpy.hide(GIRL_INFO[_g]["sprite"])
-        with dissolve
-    n "You fall asleep with a screen still glowing somewhere in the room."
+    if len(active) > 1:
+        $ _lead = "Two windows waiting: %s and %s. The little battery on your phone is the only limit tonight." % (gname(active[0]), gname(active[1]))
+    else:
+        $ _lead = "%s is still there, as if she's waiting to see whether you'll come back." % gname(active[0])
+    call message_pool("night", _lead, template=EVENING_SCENE, scene_key="mon_evening")
+    python:
+        for _g in list(active):
+            ks_mem(_g).set_flag("evening_turns_mon", (ks_pool.get("spent") or []).count(_g) if ks_pool else 0)
     return
 
 

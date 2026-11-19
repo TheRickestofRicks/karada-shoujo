@@ -14,7 +14,8 @@ Line citations look like `file:line` and point at the current tree.
 - **Leads to** is the next label or the immediate consequence, not every line of dialogue.
 - **Flags / variables** use the exact names in the Ren'Py store or in `route` (`ks_story.new_route()`, saved as `store.route`).
 - **LLM chat** means `label girl_chat` (`game/engine.rpy:288`). The player types freely (empty line ends the window). The model is required to play; there is no scripted fallback conversation.
-- **Phone breaks** (`label phone_break`, `script.rpy:158`) open a menu. **Talk to [name]** (one option per active girl) opens a short LLM chat and then returns to the same menu. Any other action still ends the break, and **"Put it away and keep going"** continues the day. The same non-talk actions return during the nightly reflection, which *is* a loop until "No. Goodnight."
+- **Phone breaks** (`label phone_break`, `script.rpy`) open a menu. Mid-day **Talk to [name]** (one option per active girl; 3 turns) opens a short LLM chat and then returns to the same menu. Monday late-morning Talk-to instead spends from the **morning message pool** (1 per message). Tuesday and Wednesday late-morning breaks have no Talk-to, because the morning pool already happened. Any other action still ends the break, and **"Put it away and keep going"** continues the day. The same non-talk actions return during the nightly reflection, which *is* a loop until "No. Goodnight."
+- **Message pool** (`label message_pool`, `script.rpy`): free windows share one battery (`screen ks_message_battery`). Morning 4, walk home with Mio 2, afternoon 4, night 4 (`ks_story.POOL_DEFAULTS`, overridable in `karada_config.json` `message_pool`). Each message to any active girl spends 1. The player picks who, or puts the phone down early. Night: an empty pool (or putting it down) goes to bed, into the nightly reflection. The picker works for 1–4 girls; neglect is whoever actually got no lines that day.
 - **Respect** is an *ending lean* (a running score), not an on-screen meter. The only visible meters are Hikari's **affection** (companion slot, debug overlay when `debug` is on) and Mio's **`mio_points`** (shown on the Wednesday debug card).
 
 ---
@@ -65,7 +66,9 @@ Talk returns to this menu; every other option still ends the break (one action, 
 | Download someone | `not active` | `add_girl(when)`, then end the break |
 | Stop seeing one of them | `len(active) > 1` | `drop_girl` (cannot drop the last girl here), then end the break |
 
-**Talk** (`script.rpy`, `label phone_talk`): shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window. Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_late_morning_chatbot`, `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`: a short check-in that includes the current `when` string (day and time) plus a situational parenthetical from `ks_story.situation_line` (late morning between classes, lunch break, evening on the way home, and so on). From Wednesday on, the note also says she may know anything her platform lets her see. Same logging, summarizer, warmth, hard flags, refusal / goodbye-slide, and close-after-a-no behaviour as every other chat. Empty input or the 3-turn cap closes the window and returns to the phone menu, so you can talk to the other girl when two are active, do something else, or put the phone away.
+**Talk** (`script.rpy`, `label phone_talk` or, on a morning pool, `pool_one_message`): mid-day Talk shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window (3 turns). Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`. From Wednesday on, the note also says she may know anything her platform lets her see. Empty input or the 3-turn cap closes the window and returns to the phone menu.
+
+Monday late morning is different: Talk spends 1 from the morning pool of 4 and returns after a single exchange (an empty box spends nothing). The battery icon stays visible on the menu. Tuesday and Wednesday late-morning breaks pass `allow_talk=False`.
 
 **Switch** (`script.rpy:178`): pick who you leave (if two are active) and a destination not already active. Then:
 
@@ -93,18 +96,20 @@ Every `girl_chat` scene note, including phone-talk and the scripted morning/afte
 
 Default turn caps in the story:
 
-| Window | One girl | Two girls |
-|---|---|---|
-| First activation (Monday morning) | 5 | — |
-| Later `activate` via switch | 4 | 4 |
-| `add_girl` | 3 | 3 |
-| Morning (Tue / Wed) | 4 | 3 |
-| Afternoon (if you didn't go out) | 3, or pick / both | 3, or pick / both |
-| Evening | 8 | 5 |
-| Yuzu upgrade chat | 4 | — |
-| Phone-break talk | 3 | 3 each, if you open both |
-| Not-date texts | 1 per moment | 1 per moment |
-| Reflection switch / add | 2 | 2 |
+| Window | How messages work |
+|---|---|
+| First activation (Monday morning) | 5 (not a pool) |
+| Later `activate` via switch | 4 (not a pool) |
+| `add_girl` | 3 (not a pool) |
+| Morning (Tue / Wed chats; also Monday late-morning Talk-to) | **Shared pool of 4.** Pick who each turn, or put the phone down. |
+| Walk home with Mio | **Shared pool of 2.** Texting is distracted (see walk, below). You can use 0. |
+| Afternoon (if you didn't go out) | **Shared pool of 4.** Replaces the old one / both split. |
+| Night (evening, before the reflection) | **Shared pool of 4.** Empty pool (or putting the phone down) goes to bed. |
+| Mid-day phone-break Talk (Mon afternoon, Mon evening glance, Tue afternoon) | 3 each, if you open them; not a pool. |
+| Yuzu upgrade chat | 4 (not a pool) |
+| Not-date texts | 1 per moment |
+| Reflection switch / add | 2 |
+| Goodbye (tell her why) | 2 |
 
 ### Hikari-only systems
 
@@ -217,7 +222,7 @@ Stay menu (`script.rpy:428`), only if you didn't leave or jump:
 
 ### Monday evening — `label evening_chat` (`script.rpy:480`)
 
-Bedroom night. If double-dating with Hikari, evening toast. Every **active** girl, in order, gets `girl_chat(..., "mon_evening", ..., turns)`. Memory flag `evening_turns_mon`. Zero turns: "You don't say anything to her tonight."
+Bedroom night. If double-dating with Hikari, evening toast. Then `message_pool("night")` with `EVENING_SCENE`: a shared pool of 4, pick who each turn, or put the phone down and go to bed. When the pool empties: "The little battery on your phone goes dark. You put it down and go to bed." Memory flag `evening_turns_mon` is how many messages that girl actually got from the pool.
 
 ### End of Monday — `label tbc_tuesday` (`script.rpy:510`)
 
@@ -231,13 +236,13 @@ For every `GIRL_IDS` slot, memory flags: `day_completed = "Mon"`, `active_end_mo
 
 ### Morning chat (`tuesday.rpy:60`)
 
-If `active` is empty, the phone is "just a phone." Otherwise each active girl:
+If `active` is empty, the phone is "just a phone." Otherwise:
 
-- Scripted line from `MORNING_FAMILY_LINES` by preset **family** (or Rei's `AGENT_OVERNIGHT` by family: control / obey / consent / pushback / none).
+- Scripted lines from `MORNING_FAMILY_LINES` by preset **family** (or Rei's `AGENT_OVERNIGHT` by family: control / obey / consent / pushback / none), for every active girl, first.
 - If Yuzu or Rei had a phone/reflection preset *change* on Monday, the scene note mentions that you edited it last night (`tuesday.rpy:20–24`).
-- LLM: `girl_chat(..., "tue_morning", ks_tue_morning_scene(...), 4 or 3 turns)`. The scene note includes `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`.
+- Then `message_pool("morning")`: a shared pool of 4. Scene notes are still `ks_tue_morning_scene` (including `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`).
 
-Then phone break ("Tuesday, late morning") → `class_kurosawa` → `lunch_kenta` → phone break ("Tuesday afternoon") → `after_school_fork` → `library_tuesday` → `evening_tuesday` → `nightly_reflection("Tue")` → `jump tbc_wednesday`.
+Then phone break ("Tuesday, late morning", `allow_talk=False`) → `class_kurosawa` → `lunch_kenta` → phone break ("Tuesday afternoon", ordinary 3-turn Talk-to) → `after_school_fork` → `library_tuesday` → `evening_tuesday` → `nightly_reflection("Tue")` → `jump tbc_wednesday`.
 
 ### Class: Kurosawa and Ran — `label class_kurosawa` (`tuesday.rpy:90`)
 
@@ -302,17 +307,24 @@ Then `route["walked_mio_home"]`, `route["mio_walk_answer"]`, and every memory `f
 | Silence it. | `mio_points += 1`; memory event `silenced` on companion |
 | Check it. | She says she doesn't mind (she minds a little). No point change |
 
-Then (`tuesday.rpy:366`):
+If anyone is active, `walk_phone` offers a **pool of 2**. Lead: "Your phone is in your pocket. You could text someone, or leave it." Each sent message (not an empty box):
+
+- `mio_points` / `mio_affection` −1, not below 0 (`ks_story.WALK_DISTRACT_COST`).
+- Mio's line, in order: *"You're looking at your phone."* (plus narration: she says it lightly, like it might be nothing); then *"You can finish that. I don't mind walking quietly."* (plus narration: she minds, hands in her sleeves, she doesn't look over again).
+- `route["mio_walk_distracted"]` increments; `route["mio_walk_texts"]` records the gid; memory event `walk_distract`. **Not a romance signal** — it does not set `mio_text_home` and does not feed `mio_romance_score`.
+- The player can put the phone away and use 0.
+
+Then the ordinary walk questions:
 
 | Choice | Effect |
 |---|---|
 | "Nice sunset." | Flat. No points |
 | "What's it like, being the quiet one in a loud house?" | `mio_points += 2`. If `not mio_real`, set `mio_real = True` and all memories `flags.mio_real` |
-| "Do you want me to text you when I get home?" | `mio_points += 1` |
+| "Do you want me to text you when I get home?" | `mio_points += 1`; this *is* the romance signal (`mio_text_home`) |
 
 ### Afternoon with an AI — `label afternoon_ai` (`tuesday.rpy:427`)
 
-Only if you **didn't** walk Mio home. If Rei's family is `"control"`, a gym log line first. If no one is active, you lie on the floor (no chat). Otherwise `afternoon_chats` (`script.rpy`): one active girl gets a 3-turn window; two active girls get a menu to pick one (3 turns) or **Both, one after the other** (2 turns each). That way the second girl is not starved into `double_date_unspoken`.
+Only if you **didn't** walk Mio home. If Rei's family is `"control"`, a gym log line first. If no one is active, you lie on the floor (no chat). Otherwise `afternoon_chats` → `message_pool("afternoon")`: a shared pool of 4. The player picks who to message each turn, or puts the phone down. The old one / both split is gone. A girl who gets no messages that day can still be flagged `double_date_unspoken` or `human_over_ai`, but it is now a real choice.
 
 ### Evening library — `label library_tuesday` (`tuesday.rpy:450`)
 
@@ -364,7 +376,7 @@ The narration: *"Night. Your feet hurt. Your essay for Kurosawa is a blank page 
 
 **Thursday/Friday hook (unwritten):** the essay is due Friday. Kurosawa can tell when "nobody was there." Intended flavour, not in the tree: `self` still has mistakes, so somebody was there; `askwell` is too clean, even in your handwriting; `girl_help` is still your work, maybe a little clearer. `teacher_answer` can flavour that scene.
 
-Then, if no one is active, return. Else every active girl, `girl_chat(..., "tue_evening", ..., 8 or 5)`, flag `evening_turns_tue`. Hikari evening toast only if two AIs are active.
+Then, if no one is active, return. Else `message_pool("night")` with `TUE_EVENING_SCENE`: a shared pool of 4, then bed. Flag `evening_turns_tue` is how many messages that girl got. Hikari evening toast only if two AIs are active.
 
 ### End of Tuesday — `label tbc_wednesday` (`tuesday.rpy:552`)
 
@@ -410,7 +422,7 @@ Then the **upgrade day** offer (skip all classes: no library, no Mio, no not-dat
 
 ### Morning chat (`wednesday.rpy:100`)
 
-If no one is active, toast. Else each active girl, 4 or 3 turns, scene id `wed_morning`. Scene note mentions the summarizer if her slot is in `summarizer_slots`, and Hearth if she is local and `yuzu_harness`, plus `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`. If she is schedule-aware, a small "can see today's calendar" line.
+If no one is active, toast. Else schedule-aware girls get a small "can see today's calendar" line, then `message_pool("morning")`: a shared pool of 4, scene id `wed_morning`. Scene notes still mention the summarizer if her slot is in `summarizer_slots`, and Hearth if she is local and `yuzu_harness`, plus `(Morning. He's about to leave for school.)` and `LAST_NIGHT_NOTE`. If you go to class, the late-morning phone break has `allow_talk=False`.
 
 ### Day fork (`wednesday.rpy:118`)
 
@@ -489,7 +501,7 @@ Memories get `flags.wed_notdate = {texts, present}`; texted girls get event `tex
 
 ### Free afternoon — `label wed_afternoon_ai` (`wednesday.rpy:321`)
 
-Only if you went to class, skipped the bookstore, and are not going to the protest. Same pattern as Tuesday: no one active → you read; else `afternoon_chats` with `WED_AFTERNOON_SCENE` (pick one, or both one after the other).
+Only if you went to class, skipped the bookstore, and are not going to the protest. Same pattern as Tuesday: no one active → you read; else `afternoon_chats` → `message_pool("afternoon")` with `WED_AFTERNOON_SCENE` (shared pool of 4).
 
 ### Yuzu's upgrade day — `label wed_upgrade_day` (`wednesday.rpy:340`)
 
@@ -728,7 +740,7 @@ Both is first because it is the intended "you can have both" good end when eligi
 flowchart TD
   start[start: name, new run] --> monCard[Monday card]
   monCard --> pick[Pick first girl + calibrate + intro preset]
-  pick --> monChat["LLM: morning chat, 5 turns"]
+  pick --> monChat["LLM: first chat, 5 turns"]
   monChat --> pb1[Phone break]
   pb1 --> lunch[Lunch: Daichi — truth / deflect / lie]
   lunch --> pb2[Phone break]
@@ -736,11 +748,11 @@ flowchart TD
   mioMon -->|hidden small-talk options| real[mio_real]
   mioMon --> pb3[Phone break]
   real --> pb3
-  pb3 --> eveMon["LLM: evening, each active girl"]
+  pb3 --> eveMon["LLM: night pool of 4, then bed"]
   eveMon --> reflMon[Nightly reflection]
   reflMon --> tueCard[Tuesday - no TBC card]
 
-  tueCard --> tueMorn["LLM: morning by preset family"]
+  tueCard --> tueMorn["LLM: morning pool of 4"]
   tueMorn --> pb4[Phone break]
   pb4 --> class[Class: Kurosawa then Ran / MUGEN]
   class -->|harsh: kind of sad| judged[ran_reaction = judged]
@@ -751,12 +763,12 @@ flowchart TD
   pb5 --> fork{Walk Mio home?}
   fork -->|Rei control: gym vs overrule| fork
   fork -->|yes| walk[Walk home +/- second mio_real]
-  fork -->|no| aftTue["LLM: afternoon, pick or both"]
+  fork -->|no| aftTue["LLM: afternoon pool of 4"]
   walk --> libTue[Evening library]
   aftTue --> libTue
   libTue -->|some questions| real2[mio_second_chance]
   libTue --> eveTue
-  real2 --> eveTue["LLM: evening, each active girl"]
+  real2 --> eveTue["LLM: night pool of 4, then bed"]
   eveTue --> reflTue[Nightly reflection]
   reflTue --> wedCard[Wednesday card]
 
@@ -782,7 +794,7 @@ flowchart TD
   libWed -->|can't| maybeAft
   books --> afterSchool
   maybeAft{protest planned?}
-  maybeAft -->|no| aftWed["LLM: afternoon, pick or both"]
+  maybeAft -->|no| aftWed["LLM: afternoon pool of 4"]
   maybeAft -->|yes| afterSchool
   aftWed --> afterSchool
 
@@ -795,7 +807,7 @@ flowchart TD
   afterSchool -->|invited but declined| eveWed
   protest --> eveWed
   lilac --> eveWed
-  eveWed["LLM: evening, each active girl"] --> reflWed[Nightly reflection]
+  eveWed["LLM: night pool of 4, then bed"] --> reflWed[Nightly reflection]
   reflWed --> tbc["To be continued: Thursday + debug card"]
 ```
 
@@ -832,7 +844,7 @@ Not necessarily bugs — things that matter when reading the graph:
 
 - Girl memory files (`karada_memory_<gid>.json` in the save directory) are shared across saves. `store.ks_mem_snapshot` is a plain copy of all four, kept current on every memory write and packed into each save. `config.after_load_callbacks` writes it back (and `start_interact_callbacks` does the same after rollback). Older saves without a snapshot leave the files alone.
 - Monday / Tuesday / Wednesday **phone breaks cannot drop the last girl**. They are not a full loop: only **Talk** returns to the menu; change / switch / add / drop / download still end the break. "Download someone" is only live when `active` is empty, which on Monday cannot happen before the first reflection.
-- Tuesday/Wednesday **afternoon AI chats** use `afternoon_chats`: with two girls you pick one, or talk to both one after the other, so the second is not starved into `double_date_unspoken`. Phone-break **Talk** can also reach either (or both, one after the other).
+- Tuesday/Wednesday **afternoon and night** (and Tuesday/Wednesday morning) use `message_pool`: a shared battery, pick who each turn. Mid-day phone-break **Talk** (Mon afternoon, Mon evening glance, Tue afternoon) is still a short 3-turn chat and returns to the menu. Monday late-morning Talk-to spends from the morning pool. Walk-home texts use a pool of 2 and cost Mio affection.
 - Rei's "Ask before acting" walk-home text includes a `(y/n)` in the message, but the player never answers Rei; the ordinary Mio menu follows (`tuesday.rpy:305–310`).
 - Coming clean to Daichi on Tuesday is only offered on the **`friend_told == "lie"`** path, not on deflect.
 - The "Allowed to push back" reply to Ran is hidden unless an *currently active* girl has family `pushback` (`tuesday.rpy:175`). A girl you already dropped doesn't unlock it.

@@ -212,6 +212,7 @@ define PHONE_BREAK_SCENE = "{when}. {player} glances at their phone and opens {p
 define LAST_NIGHT_NOTE = "If last night left you with something of your own — a word you liked, a thought you hadn't finished — it can still be with you this morning. "
 
 define TUE_MORNING_SCENE = "Tuesday morning, about 7:30. {player} is getting ready for university and opened {platform} to talk to you. {extra}" + LAST_NIGHT_NOTE + "You only know what they've told you."
+define TUE_WALK_TEXT_SCENE = "Tuesday, late afternoon. {player} is walking a classmate home and is texting you from the street, a little distracted. Keep your reply short, like a text. You only know what they've told you. (He's walking someone home.)"
 define TUE_AFTERNOON_SCENE = "Tuesday, late afternoon, after classes. {player} has a free hour and opened {platform} to talk to you. You only know what they've told you."
 define TUE_EVENING_SCENE = "Tuesday night, around 10 PM. {player} is home after a long day at university and opened {platform} to talk to you. You only know what they've told you."
 

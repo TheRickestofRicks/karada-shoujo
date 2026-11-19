@@ -62,21 +62,13 @@ label tuesday:
     if not active:
         n "No windows to open this morning. The phone is just a phone."
     else:
-        $ _tq = list(active)
-        $ _tturns = 4 if len(_tq) == 1 else 3
-        while _tq:
-            $ _tg = _tq.pop(0)
-            python:
+        python:
+            for _tg in list(active):
                 for _l in ks_morning_lines(_tg):
                     renpy.say(n, _l)
-            $ girl_mood[_tg] = "neutral"
-            $ renpy.show(GIRL_INFO[_tg]["sprite"], at_list=[ks_center])
-            with dissolve
-            call girl_chat(_tg, "tue_morning", ks_tue_morning_scene(_tg), _tturns)
-            $ renpy.hide(GIRL_INFO[_tg]["sprite"])
-            with dissolve
+        call message_pool("morning", "You have a few minutes before you have to leave.")
     n "8:15. You're going to be late. You're always going to be late."
-    call phone_break("Tuesday, late morning")
+    call phone_break("Tuesday, late morning", allow_talk=False)
 
     call class_kurosawa
     call lunch_kenta
@@ -395,6 +387,8 @@ label walk_mio_home:
             "Check it.":
                 mi "...You can answer it. I don't mind."
                 n "She minds a little. You can tell, because she says it twice."
+    if active:
+        call walk_phone
     show mio neutral
     menu:
         "\"Nice sunset.\"":
@@ -425,6 +419,27 @@ label walk_mio_home:
     with dissolve
     n "The vending machine hums. You walk back to the station the short way."
     $ day_notes.append("You walked Mio home. Her house is the one with the bikes.")
+    return
+
+
+## Shared walk pool of 2. Texting is allowed but distracted; Mio notices.
+label walk_phone:
+    n "Your phone is in your pocket. You could text someone, or leave it."
+    call message_pool("walk", "", template=TUE_WALK_TEXT_SCENE, show_sprite=False, on_walk_text=True)
+    return
+
+
+label walk_distract_after(gid):
+    $ mio_points, _mline = ks_story.note_walk_distracted(ks_route(), gid, mio_points)
+    $ ks_sync_mio()
+    $ ks_mem(gid).log_event("walk_distract", day=day_name, during="walk_mio_home")
+    show mio neutral
+    if ks_route()["mio_walk_distracted"] == 1:
+        mi "[_mline]"
+        n "She says it lightly, like it might be nothing."
+    else:
+        mi "[_mline]"
+        n "She minds. She has her hands in her sleeves, and she doesn't look over again."
     return
 
 
@@ -617,7 +632,7 @@ label kurosawa_essay_girl(gid):
     return
 
 
-## ── Night: Kurosawa's essay, then every active girl gets a chat ──────────
+## ── Night: Kurosawa's essay, then a shared night pool of 4, then bed ──
 ## The essay is due Friday. Kurosawa's reaction belongs on the handover
 ## (Thursday / Friday); see DESIGN.md and the walkthrough hook.
 label evening_tuesday:
@@ -629,21 +644,14 @@ label evening_tuesday:
         return
     if ks_companion_active() and len(active) > 1:
         call hikari_phone_notify("evening")
-    $ _et = 8 if len(active) == 1 else 5
-    $ _eq = list(active)
-    while _eq:
-        $ _eg = _eq.pop(0)
-        $ _epn = gname(_eg)
-        $ girl_mood[_eg] = "neutral"
-        $ renpy.show(GIRL_INFO[_eg]["sprite"], at_list=[ks_center])
-        with dissolve
-        n "[_epn]'s window is still open."
-        call girl_chat(_eg, "tue_evening", ks_scene(TUE_EVENING_SCENE, _eg), _et)
-        $ ks_mem(_eg).set_flag("evening_turns_tue", _return)
-        if _return == 0:
-            n "You don't say anything to her tonight."
-        $ renpy.hide(GIRL_INFO[_eg]["sprite"])
-        with dissolve
+    if len(active) > 1:
+        $ _lead = "Two windows still open: %s and %s." % (gname(active[0]), gname(active[1]))
+    else:
+        $ _lead = "%s's window is still open." % gname(active[0])
+    call message_pool("night", _lead, template=TUE_EVENING_SCENE, scene_key="tue_evening")
+    python:
+        for _g in list(active):
+            ks_mem(_g).set_flag("evening_turns_tue", (ks_pool.get("spent") or []).count(_g) if ks_pool else 0)
     return
 
 

@@ -103,29 +103,21 @@ label wednesday:
             "Go to class. The parts will still be there.":
                 pass
 
-    ## ── Morning chat ──
+    ## ── Morning chat (shared pool of 4) ──
     if not active:
         n "No windows to open. You make toast. It's fine toast."
     else:
-        $ _wq = list(active)
-        $ _wturns = 4 if len(_wq) == 1 else 3
-        while _wq:
-            $ _wg = _wq.pop(0)
-            $ girl_mood[_wg] = "neutral"
-            $ renpy.show(GIRL_INFO[_wg]["sprite"], at_list=[ks_center])
-            with dissolve
-            if ks_story.schedule_aware(ks_route(), _wg):
-                $ _wgn = gname(_wg)
-                n "{size=22}([_wgn] can see today's calendar.){/size}"
-            call girl_chat(_wg, "wed_morning", ks_wed_morning_scene(_wg), _wturns)
-            $ renpy.hide(GIRL_INFO[_wg]["sprite"])
-            with dissolve
+        python:
+            for _wg in list(active):
+                if ks_story.schedule_aware(ks_route(), _wg):
+                    renpy.say(n, "{size=22}(%s can see today's calendar.){/size}" % gname(_wg))
+        call message_pool("morning", "You have a few minutes before the day starts.")
 
     if ks_route()["wed_plan"].get("upgrade"):
         call wed_upgrade_day
     else:
         call wed_classes
-        call phone_break("Wednesday, late morning")
+        call phone_break("Wednesday, late morning", allow_talk=False)
         call wed_library
         if ks_route()["wed_plan"].get("notdate"):
             call wed_bookstore
@@ -469,28 +461,23 @@ label ran_wednesday:
     return
 
 
-## ── Night: every active girl gets a chat ─────────────────────────────────
+## ── Night: a shared night pool of 4, then bed ───────────────────────────
 label evening_wednesday:
     scene bg bedroom_night
     with fade
     n "Night. Quiet. Nothing went wrong today, which is its own kind of strange."
+    if not active:
+        return
     if ks_companion_active() and len(active) > 1:
         call hikari_phone_notify("evening")
-    $ _wet = 8 if len(active) == 1 else 5
-    $ _weq = list(active)
-    while _weq:
-        $ _weg = _weq.pop(0)
-        $ _wepn = gname(_weg)
-        $ girl_mood[_weg] = "neutral"
-        $ renpy.show(GIRL_INFO[_weg]["sprite"], at_list=[ks_center])
-        with dissolve
-        n "[_wepn]'s window is still open."
-        call girl_chat(_weg, "wed_evening", ks_scene(WED_EVENING_SCENE, _weg), _wet)
-        $ ks_mem(_weg).set_flag("evening_turns_wed", _return)
-        if _return == 0:
-            n "You don't say anything to her tonight."
-        $ renpy.hide(GIRL_INFO[_weg]["sprite"])
-        with dissolve
+    if len(active) > 1:
+        $ _lead = "Two windows still open: %s and %s." % (gname(active[0]), gname(active[1]))
+    else:
+        $ _lead = "%s's window is still open." % gname(active[0])
+    call message_pool("night", _lead, template=WED_EVENING_SCENE, scene_key="wed_evening")
+    python:
+        for _g in list(active):
+            ks_mem(_g).set_flag("evening_turns_wed", (ks_pool.get("spent") or []).count(_g) if ks_pool else 0)
     return
 
 

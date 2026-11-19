@@ -20,6 +20,13 @@
     "keep_recent": 12,
     "max_chars": 1500
   },
+  "message_pool": {
+    "_help": "Shared message counts for free windows (morning, walk home with Mio, afternoon, night). Each message to any active girl spends 1. The player picks who, or puts the phone down early.",
+    "morning": 4,
+    "walk": 2,
+    "afternoon": 4,
+    "night": 4
+  },
   "debug": true,
   "_debug_help": "true = show calibration results, model ids, memory paths, and the companion affection meter in-game (useful while testing).",
   "girls": {

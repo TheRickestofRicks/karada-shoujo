@@ -40,6 +40,8 @@ def new_route():
         "walked_mio_home": None,  # Tue: True / False
         "mio_walk_answer": None,  # Tue: "yes" / "honest_no" / "excuse"
         "mio_text_home": False,   # Tue walk: "text me when you get home" (romantic framing)
+        "mio_walk_distracted": 0, # messages sent to an AI during the walk with Mio
+        "mio_walk_texts": [],     # [gid, ...] who you texted on that walk (not a romance signal)
         "migrations": 0,
         "migration_log": [],      # [{day, name, from, to, how}]
         "drops": 0,
@@ -1141,3 +1143,104 @@ def with_situation(note, when=""):
     if not line or line in note:
         return note
     return note.rstrip() + " " + line
+
+# ---------------------------------------------------------------------------
+# Shared message pool (free windows: morning, walk, afternoon, night)
+# ---------------------------------------------------------------------------
+# One battery, shared across every active girl. Each message to anyone
+# spends 1. The player picks who to text, or puts the phone down early.
+# Works for 1–4 active AIs; whoever gets no messages that day can be
+# neglected. Sizes are overridable in karada_config.json under message_pool.
+
+POOL_DEFAULTS = {
+    "morning": 4,
+    "walk": 2,
+    "afternoon": 4,
+    "night": 4,
+}
+
+WALK_DISTRACT_COST = 1
+
+# Mio notices each text during the walk. Indexed by 0 for the first
+# message, 1 for the second (and any further, last line repeats).
+WALK_DISTRACT_LINES = (
+    "You're looking at your phone.",
+    "You can finish that. I don't mind walking quietly.",
+)
+
+
+def pool_size(kind, cfg=None):
+    """Configured size for a window, falling back to POOL_DEFAULTS."""
+    defaults = POOL_DEFAULTS
+    n = defaults.get(kind)
+    block = (cfg or {}).get("message_pool") or {}
+    if kind in block and block[kind] not in (None, ""):
+        try:
+            n = int(block[kind])
+        except (TypeError, ValueError):
+            pass
+    return int(n if n is not None else 0)
+
+
+def new_pool(kind, size=None, cfg=None):
+    n = int(size) if size is not None else pool_size(kind, cfg)
+    if n < 0:
+        n = 0
+    return {
+        "kind": kind,
+        "size": n,
+        "left": n,
+        "spent": [],          # gid per spent message, in order
+        "ended": None,        # None / "empty" / "put_down"
+    }
+
+
+def pool_can_spend(pool):
+    return bool(pool) and pool.get("ended") is None and int(pool.get("left") or 0) > 0
+
+
+def spend_pool(pool, gid):
+    """Spend 1 on a message to gid. Returns False if the pool was already empty."""
+    if not pool_can_spend(pool):
+        return False
+    pool["left"] = int(pool["left"]) - 1
+    pool.setdefault("spent", []).append(gid)
+    if pool["left"] <= 0:
+        pool["left"] = 0
+        pool["ended"] = "empty"
+    return True
+
+
+def end_pool(pool, how="put_down"):
+    """Close the window early (or confirm an empty exit)."""
+    if not pool:
+        return pool
+    if pool.get("ended") is None:
+        if int(pool.get("left") or 0) <= 0:
+            pool["ended"] = "empty"
+            pool["left"] = 0
+        else:
+            pool["ended"] = how
+    return pool
+
+
+def pool_unspoken(pool, active):
+    """Active girls who received no messages from this pool."""
+    got = set(pool.get("spent") or []) if pool else set()
+    return [g for g in (active or []) if g not in got]
+
+
+def note_walk_distracted(route, gid, mio_points):
+    """Texting during the walk with Mio. Not a romance signal.
+
+    Returns (new_mio_points, mio_line). Affection drops WALK_DISTRACT_COST
+    per message, not below 0.
+    """
+    ensure_route(route)
+    route["mio_walk_distracted"] = int(route.get("mio_walk_distracted") or 0) + 1
+    route.setdefault("mio_walk_texts", []).append(gid)
+    new_points = max(0, int(mio_points or 0) - WALK_DISTRACT_COST)
+    route["mio_affection"] = new_points
+    lines = WALK_DISTRACT_LINES
+    idx = min(int(route["mio_walk_distracted"]) - 1, len(lines) - 1)
+    return new_points, lines[idx]
