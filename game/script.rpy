@@ -21,6 +21,8 @@ default migrations = []             # [(from_gid, to_gid, name, when)]
 default ks_waiting_who = "She"
 default friend_told = None          # "truth" | "deflect" | "lie"
 default both_know = None            # double date: do they know about each other (per Daichi)
+default mio_told = None             # "truth" | "deflect" | "lie" — what you told Mio in the library
+default mio_daichi_consistent = None  # True/False once you answer Mio; else None
 default mio_real = False            # hidden branch unlocked
 default mio_points = 0
 
@@ -433,6 +435,17 @@ label library_mio:
 
     call hikari_phone_notify("library")
 
+    ## You can answer what Daichi already told her, or say something else.
+    ## mio_told / mio_daichi_consistent are a hook for a later scene where
+    ## Mio and Daichi compare notes; that scene is not written yet.
+    python:
+        if len(active) > 1:
+            _truth_opt = "It's okay. Yeah, sort of. They're called %s and %s. We just met." % (gname(active[0]), gname(active[1]))
+        elif active:
+            _truth_opt = "It's okay. Yeah, sort of. We just met. Her name's %s." % gname(active[0])
+        else:
+            _truth_opt = "It's okay. Yeah, sort of. We just met."
+
     menu:
         "\"Your hair looks nice today.\"":
             $ mio_points += 1
@@ -445,6 +458,12 @@ label library_mio:
             mi "I mean, I made it for the committee. Not for you specifically."
         "\"You're always the last one here.\"":
             jump .real
+        "\"[_truth_opt]\"":
+            call .answer_truth
+        "\"Yeah. A girl at another university. She studies linguistics.\"":
+            call .answer_lie
+        "\"It's nothing, really. Don't worry about it.\"":
+            call .answer_deflect
         "\"I should get going.\"":
             mi "Right! Of course. See you tomorrow, [player_name]."
             $ day_notes.append("Mio was the last one in the library again. You left.")
@@ -469,6 +488,51 @@ label library_mio:
     $ ks_sync_mio()
     hide mio
     with dissolve
+    return
+
+label .answer_truth:
+    $ ks_set_mio_told("truth")
+    show mio shy
+    if friend_told == "truth":
+        mi "Oh. You don't have to— I didn't mean to pry."
+        if len(active) > 1:
+            mi "I just... I hope they don't mind. Thank you for telling me."
+        else:
+            mi "...Thank you. For saying it's okay."
+    else:
+        mi "Oh. That's... not what Daichi told me."
+        mi "Thank you for saying it. I won't tell anyone."
+    show mio neutral
+    return
+
+label .answer_lie:
+    $ ks_set_mio_told("lie")
+    show mio shy
+    if friend_told == "truth":
+        mi "Oh. I... must have misheard him."
+        mi "That's nice. I hope I get to meet her sometime."
+    elif friend_told == "lie":
+        mi "Linguistics. That sounds... really nice."
+        mi "I hope she can come to the festival."
+    else:
+        mi "Oh! I didn't realize. That's... really nice."
+        mi "I'm happy for you."
+    show mio neutral
+    return
+
+label .answer_deflect:
+    $ ks_set_mio_told("deflect")
+    show mio shy
+    if friend_told == "truth":
+        mi "Right. Sorry. I shouldn't have asked."
+        mi "...I'm glad you looked happy, anyway."
+    elif friend_told == "lie":
+        mi "Oh. Okay. I won't ask."
+        mi "Sorry. Daichi tells me things and I just... never mind."
+    else:
+        mi "Okay. I won't pry."
+        mi "You just... you did look happy. That's all."
+    show mio neutral
     return
 
 label .real:

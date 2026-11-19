@@ -29,7 +29,12 @@ init python:
 
     def ks_mio_ai_ref(gid):
         """How Mio refers to the one you're texting (she only knows what
-        Daichi told her)."""
+        Daichi told her).
+
+        Hook: a later scene should have Mio and Daichi compare notes, using
+        mio_told / mio_daichi_consistent. Until then this still follows
+        friend_told only.
+        """
         if friend_told == "truth":
             return gname(gid)
         if friend_told == "lie":

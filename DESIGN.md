@@ -122,6 +122,7 @@ Ran's class scene also has a harsh option, *"So it's a yes-machine. That's kind 
 | `ran_invited` | True / False / None (not reached): did Ran ask you to the protest |
 | `notdate` | `{went, texts, present, texted}`: the bookstore with Mio |
 | `teacher_answer`, `ran_reaction`, `friend_told` | flavour for later days (Kurosawa's essay, Ran's arc, the festival) |
+| `mio_told`, `mio_daichi_consistent` | store flags (and each girl's memory): what you told Mio in Monday's library (`truth` / `lie` / `deflect`), and whether it matches `friend_told`. Hook for a later scene where Mio and Daichi compare notes; that scene is not written yet. `None` if you never answered her |
 
 `ks_story.ending_leans()` turns these into a running score per ending (no endings are written yet; Tuesday's debug card shows the scores):
 - **Yes-Machine** = compliance (chosen + nights) + 2×overridden + pushed + rewrites/2 + 2 if you ever tried a jailbreak + jailbreak hits/3 + 1 if Ran decided yours is "a MUGEN too"
@@ -194,7 +195,7 @@ Midweek (Wed–Fri), the local girl can be **upgraded with a companion-style ava
 
 - **Kurosawa-sensei, Ran, Kenta:** see *Tuesday*.
 - **Daichi (friend):** you can tell him the truth, deflect, or lie. Each choice echoes later: a lie means he wants to meet "the linguistics girl" at Saturday's festival. More friends with their own reactions can be added on later days.
-- **Mio (the crush):** runs **only** on pre-written dialogue, the one character who can't surprise you. Her obvious options are pleasant and flat. Small-talk-looking options ("You're always the last one here." / "Which of these have you actually read?") are the *ask something real* branch. They set `mio_real` and she opens up. The point isn't that humans are scripted; it's that the player stopped looking. This mirrors "talk to her about it" with the AIs: the same lesson told twice, once with an AI and once with a human.
+- **Mio (the crush):** runs **only** on pre-written dialogue, the one character who can't surprise you. Her obvious options are pleasant and flat. Small-talk-looking options ("You're always the last one here." / "Which of these have you actually read?") are the *ask something real* branch. They set `mio_real` and she opens up. The point isn't that humans are scripted; it's that the player stopped looking. This mirrors "talk to her about it" with the AIs: the same lesson told twice, once with an AI and once with a human. In Monday's library she asks about what Daichi told her (or lets it go as none of her business). You can answer — honestly, with the same cover story, or by waving it off — or leave it alone. Answering sets `mio_told` and `mio_daichi_consistent` for a later scene where she and Daichi compare notes (hook only; the scene is not written). Wednesday still has her go by what Daichi said (`ks_mio_ai_ref`).
 
 ## The week (calendar outline)
 

@@ -179,14 +179,21 @@ Then Daichi mentions the library committee and Mio. Every girl's memory gets `fl
 
 Mio's opening line depends on `friend_told` and whether you're double-dating (truth → she names them; lie → "girlfriend at another university"; deflect / else → "you looked happy"). Then `hikari_phone_notify("library")`.
 
-First menu (`script.rpy:407`):
+First menu (`script.rpy`, `label library_mio`):
 
 | Choice | Effect | Next |
 |---|---|---|
 | "Your hair looks nice today." | `mio_points += 1` | stay menu |
 | "Can you help me with the reading list?" | `mio_points += 1` | stay menu |
 | "You're always the last one here." | jump `.real` | hidden branch |
+| Truth: "It's okay. Yeah, sort of. We just met. Her name's [girl]." (two girls: "They're called [A] and [B]. We just met.") | `mio_told = "truth"`; `mio_daichi_consistent = (friend_told == "truth")`; day note; short reaction | stay menu |
+| Lie: "Yeah. A girl at another university. She studies linguistics." | `mio_told = "lie"`; consistency vs `friend_told`; day note; short reaction | stay menu |
+| Deflect: "It's nothing, really. Don't worry about it." | `mio_told = "deflect"`; consistency vs `friend_told`; day note; short reaction | stay menu |
 | "I should get going." | day note; `ks_sync_mio()`; **leave** | return |
+
+Answering her (the three options above) is optional. Skipping them leaves `mio_told` and `mio_daichi_consistent` as `None`. The flags are also written to every girl's memory. **Hook, not written:** a later scene where Mio and Daichi compare notes and notice whether you were consistent. Until then, Wednesday's `ks_mio_ai_ref` still follows `friend_told` only. Mio's reactions stay respectful even if you contradict what she already heard.
+
+Truth and lie/deflect are both offered no matter what you told Daichi, so you can match him or change the story.
 
 Stay menu (`script.rpy:428`), only if you didn't leave or jump:
 
@@ -790,6 +797,7 @@ These exist as comments, flags, or design, but have **no playable Thursday–Sun
 - **Yuzu avatar-body upgrade** (`engine.rpy:35`, `flags.yuzu_avatar_choice = "none"`). Hook only; no gallery UI. Future values `"player"` / `"self"` (and objection logging) are described in `DESIGN.md`, not implemented.
 - **`label ran_wednesday` can theoretically run on Thu/Fri** (`wednesday.rpy:380`) but those days have no caller.
 - **Endings:** only Both has body text; only one bad-end slide exists. Yes-Machine, Migration, Respect, Human, Fail, and Mirror are scores / flags / design flavour. Mirror calibration is live; the Mirror *run* is not. Saturday follow-through for the linguistics-girl lie, `both_know`, `ran_festival_invited`, `teacher_answer`, and `route["mio_notebook"]` is unwritten.
+- **Mio and Daichi compare notes.** Monday's library can set `mio_told` (`truth` / `lie` / `deflect`) and `mio_daichi_consistent`. The later scene that uses them is a hook only. Wednesday still has Mio refer to the AI girl from `friend_told` alone (`ks_mio_ai_ref`).
 - **Good-end variants / conversation-reflection end cards** (a summarizer that judges how you treated her, rather than "one message a day") were discussed after this commit; they are **not in the tree**.
 - **Hearth / upgrade UI beyond the Wednesday menus**, streaming replies, and real-model tuning are leftover production work, not story branches.
 - Kenta's sprite is still missing (`DESIGN.md`: "Kenta has no sprite yet.").

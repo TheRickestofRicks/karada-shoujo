@@ -930,3 +930,51 @@ testcase phone_talk:
     advance until label "tbc_tuesday" timeout 30.0
     $ print("KARADA_TEST: phone_talk reached Tuesday")
     exit
+
+testcase mio_answer:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "I don't know yet"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    $ assert friend_told == "truth" and mio_told is None and mio_daichi_consistent is None
+    screenshot "n00_mio_library_answers.png"
+    click "It's okay. Yeah, sort of"
+    advance until screen "choice" timeout 30.0
+    $ assert mio_told == "truth" and mio_daichi_consistent is True, (mio_told, mio_daichi_consistent, friend_told)
+    $ assert ks_mem("chatbot").data["flags"].get("mio_told") == "truth"
+    $ assert ks_mem("chatbot").data["flags"].get("mio_daichi_consistent") is True
+    $ assert any("You told Mio the truth." in (x if isinstance(x, str) else "") for x in day_notes), day_notes
+    screenshot "n01_mio_after_truth.png"
+    click "Sure, I'll help"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    type "good night"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ assert mio_told == "truth" and mio_daichi_consistent is True
+    $ print("KARADA_TEST: mio_answer reached Tuesday")
+    exit
+

@@ -199,6 +199,21 @@ init python:
     def ks_sync_mio():
         ks_route()["mio_affection"] = store.mio_points
 
+    def ks_set_mio_told(kind):
+        """What you told Mio in the Monday library, and whether it matches
+        Daichi (`friend_told`). Hook for a later compare-notes scene."""
+        store.mio_told = kind
+        store.mio_daichi_consistent = (store.friend_told == kind)
+        for gid in GIRL_IDS:
+            ks_mem(gid).set_flag("mio_told", kind)
+            ks_mem(gid).set_flag("mio_daichi_consistent", store.mio_daichi_consistent)
+        store.day_notes.append({
+            "truth": "You told Mio the truth.",
+            "lie": "You told Mio about a linguistics student who doesn't exist.",
+            "deflect": "You told Mio it was nothing.",
+        }.get(kind, ""))
+        store.day_notes = [x for x in store.day_notes if x]
+
     ## ── Wednesday ────────────────────────────────────────────────────────
     def ks_set_schedule(day_long="Wednesday"):
         store.today_schedule = {"day": day_long,
