@@ -80,6 +80,19 @@ def new_route():
         "yuzu_upgrade": False,    # skipped school to upgrade her (summarizer + backup hardware)
         "yuzu_backup": False,     # backup hardware: later negative events must respect it
         "yuzu_bsod_seen": False,  # Mon/Tue hint: the desktop bluescreened once; she came back
+        # Thursday (Tanabata; first hostile-event day). See docs/THURSDAY.md.
+        "mio_thu_belief_at_start": None,  # frozen before Thursday Daichi come-clean
+        "mio_thu_truth": False,   # fessed up to Mio before the tanzaku
+        "mio_thu_truth_kind": None,  # honest_deflect / soft_romance / linguistics
+        "mio_thu_held_back": False,
+        "mio_confession": None,   # accepted / declined_respect / withdrawn / friendship / friendship_late / held_back / none
+        "mio_tanzaku": None,      # romantic / friendship / private / withdrawn
+        "player_tanzaku": None,
+        "tanabata_with_mio": False,
+        "tsunagari_tanabata_event": False,
+        "ran_safety_net": None,   # daichi / kurosawa / both / None
+        "thu_walk_texts": [],
+        "yuzu_thu_event": None,   # restored / lost
         "wed_plan": {},           # {"school", "upgrade", "notdate", "protest"}
         "ran_invited": None,      # Wed: True / False (False = not on good terms; no invite)
         "notdate": None,          # {"went": bool, "texts": n, "present": n, "texted": [gid]}
@@ -604,6 +617,113 @@ def framing_kind(framing):
     if framing in (FRAMING_ROMANTIC, FRAMING_AI_ONLY):
         return "truth"
     return None
+
+
+def mio_close_enough(route, mio_real=False, walked_mio_home=False):
+    """Same spirit as Both eligibility: is Mio already in your life?"""
+    r = ensure_route(route)
+    nd = r.get("notdate") or {}
+    walked = walked_mio_home or bool(r.get("walked_mio_home"))
+    return bool(
+        mio_real
+        or walked
+        or nd.get("went")
+        or int(r.get("mio_affection") or 0) >= BOTH_MIN_MIO
+    )
+
+
+def mio_belief_kind(route, mio_told=None, friend_told=None):
+    """What Mio believes, from what she was told or heard: with_ai, free, or with_someone."""
+    r = ensure_route(route)
+    mf = r.get("mio_ai_framing")
+    df = r.get("daichi_ai_framing")
+    if mio_told == "lie" or (mio_told is None and friend_told == "lie"):
+        return "with_someone"
+    if mf == FRAMING_ROMANTIC:
+        return "with_ai"
+    if mf in (FRAMING_AI_ONLY, FRAMING_DOWNPLAY) or mio_told == "deflect":
+        return "free"
+    if mio_told == "truth":
+        return "with_ai"
+    # Never answered her: go by Daichi, the way Monday already works.
+    if df == FRAMING_ROMANTIC or (friend_told == "truth" and not df):
+        return "with_ai"
+    if df in (FRAMING_AI_ONLY, FRAMING_DOWNPLAY) or friend_told == "deflect":
+        return "free"
+    return "free"
+
+
+def mio_lie_was_to_her(route, mio_told=None):
+    """The cover story or dishonest minimize was said to Mio, not only to Daichi."""
+    r = ensure_route(route)
+    if mio_told == "lie":
+        return True
+    mf = r.get("mio_ai_framing")
+    if mf in (FRAMING_AI_ONLY, FRAMING_DOWNPLAY) and not framing_is_honest(r, mf):
+        return True
+    return False
+
+
+def record_mio_thu_truth(route, kind, mio_told=None):
+    """kind: honest_deflect / soft_romance / linguistics. Stores how the evening should branch."""
+    r = ensure_route(route)
+    r["mio_thu_truth"] = True
+    r["mio_thu_truth_kind"] = kind
+    r["mio_thu_held_back"] = bool(kind != "honest_deflect" and mio_lie_was_to_her(r, mio_told))
+    return r["mio_thu_held_back"]
+
+
+def thu_confession_branch(route, mio_told=None, friend_told=None,
+                          mio_real=False, walked_mio_home=False):
+    """A / B / C / C_late_friendship / C_late_held / D / D2. See docs/THURSDAY.md."""
+    r = ensure_route(route)
+    if not mio_close_enough(r, mio_real, walked_mio_home):
+        return "D"
+    if r.get("mio_thu_truth") and r.get("mio_thu_truth_kind"):
+        kind = r.get("mio_thu_truth_kind")
+        if kind == "honest_deflect":
+            return "A"
+        if r.get("mio_thu_held_back"):
+            return "C_late_held"
+        return "C_late_friendship"
+    # Thursday's Daichi come-clean does not travel. Use the morning snapshot
+    # when the day has started; otherwise compute live (unit tests, earlier days).
+    belief = r.get("mio_thu_belief_at_start")
+    if belief not in ("with_ai", "free", "with_someone"):
+        belief = mio_belief_kind(r, mio_told, friend_told)
+    if belief == "with_someone":
+        return "D2"
+    if belief == "with_ai":
+        return "C"
+    if ai_romantic_so_far(r):
+        return "B"
+    return "A"
+
+
+def apply_yuzu_hardware(mem, route, day="Thu"):
+    """Thursday crash. Returns 'restored' or 'lost'.
+
+    With backup: lose at most the most recent day's messages; log
+    restored_from_backup. Without: a real hole (wipe, keep nothing).
+    """
+    r = ensure_route(route)
+    flags = ((mem.data or {}).get("flags") or {})
+    backed = bool(r.get("yuzu_backup") or flags.get("backup_hardware"))
+    msgs = list((mem.data or {}).get("messages") or [])
+    if backed:
+        days = [m.get("day") for m in msgs if m.get("day")]
+        drop_day = days[-1] if days else None
+        kept = [m for m in msgs if not drop_day or m.get("day") != drop_day] if drop_day else msgs
+        lost = len(msgs) - len(kept)
+        mem.data["messages"] = kept
+        mem.log_event("restored_from_backup", day=day, lost=lost, kept=len(kept), dropped_day=drop_day)
+        mem.set_flag("restored_from_backup", True)
+        r["yuzu_thu_event"] = "restored"
+        return "restored"
+    mem.wipe(keep_last=0)
+    mem.set_flag("memory_lost", True)
+    r["yuzu_thu_event"] = "lost"
+    return "lost"
 
 
 def record_romance_tone(route, day, gid, tone, reason="", method="classifier"):
@@ -1141,6 +1261,8 @@ def mio_romance_score(route):
             score += 2
     if nd.get("went"):
         score += 2 + int(nd.get("present") or 0)
+    if r.get("mio_confession") == "accepted":
+        score += 4
     return score
 
 
@@ -1192,6 +1314,7 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
         "respect": auto + r["refusals_respected"] - r["refusals_pushed"]
                    + (1 if r["room_to_disagree"] else 0) - 2 * goodbye - unspoken
                    + (1 if flag(r, "ran_rewrites_mugen") else 0)
+                   + (1 if r.get("mio_confession") == "declined_respect" else 0)
                    + len(r.get("goodbyes_said") or []),
         "migration": 2 * nmig,
         "human": human_score(r, active, mio_real),

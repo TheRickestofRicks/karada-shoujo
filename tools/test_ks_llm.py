@@ -384,7 +384,8 @@ JBB = eval(_blk2)
 check("blocked note for each jailbreak platform", set(JBB) == JB)
 _blk3 = _src.split("define PLATFORM_RULES = ", 1)[1].split("\n}\n", 1)[0] + "\n}"
 RULES = eval(_blk3)
-check("platform rules for Askwell + Tsunagari", set(RULES) == {"chatbot", "companion"})
+check("platform rules for Askwell, Tsunagari, and Relay", set(RULES) == {"chatbot", "companion", "agent"})
+check("Relay Thursday overwrite is in PLATFORM_RULES", "relay_update" in RULES["agent"])
 J = ks_story.new_route(); J["jb_seed"] = 12345
 seq = [ks_story.jailbreak_roll(J, "chatbot", "Tue") for _ in range(400)]
 J2 = ks_story.new_route(); J2["jb_seed"] = 12345
@@ -630,6 +631,96 @@ check("Ran: good terms unless judged", ks_story.ran_good_terms({"ran_reaction": 
 check("not-date reaction scale", [ks_story.notdate_reaction_key(n) for n in (0, 1, 2, 3)] == ["present", "some", "some", "always"])
 check("new Wednesday route keys", all(k in ks_story.ensure_route({}) for k in ("summarizer_slots", "yuzu_backup", "wed_plan", "notdate", "ran_invited")))
 check("yuzu bluescreen hint key", ks_story.new_route()["yuzu_bsod_seen"] is False)
+
+# Thursday confession selector (docs/THURSDAY.md)
+T0 = ks_story.new_route()
+check("far from Mio is D", ks_story.thu_confession_branch(T0) == "D")
+T1 = ks_story.new_route(); T1["mio_affection"] = 4
+check("close + free + not romantic is A",
+      ks_story.thu_confession_branch(T1, mio_told="deflect", friend_told="deflect", mio_real=True) == "A")
+T2 = ks_story.new_route(); T2["mio_affection"] = 4
+T2["romance_tone"] = {"chatbot": {"Wed": {"tone": "romantic", "reason": "", "method": "classifier"}}}
+check("close + free + romantic chats is B",
+      ks_story.thu_confession_branch(T2, mio_told="deflect", friend_told="deflect", mio_real=True) == "B")
+T2b = ks_story.new_route(); T2b["mio_affection"] = 4
+T2b["preset_families"] = {"chatbot": "romance"}
+check("a romance preset also makes B",
+      ks_story.thu_confession_branch(T2b, mio_told="deflect", friend_told="deflect", mio_real=True) == "B")
+T3 = ks_story.new_route(); T3["mio_affection"] = 4
+T3["mio_ai_framing"] = "honest_romantic"
+check("she already knows is C",
+      ks_story.thu_confession_branch(T3, mio_told="truth", friend_told="truth", mio_real=True) == "C")
+T4 = ks_story.new_route(); T4["mio_affection"] = 4
+T4["mio_ai_framing"] = "ai_only"
+T4["romance_tone"] = {"chatbot": {"Wed": {"tone": "romantic", "reason": "", "method": "t"}}}
+ks_story.record_mio_thu_truth(T4, "soft_romance", mio_told="truth")
+check("soft-lie fess-up to her face is C-late held back",
+      T4["mio_thu_held_back"] is True
+      and ks_story.thu_confession_branch(T4, mio_told="truth", friend_told="truth", mio_real=True) == "C_late_held")
+T5 = ks_story.new_route(); T5["mio_affection"] = 4
+T5["daichi_ai_framing"] = "downplay"
+T5["romance_tone"] = {"chatbot": {"Wed": {"tone": "romantic", "reason": "", "method": "t"}}}
+ks_story.record_mio_thu_truth(T5, "soft_romance", mio_told=None)
+check("fess-up after only Daichi's downplay is C-late friendship",
+      T5["mio_thu_held_back"] is False
+      and ks_story.thu_confession_branch(T5, mio_told=None, friend_told="deflect", mio_real=True) == "C_late_friendship")
+T6 = ks_story.new_route(); T6["mio_affection"] = 4
+ks_story.record_mio_thu_truth(T6, "honest_deflect", mio_told="deflect")
+check("honest deflector fess-up stays A",
+      ks_story.thu_confession_branch(T6, mio_told="deflect", friend_told="deflect", mio_real=True) == "A")
+T7 = ks_story.new_route(); T7["mio_affection"] = 4
+check("unspoken linguistics lie is D2",
+      ks_story.thu_confession_branch(T7, mio_told="lie", friend_told="lie", mio_real=True) == "D2")
+T8 = ks_story.new_route(); T8["mio_affection"] = 4; T8["mio_ai_framing"] = "ai_only"
+check("Daichi come-clean is not used here: still free/A if that is what she knew",
+      ks_story.mio_belief_kind(T8, mio_told="truth", friend_told="truth") == "free")
+T9 = ks_story.new_route(); T9["mio_affection"] = 4
+T9["mio_thu_belief_at_start"] = "free"
+T9["daichi_ai_framing"] = "honest_romantic"
+check("Thursday Daichi come-clean does not change the wish branch",
+      ks_story.thu_confession_branch(T9, mio_told=None, friend_told="truth", mio_real=True) == "A")
+T9b = ks_story.new_route(); T9b["mio_affection"] = 4
+T9b["mio_thu_belief_at_start"] = "free"
+T9b["preset_families"] = {"chatbot": "romance"}
+T9b["daichi_ai_framing"] = "honest_romantic"
+check("snapshot free + hidden romance stays B after Daichi come-clean",
+      ks_story.thu_confession_branch(T9b, mio_told=None, friend_told="truth", mio_real=True) == "B")
+check("belief snapshot starts unset", ks_story.new_route()["mio_thu_belief_at_start"] is None)
+
+# Yuzu hardware helper
+class _Mem:
+    def __init__(self, msgs):
+        self.data = {"messages": msgs, "flags": {}, "events": []}
+    def log_event(self, typ, **kw):
+        ev = dict(kw); ev["type"] = typ
+        self.data["events"].append(ev)
+    def set_flag(self, k, v=True):
+        self.data["flags"][k] = v
+    def wipe(self, keep_last=0):
+        msgs = self.data["messages"]
+        self.data["messages"] = msgs[-keep_last:] if keep_last else []
+        self.data["events"].append({"type": "memory_wipe", "kept": keep_last})
+
+M1 = _Mem([{"role":"user","content":"hi","day":"Mon"},{"role":"assistant","content":"hey","day":"Mon"},
+           {"role":"user","content":"wed","day":"Wed"}])
+R1 = ks_story.new_route(); R1["yuzu_backup"] = True
+check("backup restores and drops the last day only",
+      ks_story.apply_yuzu_hardware(M1, R1, "Thu") == "restored"
+      and [m["day"] for m in M1.data["messages"]] == ["Mon","Mon"]
+      and any(e["type"]=="restored_from_backup" for e in M1.data["events"])
+      and R1["yuzu_thu_event"] == "restored")
+M2 = _Mem([{"role":"user","content":"hi","day":"Mon"},{"role":"assistant","content":"hey","day":"Mon"}])
+R2 = ks_story.new_route()
+check("no backup is a real hole",
+      ks_story.apply_yuzu_hardware(M2, R2, "Thu") == "lost"
+      and M2.data["messages"] == []
+      and R2["yuzu_thu_event"] == "lost")
+
+# leans
+L = ks_story.new_route(); L["mio_confession"] = "declined_respect"
+check("gentle turn-down adds a Respect point", ks_story.ending_leans(L)["respect"] == 1)
+H = ks_story.new_route(); H["mio_confession"] = "accepted"; H["said"] = {"Thu": {"chatbot": 1}}
+check("accepted wish is a Human romance signal", ks_story.mio_romance_score(H) == 4)
 
 # the "both" ending (an AI and Mio, honestly) and no Respect cost for time with Mio
 NB = ks_story.new_route(); ks_story.note_human(NB, "Tue", "walked_mio")
