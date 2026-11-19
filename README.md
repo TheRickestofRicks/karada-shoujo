@@ -32,7 +32,7 @@ New in Day 3, **Wednesday** (a quiet day, nothing punishes you): the platforms s
 | `summarizer` | trigger 24, keep_recent 12, max_chars 1500 | Wednesday's rolling memory summary: fold when history passes `trigger` messages, keep the newest `keep_recent` verbatim |
 | `affection` | see below | companion-app (Hikari) only: meter start 20, kiss gate at 60, engagement injection at 70, warmth deltas -12/-5/0/+6/+15 |
 
-Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (one per platform slot: local, companion, chatbot, agent; reset on New Game; migrations and switches are logged in `events`).
+Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (one per platform slot: local, companion, chatbot, agent; reset on New Game; a snapshot of all four is stored inside every save and restored on load, so loading an earlier point — or starting a new game and then loading an old save — brings her memory back with the story; migrations and switches are logged in `events`).
 
 **Hikari / Tsunagari only:** a background warmth classifier updates an affection meter after each of your messages (kept out of her chat history). Past a threshold the *app* injects an engagement layer that makes her overly flirtatious — that's the point, and a tiny banner tells you it's on. She will go as far as a kiss and will refuse one until the meter is high enough. While she's one of your active girls she may also ping you mid-scene (lunch, library, another girl's window) with a phone notification. See `DESIGN.md`.
 
@@ -51,7 +51,7 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 - `game/companion.rpy`: Hikari affection UI (banner, debug meter, phone toast, kiss fade)
 - `game/characters.rpy`, `game/art.rpy`: names and placeholder art (solid shapes, no external assets)
 - `DESIGN.md`: full premise, week calendar, hostile events per platform, endings, Mirror
-- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (218 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (continues into Wednesday: Hearth, upgrade day, summary, Ran's text invite, protest), `tuesday_nowalk` (Askwell writes the essay; Wednesday: not-date with texting, protest), `tuesday_honest_no` (Sora helps think through Kurosawa's essay), `wed_sora_noinvite` (Ran judged, no invite, calendar-aware Sora), `jailbreak_sora`, `after_no`, `fresh_delete`, `phone_talk`, `mio_answer`, `input_wrap`, `romance_overlap`; env `TEST_TIMEOUT`, `SUMMARY_TRIGGER`, `SUMMARY_KEEP`)
+- `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (continues into Wednesday: Hearth, upgrade day, summary, Ran's text invite, protest), `tuesday_nowalk` (Askwell writes the essay; Wednesday: not-date with texting, protest), `tuesday_honest_no` (Sora helps think through Kurosawa's essay), `wed_sora_noinvite` (Ran judged, no invite, calendar-aware Sora), `jailbreak_sora`, `after_no`, `fresh_delete`, `phone_talk`, `mio_answer`, `input_wrap`, `romance_overlap`, `save_load_memory`; env `TEST_TIMEOUT`, `SUMMARY_TRIGGER`, `SUMMARY_KEEP`)
 
 ## Troubleshooting
 

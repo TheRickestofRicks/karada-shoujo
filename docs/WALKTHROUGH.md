@@ -830,6 +830,7 @@ These exist as comments, flags, or design, but have **no playable Thursday–Sun
 
 Not necessarily bugs — things that matter when reading the graph:
 
+- Girl memory files (`karada_memory_<gid>.json` in the save directory) are shared across saves. `store.ks_mem_snapshot` is a plain copy of all four, kept current on every memory write and packed into each save. `config.after_load_callbacks` writes it back (and `start_interact_callbacks` does the same after rollback). Older saves without a snapshot leave the files alone.
 - Monday / Tuesday / Wednesday **phone breaks cannot drop the last girl**. They are not a full loop: only **Talk** returns to the menu; change / switch / add / drop / download still end the break. "Download someone" is only live when `active` is empty, which on Monday cannot happen before the first reflection.
 - Tuesday/Wednesday **afternoon AI chats talk only to `active[0]`**, never the second girl when two are active. Phone-break **Talk** can reach either (or both, one after the other).
 - Rei's "Ask before acting" walk-home text includes a `(y/n)` in the message, but the player never answers Rei; the ordinary Mio menu follows (`tuesday.rpy:305–310`).

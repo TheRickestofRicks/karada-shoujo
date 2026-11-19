@@ -268,8 +268,9 @@ Each platform slot has `karada_memory_<id>.json` in the Ren'Py save directory (a
 ```
 
 - A new game resets all four files. Day 1 rolls the last `history_messages` (24) into each request.
+- Every Ren'Py save (manual, quick, auto) also stores a snapshot of all four memory files in `store.ks_mem_snapshot` (plain JSON, updated whenever a memory file is written). Loading a save writes that snapshot back to the files and the in-memory cache, so her memory matches the story point you loaded — including after starting a new game, which would otherwise overwrite the shared files. Saves from before this existed have no snapshot; their files are left as they are.
 - Hooks for later days are already in `ks_llm.Memory`: `wipe(keep_last)`, `note()`, `log_event()`, plus `models_used`, which lets a day notice she's "on a different model."
-- Rollback is blocked after each chat exchange, so the JSON never disagrees with what was said.
+- Rollback is blocked after each chat exchange. Mid-exchange rollback also restores the snapshot, so the JSON stays in agreement with the store.
 
 ## Companion-app affection (Hikari / Tsunagari)
 

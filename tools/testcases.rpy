@@ -1145,6 +1145,62 @@ testcase romance_overlap:
     exit
 
 
+## Save, chat further, load: her memory rewinds with the story.
+## Starting a new run (which wipes the shared JSON files) and then loading
+## the old save brings the snapshotted memory back.
+testcase save_load_memory:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Run your own"
+    advance until screen "preset_select" timeout 60.0
+    click "Be yourself"
+    advance until screen "input" timeout 60.0
+    type "please remember the word lantern"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    ## Expectations live in a tempfile: a load rolls the store back to the
+    ## last checkpoint, so test-only store variables set after it disappear.
+    $ import json as _json
+    $ _expect_path = "/tmp/ks_save_load_expect.json"
+    $ _save_msgs = [m["content"] for m in ks_mem("local").data["messages"]]
+    $ _save_run = ks_mem("local").data["run_id"]
+    $ _save_len = len(ks_mem("local").data["messages"])
+    $ assert any("lantern" in c for c in _save_msgs), _save_msgs
+    $ assert not any("oak" in c for c in _save_msgs), _save_msgs
+    $ assert store.ks_mem_snapshot.get("local")
+    $ assert [m["content"] for m in store.ks_mem_snapshot["local"]["messages"]] == _save_msgs
+    $ _json.dump({"msgs": _save_msgs, "run": _save_run, "n": _save_len}, open(_expect_path, "w"))
+    $ renpy.take_screenshot()
+    $ renpy.save("ks-test-mem")
+    type "also remember the word oak"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    $ assert any("oak" in m["content"] for m in ks_mem("local").data["messages"])
+    $ assert len(ks_mem("local").data["messages"]) > __import__("json").load(open("/tmp/ks_save_load_expect.json"))["n"]
+    $ renpy.load("ks-test-mem")
+    advance until screen "input" timeout 30.0
+    $ _expect = __import__("json").load(open("/tmp/ks_save_load_expect.json"))
+    $ assert [m["content"] for m in ks_mem("local").data["messages"]] == _expect["msgs"], ks_mem("local").data["messages"]
+    $ assert ks_mem("local").data["run_id"] == _expect["run"]
+    $ assert not any("oak" in m["content"] for m in ks_mem("local").data["messages"])
+    ## New Game wipes the shared files; loading the save must put her memory back.
+    $ ks_new_run()
+    $ assert not any("lantern" in m["content"] for m in (ks_mem("local").data or {}).get("messages", []))
+    $ renpy.load("ks-test-mem")
+    advance until screen "input" timeout 30.0
+    $ _expect = __import__("json").load(open("/tmp/ks_save_load_expect.json"))
+    $ assert any("lantern" in m["content"] for m in ks_mem("local").data["messages"])
+    $ assert not any("oak" in m["content"] for m in ks_mem("local").data["messages"])
+    $ assert ks_mem("local").data["run_id"] == _expect["run"]
+    $ assert [m["content"] for m in ks_mem("local").data["messages"]] == _expect["msgs"]
+    $ renpy.unlink_save("ks-test-mem")
+    $ print("KARADA_TEST: save_load_memory ok")
+    exit
+
+
 ## Layout check for the LLM chat input: prompt sits high in the textbox,
 ## typed text is smaller, and 500+ characters wrap inside a scrolling viewport.
 label ks_debug_input:

@@ -828,15 +828,15 @@ class Memory(object):
             self.data = None
 
     def save(self):
-        if self.data is None:
-            return
-        d = os.path.dirname(self.path)
-        if d and not os.path.isdir(d):
-            os.makedirs(d)
-        tmp = self.path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(self.data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, self.path)
+        if self.data is not None:
+            d = os.path.dirname(self.path)
+            if d and not os.path.isdir(d):
+                os.makedirs(d)
+            tmp = self.path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, self.path)
+        _notify_memory_save(self.path, self.data)
 
     # -- helpers --
     def add(self, role, content, day="Mon", scene=""):
@@ -1097,3 +1097,107 @@ def get_memory(path):
     if path not in _MEMORIES:
         _MEMORIES[path] = Memory(path)
     return _MEMORIES[path]
+
+
+# ---------------------------------------------------------------------------
+# Save-game snapshots. Memory objects and request threads stay out of the
+# Ren'Py store; these helpers copy plain JSON-safe dicts in and out.
+# ---------------------------------------------------------------------------
+
+MEMORY_FILENAME_PREFIX = "karada_memory_"
+MEMORY_FILENAME_SUFFIX = ".json"
+
+_MEMORY_SAVE_HOOK = None
+_MEMORY_HOOK_SILENT = 0
+
+
+def set_memory_save_hook(fn):
+    """fn(path, data) is called after every Memory.save (and a wipe-to-None)."""
+    global _MEMORY_SAVE_HOOK
+    _MEMORY_SAVE_HOOK = fn
+
+
+def _notify_memory_save(path, data):
+    hook = _MEMORY_SAVE_HOOK
+    if hook is None or _MEMORY_HOOK_SILENT:
+        return
+    hook(path, data)
+
+
+def memory_gid_from_path(path):
+    """'…/karada_memory_local.json' -> 'local'. Anything else -> None."""
+    base = os.path.basename(path or "")
+    if base.startswith(MEMORY_FILENAME_PREFIX) and base.endswith(MEMORY_FILENAME_SUFFIX):
+        gid = base[len(MEMORY_FILENAME_PREFIX):-len(MEMORY_FILENAME_SUFFIX)]
+        return gid or None
+    return None
+
+
+def plain_memory(data):
+    """Deep copy as plain JSON types (safe to pickle into a Ren'Py save)."""
+    if data is None:
+        return None
+    return json.loads(json.dumps(data, ensure_ascii=False))
+
+
+def take_memory_snapshot(paths):
+    """paths: {gid: path} -> {gid: plain data or None}."""
+    out = {}
+    for gid, path in (paths or {}).items():
+        mem = _MEMORIES.get(path)
+        if mem is not None:
+            out[gid] = plain_memory(mem.data)
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                out[gid] = plain_memory(json.load(f))
+        except Exception:
+            out[gid] = None
+    return out
+
+
+def restore_memory(path, data):
+    """Write data (or delete the file if None) and update the module cache."""
+    global _MEMORY_HOOK_SILENT
+    payload = plain_memory(data)
+    mem = _MEMORIES.get(path)
+    if mem is None:
+        mem = Memory.__new__(Memory)
+        mem.path = path
+        mem.data = None
+        _MEMORIES[path] = mem
+    mem.data = payload
+    _MEMORY_HOOK_SILENT += 1
+    try:
+        if payload is None:
+            try:
+                if path and os.path.isfile(path):
+                    os.remove(path)
+            except OSError:
+                pass
+        else:
+            mem.save()
+    finally:
+        _MEMORY_HOOK_SILENT -= 1
+
+
+def restore_memory_snapshot(paths, snapshot):
+    """Write a take_memory_snapshot() result back to files and the cache.
+
+    An empty or missing snapshot (old saves from before this existed) is
+    left alone and returns 'skipped'. Otherwise returns 'restored'.
+    """
+    if not snapshot:
+        return "skipped"
+    for gid, path in (paths or {}).items():
+        if gid in snapshot:
+            restore_memory(path, snapshot[gid])
+    return "restored"
+
+
+def clear_memory_cache(path=None):
+    """Drop cached Memory objects. path=None clears all."""
+    if path is None:
+        _MEMORIES.clear()
+    else:
+        _MEMORIES.pop(path, None)

@@ -2,8 +2,14 @@
 ##
 ## Networking runs on a daemon thread (ks_llm.Request). The script polls it
 ## with short hard pauses, so the window stays responsive and a typing
-## indicator animates. Thread objects live in the ks_llm module, never in the
-## Ren'Py store, so saving / rollback can't choke on them.
+## indicator animates. Thread objects and Memory objects live in the ks_llm
+## module, never in the Ren'Py store, so saving / rollback can't choke on them.
+## Girl memory files are snapshotted into store.ks_mem_snapshot (plain dicts)
+## on every write, packed into each save, and restored after load or rollback.
+
+## Plain JSON copies of each girl's memory file, keyed by gid. Kept current
+## whenever a file is written, so every manual / quick / auto save carries it.
+default ks_mem_snapshot = {}
 
 init -10 python:
     import os
@@ -254,6 +260,42 @@ init -10 python:
     def ks_quote(text):
         """Escape [ ] { } so model output is shown literally, never as Ren'Py markup."""
         return text.replace("[", "[[").replace("{", "{{")
+
+    def ks_memory_paths():
+        return dict((gid, ks_memory_path(gid)) for gid in GIRL_IDS)
+
+    def ks_on_memory_save(path, data):
+        """Keep store.ks_mem_snapshot in sync so every Ren'Py save carries it."""
+        if renpy.is_init_phase():
+            return
+        gid = ks_llm.memory_gid_from_path(path)
+        if not gid:
+            return
+        payload = ks_llm.plain_memory(data)
+        snap = getattr(store, "ks_mem_snapshot", None)
+        if snap is None:
+            store.ks_mem_snapshot = {gid: payload}
+            return
+        if snap.get(gid) != payload:
+            snap[gid] = payload
+
+    def ks_restore_mem_snapshot():
+        """After load or rollback: write the saved snapshot back to the JSON files."""
+        snap = getattr(store, "ks_mem_snapshot", None)
+        result = ks_llm.restore_memory_snapshot(ks_memory_paths(), snap)
+        if result == "skipped" and ks_debug():
+            print("KARADA: loaded a save without a memory snapshot; leaving memory files as they are.")
+        return result
+
+    def ks_mem_on_interact():
+        if renpy.game.after_rollback:
+            ks_restore_mem_snapshot()
+
+    ks_llm.set_memory_save_hook(ks_on_memory_save)
+    if ks_restore_mem_snapshot not in config.after_load_callbacks:
+        config.after_load_callbacks.append(ks_restore_mem_snapshot)
+    if ks_mem_on_interact not in config.start_interact_callbacks:
+        config.start_interact_callbacks.append(ks_mem_on_interact)
 
 
 ## Typing / waiting indicator.

@@ -121,6 +121,72 @@ check("migration logged in both files", bd["events"][-1]["type"] == "migrated_in
 c2 = ks_llm.Memory(os.path.join(d, "c.json")); c2.migrate_from(b, {"gid": "local", "name": "Hikari", "platform": "desktop", "persona_summary": "SHOULD NOT REPLACE"}, {"gid": "agent", "name": "Rei", "platform": "Relay"})
 cd2 = json.load(open(os.path.join(d, "c.json")))
 check("chained migration keeps original persona + lineage", cd2["migrated_from"]["persona_summary"] == "bright, collects words" and len(cd2["lineage"]) == 2 and cd2["migrated_from"]["original_gid"] == "companion")
+
+# save/load memory snapshots (plain copies, cache + file stay in sync)
+sd = tempfile.mkdtemp()
+sp = os.path.join(sd, "karada_memory_local.json")
+sm = ks_llm.get_memory(sp); sm.fresh("Yuzu")
+sm.add("user", "please remember the word lantern", "Mon", "t")
+sm.add("assistant", "Lantern. I'll keep it.", "Mon", "t")
+sm.note("likes lanterns"); sm.set_flag("affection", 22)
+sm.data["summary"] = {"text": "You talked about lanterns.", "covered": 0, "method": "llm"}
+sm.save()
+snap = ks_llm.take_memory_snapshot({"local": sp})
+check("snapshot gid from path", ks_llm.memory_gid_from_path(sp) == "local")
+check("snapshot copies messages and flags",
+      snap["local"]["messages"][0]["content"] == "please remember the word lantern"
+      and snap["local"]["flags"]["affection"] == 22
+      and snap["local"]["summary"]["text"].startswith("You talked")
+      and snap["local"]["notes"] == ["likes lanterns"])
+sm.add("user", "also remember the word oak", "Mon", "t")
+check("snapshot is a deep copy",
+      "oak" not in [x["content"] for x in snap["local"]["messages"]]
+      and "oak" in sm.data["messages"][-1]["content"])
+# mutating the snapshot must not touch live memory
+snap["local"]["messages"].append({"role": "user", "content": "ghost", "day": "Mon", "scene": "t"})
+check("mutating the snapshot leaves live memory alone",
+      not any(x["content"] == "ghost" for x in sm.data["messages"]))
+# drop the ghost line from the snapshot used for restore
+snap["local"]["messages"].pop()
+r = ks_llm.restore_memory_snapshot({"local": sp}, snap)
+check("restore reports restored", r == "restored")
+check("cached memory rewound to the snapshot",
+      sm.data["messages"][-1]["content"] == "Lantern. I'll keep it."
+      and not any("oak" in x["content"] for x in sm.data["messages"])
+      and sm.data["flags"]["affection"] == 22
+      and sm.data["run_id"] == snap["local"]["run_id"])
+disk = json.load(open(sp))
+check("memory file rewound too",
+      disk["messages"][-1]["content"] == "Lantern. I'll keep it."
+      and disk["run_id"] == snap["local"]["run_id"])
+sm2 = ks_llm.get_memory(sp)
+check("get_memory keeps the restored cache", sm2 is sm and sm2.data["run_id"] == snap["local"]["run_id"])
+# simulate New Game wiping the shared file, then loading an old save
+sm.fresh("Yuzu")
+check("fresh wipe drops the lantern line",
+      not any("lantern" in x["content"] for x in sm.data["messages"]))
+ks_llm.restore_memory_snapshot({"local": sp}, snap)
+check("restore after a fresh wipe brings the lantern back",
+      any("lantern" in x["content"] for x in sm.data["messages"])
+      and sm.data["run_id"] == snap["local"]["run_id"]
+      and sm.data["notes"] == ["likes lanterns"])
+check("empty snapshot is a no-op (old saves)",
+      ks_llm.restore_memory_snapshot({"local": sp}, {}) == "skipped"
+      and ks_llm.restore_memory_snapshot({"local": sp}, None) == "skipped")
+still = json.load(open(sp))
+check("no-op left the restored file alone",
+      any("lantern" in x["content"] for x in still["messages"]))
+ks_llm.restore_memory(sp, None)
+check("None snapshot removes the file",
+      not os.path.isfile(sp) and ks_llm.get_memory(sp).data is None)
+hooked = []
+ks_llm.set_memory_save_hook(lambda path, data: hooked.append((ks_llm.memory_gid_from_path(path), None if data is None else data.get("character"))))
+hp = os.path.join(tempfile.mkdtemp(), "karada_memory_chatbot.json")
+hm = ks_llm.Memory(hp); hm.fresh("Sora")
+check("save hook fires on fresh", hooked == [("chatbot", "Sora")])
+ks_llm.set_memory_save_hook(None)
+ks_llm.clear_memory_cache()
+
 gc = ks_llm.girl_config({"model": "a", "temperature": 0.8, "girls": {"agent": {"model": "b", "temperature": ""}}}, "agent")
 check("per-girl override (empty = inherit)", gc["model"] == "b" and gc["temperature"] == 0.8 and "girls" not in gc)
 # ---------------------------------------------------------------------------
