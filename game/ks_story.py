@@ -78,6 +78,16 @@ def new_route():
         "wed_plan": {},           # {"school", "upgrade", "notdate", "protest"}
         "ran_invited": None,      # Wed: True / False (False = not on good terms; no invite)
         "notdate": None,          # {"went": bool, "texts": n, "present": n, "texted": [gid]}
+        # Tuesday night essay (due Friday). "self" / "askwell" / "girl_help".
+        "kurosawa_essay": None,
+        "kurosawa_essay_girl": None,  # gid, if they asked a girl to help think
+        # Askwell-as-homework-bot access. True from the start (everybody
+        # already uses it for homework). Later shutdowns can clear it.
+        "askwell_available": True,
+        # Nightly model verdict of how the player talked to each girl.
+        "romance_tone": {},       # gid -> day -> {tone, reason, method}
+        # Days on which two or more girls were judged romantic (same-day).
+        "romance_overlap_days": [],
     }
 
 
@@ -418,9 +428,74 @@ def resolve_leaves(route, day, active):
 # ---------------------------------------------------------------------------
 
 def note_double_date(route, day):
+    """Two girls were active this day. A bookkeeping fact; penalties and
+    endings key off romance_overlap (same-day romantic overlap) instead."""
     ensure_route(route)
     if day not in route["double_date_days"]:
         route["double_date_days"].append(day)
+
+
+def askwell_available(route):
+    """The homework-bot side of Askwell is reachable this run."""
+    ensure_route(route)
+    return bool(route.get("askwell_available", True))
+
+
+def set_askwell_available(route, value=True):
+    ensure_route(route)
+    route["askwell_available"] = bool(value)
+
+
+def set_kurosawa_essay(route, how, girl=None):
+    """how: 'self' / 'askwell' / 'girl_help'."""
+    ensure_route(route)
+    route["kurosawa_essay"] = how
+    route["kurosawa_essay_girl"] = girl
+    set_flag(route, "kurosawa_essay")
+    if how:
+        set_flag(route, "kurosawa_essay_" + str(how))
+
+
+def record_romance_tone(route, day, gid, tone, reason="", method="classifier"):
+    """Store one nightly verdict. tone may be None if the model failed."""
+    ensure_route(route)
+    entry = {"tone": tone, "reason": reason or "", "method": method}
+    route["romance_tone"].setdefault(gid, {})[day] = entry
+    return entry
+
+
+def romance_tone_on(route, day, gid):
+    return ((route.get("romance_tone") or {}).get(gid) or {}).get(day) or {}
+
+
+def romantic_on(route, day, gid):
+    return romance_tone_on(route, day, gid).get("tone") == "romantic"
+
+
+def romantic_gids_on(route, day):
+    """Girl ids judged romantic on this specific day."""
+    out = []
+    for gid, days in sorted((route.get("romance_tone") or {}).items()):
+        if (days or {}).get(day, {}).get("tone") == "romantic":
+            out.append(gid)
+    return out
+
+
+def refresh_romance_overlap(route, day):
+    """Same-day overlap: two or more girls judged romantic on this day.
+
+    The flag `romance_overlap` persists once earned. Overlap *days* are
+    listed in route['romance_overlap_days']. Sequential romances (Yuzu
+    Monday, Hikari Wednesday, never together) do not count.
+    Returns the list of romantic gids on that day.
+    """
+    ensure_route(route)
+    gids = romantic_gids_on(route, day)
+    if len(gids) > 1:
+        if day not in route["romance_overlap_days"]:
+            route["romance_overlap_days"].append(day)
+        set_flag(route, "romance_overlap")
+    return gids
 
 
 def note_human(route, day, kind):
@@ -448,7 +523,10 @@ def check_day_neglect(route, day, active, names):
         return []
     route["neglect_checked"].append(day)
     new = []
-    dd = day in route["double_date_days"] or len(active or []) > 1
+    # Only flag "double-date unspoken" when the player is actually
+    # romantic with more than one AI on this day. Two windows, one
+    # partner and one helper, is just having two AIs.
+    dd = day in (route.get("romance_overlap_days") or [])
     human = bool(route["human_days"].get(day))
     for gid in active or []:
         if said_today(route, day, gid) > 0:

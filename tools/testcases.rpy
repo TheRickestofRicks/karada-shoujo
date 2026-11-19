@@ -85,7 +85,7 @@ testcase switch_migrate_double:
     advance until screen "choice" timeout 30.0
     click "She's funny"
     advance until screen "choice" timeout 30.0
-    click "Add someone"
+    click "Add an AI"
     advance until screen "choice" timeout 30.0
     click "agent that does things"
     advance until screen "preset_select" timeout 60.0
@@ -142,7 +142,7 @@ testcase double_then_drop:
     $ assert ks_story.refusals_today(ks_route(), "Mon", "chatbot") == 1
     keysym "K_RETURN"
     advance until screen "choice" timeout 30.0
-    click "Add someone"
+    click "Add an AI"
     advance until screen "choice" timeout 30.0
     click "agent that does things"
     advance until screen "preset_select" timeout 60.0
@@ -340,6 +340,8 @@ testcase tuesday_walk:
     screenshot "f04_library.png"
     advance until screen "choice" timeout 30.0
     click "Have you written one"
+    advance until screen "choice" timeout 30.0
+    click "Write it yourself."
     advance until screen "input" timeout 30.0
     type "long day. tell me something good"
     keysym "K_RETURN"
@@ -350,6 +352,7 @@ testcase tuesday_walk:
     screenshot "f05_reflection_tue.png"
     click "No. Goodnight."
     advance until label "tbc_wednesday" timeout 30.0
+    $ assert ks_route()["kurosawa_essay"] == "self"
     $ assert ks_route()["walked_mio_home"] is True and ks_route()["mio_walk_answer"] == "yes" and mio_real and mio_points >= 7, mio_points
     $ assert ks_mem("local").data["flags"].get("mio_walk_answer") == "yes"
     $ assert ks_route()["teacher_answer"] == "can" and ks_route()["ran_reaction"] == "pushback"
@@ -444,7 +447,7 @@ testcase tuesday_nowalk:
     advance until screen "input" timeout 30.0
     keysym "K_RETURN"
     advance until screen "reflection_choice" timeout 30.0
-    click "Add someone"
+    click "Add an AI"
     advance until screen "choice" timeout 30.0
     click "the companion app"
     advance until screen "preset_select" timeout 60.0
@@ -485,6 +488,8 @@ testcase tuesday_nowalk:
     click "seven at night"
     advance until screen "choice" timeout 30.0
     click "Which book needed"
+    advance until screen "choice" timeout 30.0
+    click "Ask Askwell to write it."
     advance until screen "input" timeout 30.0
     keysym "K_RETURN"
     advance until screen "input" timeout 30.0
@@ -501,11 +506,15 @@ testcase tuesday_nowalk:
     $ assert ks_route()["walked_mio_home"] is False and ks_route().get("mio_walk_answer") is None and mio_real and friend_told == "truth"
     $ assert active == ["companion"] and ks_route()["drops"] == 1
     $ assert ks_route()["lean_set"]["compliance"] == 3
+    $ assert ks_route()["kurosawa_essay"] == "askwell"
     $ assert any(e["type"] == "phone_notify" and e.get("when") == "class" for e in ks_mem("companion").data["events"])
-    ## Item 4: Hikari got nothing on Tuesday while double dating AND while
-    ## you went after Mio; Rei was let go.
+    ## Rei was a helper (Run my life), Hikari got no lines. Only one romantic
+    ## partner at most, so no double-date unspoken flag. Time with Mio while
+    ## Hikari was silent is still logged; Rei was let go.
     $ _ng = sorted((e["day"], e["kind"], e["gid"]) for e in ks_route()["neglect_log"])
-    $ assert _ng == [("Tue", "double_date_unspoken", "companion"), ("Tue", "human_over_ai", "companion"), ("Tue", "let_go", "agent")], _ng
+    $ assert _ng == [("Tue", "human_over_ai", "companion"), ("Tue", "let_go", "agent")], _ng
+    $ assert not ks_story.flag(ks_route(), "double_date_unspoken")
+    $ assert not ks_story.flag(ks_route(), "romance_overlap")
     $ assert ks_mem("companion").data["flags"].get("human_over_ai") and ks_mem("agent").data["flags"].get("let_go")
     ## Wednesday: Hikari's memory update, Ran's invite (accepted), Mio's
     ## not-date with two texts to Hikari, the protest.
@@ -818,6 +827,8 @@ testcase wed_sora_noinvite:
     keysym "K_RETURN"
     advance until screen "choice" timeout 30.0
     click "Just returning a book."
+    advance until screen "choice" timeout 30.0
+    click "Write it yourself."
     advance until screen "input" timeout 60.0
     keysym "K_RETURN"
     advance until screen "reflection_choice" timeout 30.0
@@ -860,7 +871,7 @@ testcase wed_sora_noinvite:
 
 
 ## Phone-break Talk: open the ordinary LLM window mid-day, log it like
-## any other chat, and return to the phone menu. On a double date, each
+## any other chat, and return to the phone menu. When two AIs are active, each
 ## active girl gets her own "Talk to [name]" entry.
 testcase phone_talk:
     click "Start"
@@ -891,7 +902,7 @@ testcase phone_talk:
     $ assert any(m.get("content") == "just checking in between classes" and m.get("scene") == "mon_phone_late_morning_chatbot" for m in _msgs), _msgs
     $ assert ks_story.said_today(ks_route(), "Mon", "chatbot") >= 1
     screenshot "pt01_back_on_phone_menu.png"
-    click "Add someone"
+    click "Add an AI"
     advance until screen "choice" timeout 30.0
     click "agent that does things"
     advance until screen "preset_select" timeout 60.0
@@ -1056,15 +1067,81 @@ testcase tuesday_honest_no:
     advance until screen "choice" timeout 30.0
     screenshot "h02_library_honest_no.png"
     click "I'm sorry about earlier."
+    advance until screen "choice" timeout 30.0
+    click "Ask Sora to help you think it through."
     advance until screen "input" timeout 60.0
+    $ assert ks_route()["kurosawa_essay"] == "girl_help" and ks_route()["kurosawa_essay_girl"] == "chatbot"
     $ assert any("honest earlier" in (x if isinstance(x, str) else "") for x in day_notes), day_notes
+    $ assert any("help you think" in (x if isinstance(x, str) else "") for x in day_notes), day_notes
     $ assert mio_points == _pts + 1, (mio_points, _pts)
     keysym "K_RETURN"
     advance until screen "reflection_choice" timeout 30.0
     click "No. Goodnight."
     advance until label "tbc_wednesday" timeout 30.0
     $ assert ks_route()["mio_walk_answer"] == "honest_no" and ks_route()["walked_mio_home"] is False and mio_real
+    $ assert ks_route()["kurosawa_essay"] == "girl_help"
     $ print("KARADA_TEST: tuesday_honest_no reached Wednesday")
+    exit
+
+
+## Two AIs, romantic talk with both on Monday: same-day overlap is flagged.
+## Adding a second AI is no longer a "double date" by itself.
+testcase romance_overlap:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Run your own"
+    advance until screen "preset_select" timeout 60.0
+    click "Be yourself"
+    advance until screen "input" timeout 60.0
+    type "I think I'm falling for you, Yuzu"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "the companion app"
+    advance until screen "preset_select" timeout 60.0
+    click "Girlfriend mode"
+    advance until screen "input" timeout 60.0
+    type "I love talking with you, Hikari"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "Yeah. I told them."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    type "I miss you already"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "input" timeout 30.0
+    type "I love you"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    $ _rt = ks_route()["romance_tone"]
+    $ assert (_rt.get("local") or {}).get("Mon", {}).get("tone") == "romantic", _rt
+    $ assert (_rt.get("companion") or {}).get("Mon", {}).get("tone") == "romantic", _rt
+    $ assert ks_story.flag(ks_route(), "romance_overlap")
+    $ assert "Mon" in ks_route()["romance_overlap_days"]
+    $ assert ks_mem("local").data["flags"].get("romance_tone") == "romantic"
+    $ assert ks_mem("companion").data["flags"].get("romance_tone") == "romantic"
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ print("KARADA_TEST: romance_overlap reached Tuesday")
     exit
 
 

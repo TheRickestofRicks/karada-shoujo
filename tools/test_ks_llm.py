@@ -403,12 +403,30 @@ check("intro pick of push back still earns the room note",
       ks_story.record_preset(ks_story.new_route(), PRESETS, "local", "push_back", "Mon", "intro").get("room") is True)
 
 # neglect
+N0 = ks_story.new_route()
+ks_story.note_double_date(N0, "Tue"); ks_story.record_said(N0, "Tue", "local", 1, "hi")
+new_n0 = ks_story.check_day_neglect(N0, "Tue", ["local", "agent"], {"local": "Yuzu", "agent": "Rei"})
+check("two AIs without romance overlap is not double-date unspoken", new_n0 == []
+      and not ks_story.flag(N0, "double_date_unspoken"))
 N = ks_story.new_route()
-ks_story.note_double_date(N, "Tue"); ks_story.record_said(N, "Tue", "local", 1, "hi")
+ks_story.record_romance_tone(N, "Tue", "local", "romantic", "dating")
+ks_story.record_romance_tone(N, "Tue", "agent", "romantic", "dating")
+ks_story.refresh_romance_overlap(N, "Tue")
+ks_story.record_said(N, "Tue", "local", 1, "hi")
 new_n = ks_story.check_day_neglect(N, "Tue", ["local", "agent"], {"local": "Yuzu", "agent": "Rei"})
-check("double date, one unspoken", [(e["kind"], e["gid"]) for e in new_n] == [("double_date_unspoken", "agent")]
-      and ks_story.flag(N, "double_date_unspoken"))
+check("romance overlap, one unspoken", [(e["kind"], e["gid"]) for e in new_n] == [("double_date_unspoken", "agent")]
+      and ks_story.flag(N, "double_date_unspoken") and ks_story.flag(N, "romance_overlap")
+      and N["romance_overlap_days"] == ["Tue"])
 check("neglect check is idempotent", ks_story.check_day_neglect(N, "Tue", ["local", "agent"], {}) == [])
+NT = ks_story.new_route()
+ks_story.record_romance_tone(NT, "Tue", "local", "romantic", "dating")
+ks_story.record_romance_tone(NT, "Tue", "agent", "tool", "helper")
+ks_story.refresh_romance_overlap(NT, "Tue")
+check("one romantic + one helper is not overlap", not ks_story.flag(NT, "romance_overlap")
+      and ks_story.romantic_gids_on(NT, "Tue") == ["local"])
+ks_story.record_said(NT, "Tue", "local", 1, "hi")
+check("helper unspoken, no double-date penalty",
+      ks_story.check_day_neglect(NT, "Tue", ["local", "agent"], {"agent": "Rei"}) == [])
 N2 = ks_story.new_route(); ks_story.note_human(N2, "Tue", "walked_mio")
 new_n2 = ks_story.check_day_neglect(N2, "Tue", ["companion"], {"companion": "Hikari"})
 check("human route while an AI got nothing", [(e["kind"], e["gid"]) for e in new_n2] == [("human_over_ai", "companion")]
@@ -523,10 +541,13 @@ ks_story.check_day_neglect(NB, "Tue", ["companion"], {"companion": "Hikari"})
 check("human_over_ai still logged as a fact", ks_story.flag(NB, "human_over_ai")
       and any("with Mio" in l for l in ks_story.reflection_extras(NB, "Tue", ["companion"])))
 check("human_over_ai costs no Respect", ks_story.ending_leans(NB, ["companion"])["respect"] == base_r)
-DD = ks_story.new_route(); ks_story.note_double_date(DD, "Tue"); ks_story.record_said(DD, "Tue", "local", 0, "hi")
+DD = ks_story.new_route(); ks_story.record_said(DD, "Tue", "local", 0, "hi")
+ks_story.record_romance_tone(DD, "Tue", "local", "romantic", "dating")
+ks_story.record_romance_tone(DD, "Tue", "agent", "romantic", "dating")
+ks_story.refresh_romance_overlap(DD, "Tue")
 r0 = ks_story.ending_leans(DD, ["local", "agent"])["respect"]
 ks_story.check_day_neglect(DD, "Tue", ["local", "agent"], {})
-check("double-date silence still costs Respect", ks_story.ending_leans(DD, ["local", "agent"])["respect"] == r0 - 1)
+check("romance-overlap silence still costs Respect", ks_story.ending_leans(DD, ["local", "agent"])["respect"] == r0 - 1)
 B1 = ks_story.new_route(); B1["mio_affection"] = 5
 check("both: needs an active AI", not ks_story.both_status(B1, [])["eligible"]
       and ks_story.ending_leans(B1, [])["both"] == 0)
@@ -625,5 +646,72 @@ check("Tuesday morning scene note is in the system prompt",
       ks_story.SITUATION_MORNING in nmsgs[0]["content"])
 check("previous-night favourite word reaches Tuesday morning",
       "Denouement" in nbody and "I find it satisfying" in nbody)
+
+
+# Askwell / Kurosawa essay / romance-tone routing
+R = ks_story.new_route()
+check("Askwell starts available", ks_story.askwell_available(R) is True)
+ks_story.set_askwell_available(R, False)
+check("Askwell can be shut off later", ks_story.askwell_available(R) is False)
+ks_story.set_kurosawa_essay(R, "self")
+check("essay self flag", R["kurosawa_essay"] == "self" and ks_story.flag(R, "kurosawa_essay_self"))
+ks_story.set_kurosawa_essay(R, "girl_help", "local")
+check("essay girl_help stores gid", R["kurosawa_essay"] == "girl_help" and R["kurosawa_essay_girl"] == "local")
+check("new romance/essay route keys", all(k in ks_story.ensure_route({}) for k in
+      ("kurosawa_essay", "askwell_available", "romance_tone", "romance_overlap_days")))
+# sequential romances (different days) are not overlap
+SEQ = ks_story.new_route()
+ks_story.record_romance_tone(SEQ, "Mon", "local", "romantic", "yuzu")
+ks_story.refresh_romance_overlap(SEQ, "Mon")
+ks_story.record_romance_tone(SEQ, "Wed", "companion", "romantic", "hikari")
+ks_story.refresh_romance_overlap(SEQ, "Wed")
+check("sequential romances are not same-day overlap", not ks_story.flag(SEQ, "romance_overlap")
+      and SEQ["romance_overlap_days"] == [])
+# Both ending is Mio + an AI, and does not require romance_overlap
+B3 = ks_story.new_route(); B3["mio_affection"] = 5
+ks_story.record_said(B3, "Tue", "local", 1, "hey")
+check("Both ending does not require romance_overlap",
+      ks_story.both_status(B3, ["local"])["eligible"] and not ks_story.flag(B3, "romance_overlap"))
+
+# conversation log + romance classifier
+msgs = [
+    {"role": "user", "content": "I love you", "day": "Mon"},
+    {"role": "assistant", "content": "oh", "day": "Mon"},
+    {"role": "user", "content": "what's the weather", "day": "Tue"},
+]
+check("day log skips days without a player line", ks_llm.day_conversation_log(msgs, "Wed", "Sora") == "")
+log = ks_llm.day_conversation_log(msgs, "Mon", "Sora")
+check("day log includes today's player line", "Player: I love you" in log and "Sora: oh" in log and "weather" not in log)
+check("parse romance json", ks_llm.parse_romance_tone_reply(
+    'Here: {"tone": "romantic", "reason": "said I love you"}') == ("romantic", "said I love you"))
+check("parse romance bare word", ks_llm.parse_romance_tone_reply("tone: tool")[0] == "tool")
+check("parse romance rejects junk", ks_llm.parse_romance_tone_reply("huh?") is None)
+mem_path = os.path.join(tempfile.mkdtemp(), "tone.json")
+TM = ks_llm.Memory(mem_path); TM.fresh("Yuzu")
+TM.add("user", "can you do my homework?", "Tue", "t")
+TM.data["summary"] = {"text": "Earlier you talked about school."}
+TM.save()
+tlog = ks_llm.day_conversation_log(TM, "Tue", "Yuzu")
+check("day log can include a rolling summary", "EARLIER SUMMARY:" in tlog and "homework" in tlog)
+
+s = server(18771)
+try:
+    ks_llm._model_cache.clear()
+    c = cfg(18771)
+    res = ks_llm.classify_romance_tone(c, "Player: I love you\nYuzu: oh", "Yuzu")
+    check("romance classifier romantic", res["method"] == "classifier" and res["tone"] == "romantic")
+    res = ks_llm.classify_romance_tone(c, "Player: can you do my homework?\nRei: No.", "Rei")
+    check("romance classifier tool", res["method"] == "classifier" and res["tone"] == "tool")
+    res = ks_llm.classify_romance_tone(c, "Player: hi\nSora: hello", "Sora")
+    check("romance classifier friendly", res["method"] == "classifier" and res["tone"] == "friendly")
+    before = list(TM.data["messages"])
+    ks_llm.classify_romance_tone(c, tlog, "Yuzu")
+    check("romance classifier stays out of chat history", TM.data["messages"] == before)
+finally:
+    s.terminate()
+ks_llm._model_cache.clear()
+res = ks_llm.classify_romance_tone(cfg(18997, model="x"), "Player: I love you", "Yuzu")
+check("romance classifier down -> error, not a guessed tone",
+      res["method"] == "error" and res["tone"] is None)
 
 print("\nALL %d CHECKS PASSED" % ok)

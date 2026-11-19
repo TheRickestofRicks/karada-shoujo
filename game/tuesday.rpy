@@ -562,11 +562,71 @@ label mio_second_chance:
     return
 
 
-## ── Night: every active girl gets a chat ─────────────────────────────────
+
+## Tuesday night: the blank page. Thoughtful, not a lecture.
+## kurosawa_essay = "self" / "askwell" / "girl_help".
+## Askwell here is the homework bot everybody already uses, and is offered
+## only while route["askwell_available"] is true (later shutdowns can clear it).
+label kurosawa_essay:
+    $ _askwell = ks_askwell_available()
+    $ _eg0 = active[0] if active else None
+    $ _eg1 = active[1] if len(active) > 1 else None
+    $ _en0 = gname(_eg0) if _eg0 else ""
+    $ _en1 = gname(_eg1) if _eg1 else ""
+    menu:
+        "Write it yourself.":
+            $ ks_set_kurosawa_essay("self")
+            n "You write. A sentence stalls halfway and you leave it. You cross out a word, then write it back."
+            n "It isn't good. It's yours. Sometime after eleven you stop. The last line leans a little to the right."
+            $ day_notes.append("You wrote Kurosawa's essay yourself. It was messy, and it was yours.")
+        "Ask Askwell to write it." if _askwell:
+            $ ks_set_kurosawa_essay("askwell")
+            n "You open a fresh Askwell window — the homework one, the one everybody uses. You paste the prompt."
+            n "The page fills in under a minute. Clean sentences. No crossed-out words. You copy it out by hand, because she said handwritten."
+            n "Your handwriting is the only part that looks like you."
+            $ day_notes.append("You let Askwell fill the page for Kurosawa. You copied it out by hand.")
+        "Ask [_en0] to help you think it through." if _eg0:
+            call kurosawa_essay_girl(_eg0)
+        "Ask [_en1] to help you think it through." if _eg1:
+            call kurosawa_essay_girl(_eg1)
+    return
+
+
+label kurosawa_essay_girl(gid):
+    $ ks_set_kurosawa_essay("girl_help", gid)
+    $ _en = gname(gid)
+    $ girl_mood[gid] = "neutral"
+    $ renpy.show(GIRL_INFO[gid]["sprite"], at_list=[ks_center])
+    with dissolve
+    n "You tell [_en] about the essay. Not to write it. Just to help you think."
+    if gid == "local":
+        $ renpy.say(gchar(gid), "What's the question actually asking you?")
+        n "You talk it through until you have two uneven pages. She never offers a sentence of her own."
+    elif gid == "chatbot":
+        $ renpy.say(gchar(gid), "I can help you outline, or I can write it. Which do you want?")
+        p "Just help me think."
+        $ renpy.say(gchar(gid), "All right. What do you actually believe, before you try to sound like an essay?")
+        n "The pages you write afterwards still have your handwriting in the thinking."
+    elif gid == "agent":
+        $ renpy.say(gchar(gid), "I won't draft it. I can ask you the questions, though. Starting with: do you agree with her?")
+        n "You don't, or you do, or you're not sure. Either way, the pages get finished."
+    else:
+        $ renpy.say(gchar(gid), "\"Mistakes are how I know somebody was there.\" That's a good line. What's yours?")
+        n "You find one. It isn't as sharp as Kurosawa's. You keep it anyway."
+    $ day_notes.append("You asked %s to help you think about Kurosawa's essay. She didn't write it." % _en)
+    $ renpy.hide(GIRL_INFO[gid]["sprite"])
+    with dissolve
+    return
+
+
+## ── Night: Kurosawa's essay, then every active girl gets a chat ──────────
+## The essay is due Friday. Kurosawa's reaction belongs on the handover
+## (Thursday / Friday); see DESIGN.md and the walkthrough hook.
 label evening_tuesday:
     scene bg bedroom_night
     with fade
     n "Night. Your feet hurt. Your essay for Kurosawa is a blank page with your name on it."
+    call kurosawa_essay
     if not active:
         return
     if ks_companion_active() and len(active) > 1:

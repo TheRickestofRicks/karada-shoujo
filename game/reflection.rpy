@@ -3,7 +3,7 @@
 ## In bed, lights off, the day replays from the log: what you said to her,
 ## her no's, the prompts you picked or changed, how warm you were, who you
 ## moved or let go. Then: "Would I change anything?" — prompt change,
-## migration, a second girl, letting someone go, or "No. Goodnight."
+## migration, adding an AI, letting someone go, or "No. Goodnight."
 ## Reuses the phone-menu labels (switch_girl / add_girl / drop_girl).
 
 default refl_lines = []
@@ -130,7 +130,9 @@ label nightly_reflection(day):
     n "Lights off. The ceiling. The day plays back whether you want it to or not."
     window hide
     $ _rf_changes = []
-    ## Neglect is judged on who was active when you lay down (item 4).
+    ## Judge how you talked to each girl today, then neglect (which keys
+    ## double-date silence off same-day romantic overlap).
+    $ ks_classify_day_romance(day)
     $ ks_check_neglect(day)
     $ refl_lines = ks_reflection_lines(day)
     $ refl_heading = "Would I change anything?"
@@ -143,7 +145,7 @@ label nightly_reflection(day):
             if active:
                 _rf_items.append(("Move her somewhere else", ("switch", None)))
             if len(active) < 2:
-                _rf_items.append(("Add someone (double date)" if active else "Download someone", ("add", None)))
+                _rf_items.append(("Add an AI" if active else "Download someone", ("add", None)))
             if active:
                 _rf_items.append(("Let someone go", ("drop", None)))
             _rf_items.append(("No. Goodnight.", ("done", None)))

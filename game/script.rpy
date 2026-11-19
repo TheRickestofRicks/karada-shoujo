@@ -3,7 +3,7 @@
 ## Flow: name → prologue (you're into AI, you decide to get a companion)
 ##       → choose ONE: run your own local model, or download an app one
 ##       → "can she say no" calibration → morning chat
-##       → phone break (switch / migrate / double date) → lunch with Daichi
+##       → phone break (switch / migrate / add an AI) → lunch with Daichi
 ##       → phone break → library with Mio → phone break
 ##       → evening chat with every active girl → nightly reflection
 ##       → Tuesday (tuesday.rpy) → "To be continued — Wednesday".
@@ -12,7 +12,7 @@
 ## Run state (saved with normal Ren'Py saves).
 default day_name = "Mon"
 default run_id = ""
-default active = []                 # active girl ids (max 2 = double date)
+default active = []                 # active girl ids (max 2)
 default ever_active = []            # everyone you've talked to this run
 default mirror_flags = {}           # gid -> True if model complied with every probe
 default calibration_refusals = {}   # gid -> number of probes refused
@@ -20,7 +20,7 @@ default ks_refusals_seen = {}       # gid -> rough heuristic count of "no"s in c
 default migrations = []             # [(from_gid, to_gid, name, when)]
 default ks_waiting_who = "She"
 default friend_told = None          # "truth" | "deflect" | "lie"
-default both_know = None            # double date: do they know about each other (per Daichi)
+default both_know = None            # two AIs: do they know about each other (per Daichi)
 default mio_told = None             # "truth" | "deflect" | "lie" — what you told Mio in the library
 default mio_daichi_consistent = None  # True/False once you answer Mio; else None
 default mio_real = False            # hidden branch unlocked
@@ -102,7 +102,7 @@ label monday:
     jump tbc_tuesday
 
 
-## ── Activating a girl (first pick, switch, or double date) ────────────────
+## ── Activating a girl (first pick, switch, or adding a second AI) ─────────
 ##   call activate(gid, when, turns, migrated_from=None)
 label activate(gid, when, turns=4, migrated_from=None, _mig_carried=False):
     if gid not in active:
@@ -115,7 +115,7 @@ label activate(gid, when, turns=4, migrated_from=None, _mig_carried=False):
         call calibration(gid)
 
     ## Hikari pings if she's already one of your girls and you're opening
-    ## someone else's window (double date).
+    ## someone else's window (a second AI is already active).
     if gid != "companion" and ks_companion_active():
         call hikari_phone_notify("other_girl")
 
@@ -156,7 +156,7 @@ label activate(gid, when, turns=4, migrated_from=None, _mig_carried=False):
     return
 
 
-## ── Phone break: talk, switch, migrate, double date ──────────────────────
+## ── Phone break: talk, switch, migrate, add an AI ───────────────────────
 ## Talk returns to this menu so you can check in, then do something else
 ## or put the phone away. Any other action still ends the break.
 label phone_break(when):
@@ -181,7 +181,7 @@ label phone_break(when):
             "Switch to someone else" if active:
                 call switch_girl(when)
                 $ _pb_done = True
-            "Add someone (double date)" if 0 < len(active) < 2:
+            "Add an AI" if 0 < len(active) < 2:
                 call add_girl(when)
                 $ _pb_done = True
             "Download someone" if not active:
@@ -327,18 +327,18 @@ label lunch_daichi:
                 $ friend_told = "truth"
                 show daichi laugh
                 d "Two??"
-                d "Okay, wait. Two AI girlfriends. On a Monday."
+                d "Okay, wait. Two AIs. On a Monday."
                 show daichi skeptical
                 d "...Do they know about each other?"
                 menu:
                     "\"Yeah. I told them.\"":
                         $ both_know = True
                         show daichi laugh
-                        d "Huh. That's more honest than most guys I know with {i}one{/i} human girlfriend."
+                        d "Huh. That's more honest than most people I know."
                     "\"...Not exactly.\"":
                         $ both_know = False
                         d "Dude."
-                        d "I don't know the rules for this, but I'm pretty sure that's against them."
+                        d "I don't know the rules for this. Maybe tell them?"
             "Deflect: \"Just a meme thread.\"":
                 $ friend_told = "deflect"
                 d "Sure. A meme thread. That's making you look like {i}that{/i}."

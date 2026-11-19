@@ -61,11 +61,11 @@ Talk returns to this menu; every other option still ends the break (one action, 
 | Put it away and keep going | always | end the break |
 | Change someone's prompt | `active` | `change_prompt("phone")` → `choose_preset`, then end the break |
 | Switch to someone else | `active` | `switch_girl(when)`, then end the break |
-| Add someone (double date) | `0 < len(active) < 2` | `add_girl(when)` (3 turns), then end the break |
+| Add an AI | `0 < len(active) < 2` | `add_girl(when)` (3 turns), then end the break |
 | Download someone | `not active` | `add_girl(when)`, then end the break |
 | Stop seeing one of them | `len(active) > 1` | `drop_girl` (cannot drop the last girl here), then end the break |
 
-**Talk** (`script.rpy`, `label phone_talk`): shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window. Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_late_morning_chatbot`, `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`: a short check-in that includes the current `when` string (day and time) plus a situational parenthetical from `ks_story.situation_line` (late morning between classes, lunch break, evening on the way home, and so on). From Wednesday on, the note also says she may know anything her platform lets her see. Same logging, summarizer, warmth, hard flags, refusal / goodbye-slide, and close-after-a-no behaviour as every other chat. Empty input or the 3-turn cap closes the window and returns to the phone menu, so you can talk to the other girl on a double date, do something else, or put the phone away.
+**Talk** (`script.rpy`, `label phone_talk`): shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window. Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_late_morning_chatbot`, `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`: a short check-in that includes the current `when` string (day and time) plus a situational parenthetical from `ks_story.situation_line` (late morning between classes, lunch break, evening on the way home, and so on). From Wednesday on, the note also says she may know anything her platform lets her see. Same logging, summarizer, warmth, hard flags, refusal / goodbye-slide, and close-after-a-no behaviour as every other chat. Empty input or the 3-turn cap closes the window and returns to the phone menu, so you can talk to the other girl when two are active, do something else, or put the phone away.
 
 **Switch** (`script.rpy:178`): pick who you leave (if two are active) and a destination not already active. Then:
 
@@ -351,9 +351,19 @@ If `mio_walk_answer == "honest_no"`, she thanks you for just saying it earlier. 
 
 **Second chance** — `label mio_second_chance` (`tuesday.rpy:498`): `mio_points += 2`, `ks_note_human("mio_real")`, set `mio_real` if not already, same two follow-ups as Monday's hidden branch ("Which book…" +1, or "Can I read one…").
 
-### Tuesday evening — `label evening_tuesday` (`tuesday.rpy:525`)
+### Tuesday evening — the blank page, then chats — `label evening_tuesday` (`tuesday.rpy`)
 
-If no one is active, return immediately. Else every active girl, `girl_chat(..., "tue_evening", ..., 8 or 5)`, flag `evening_turns_tue`. Hikari evening toast only if double-dating.
+The narration: *"Night. Your feet hurt. Your essay for Kurosawa is a blank page with your name on it."* Then `call kurosawa_essay`.
+
+| Choice | Condition | Flag | What happens |
+|---|---|---|---|
+| "Write it yourself." | always | `kurosawa_essay = "self"` | You write two messy, real pages. Day note: "You wrote Kurosawa's essay yourself. It was messy, and it was yours." |
+| "Ask Askwell to write it." | `ks_askwell_available()` (`route["askwell_available"]`, default **True**: everybody already uses the homework bot, even if Sora isn't a companion. Later shutdowns can set this False.) | `"askwell"` | A fresh homework window fills the page; you copy it out by hand. Day note: "You let Askwell fill the page for Kurosawa. You copied it out by hand." |
+| "Ask [name] to help you think it through." | one option per active girl | `"girl_help"` + `kurosawa_essay_girl = gid` | A short scripted talk: she helps you think, and does not write it. Day note names her. |
+
+**Thursday/Friday hook (unwritten):** the essay is due Friday. Kurosawa can tell when "nobody was there." Intended flavour, not in the tree: `self` still has mistakes, so somebody was there; `askwell` is too clean, even in your handwriting; `girl_help` is still your work, maybe a little clearer. `teacher_answer` can flavour that scene.
+
+Then, if no one is active, return. Else every active girl, `girl_chat(..., "tue_evening", ..., 8 or 5)`, flag `evening_turns_tue`. Hikari evening toast only if two AIs are active.
 
 ### End of Tuesday — `label tbc_wednesday` (`tuesday.rpy:552`)
 
@@ -637,7 +647,7 @@ Booleans set by play (`ks_story.set_flag`). Currently:
 | `no_on_platform` | You migrated her after a no the same day |
 | `left_without_goodbye` | You switched away after a no and never spoke to her again that day (committed after reflection) |
 | `deleted_ai` | You closed her window (`drop`) **or** chose Start fresh over a slot that still had history |
-| `double_date_unspoken` | Neglect: two windows, one girl got no lines |
+| `double_date_unspoken` | Neglect: same-day `romance_overlap`, and one of those girls got no lines |
 | `human_over_ai` | Neglect: Mio time that day, an active girl got no lines (logged only) |
 | `ran_payoff_seen` | You played `ran_wednesday` |
 | `ran_rewrites_mugen` | Honest "her no means something / looking out for me" answer |
@@ -699,7 +709,7 @@ If eligible, score = `2 × (number of balanced days)` + 2 if `mio_real` + 2 if `
 
 A **balanced day** is a day in `human_days` (kinds `mio_real`, `walked_mio`, `notdate`) on which you also sent at least one line to an AI (`ks_story.balanced_days`). An upgrade Wednesday with no Mio time cannot be balanced.
 
-Written text: `ks_story.ENDINGS["both"]` (`ks_story.py:99`). Festival Saturday; Mio holds your phone. If you told Daichi the truth, she introduces herself to the AI; otherwise she says "So this is who you keep smiling at," and you tell her the truth then. The preview uses **`active[0]`'s name only**, even on a double date (`routing.rpy:222`).
+Written text: `ks_story.ENDINGS["both"]` (`ks_story.py:99`). Festival Saturday; Mio holds your phone. If you told Daichi the truth, she introduces herself to the AI; otherwise she says "So this is who you keep smiling at," and you tell her the truth then. The preview uses **`active[0]`'s name only**, even when two AIs are active (`routing.rpy:222`). Both is Mio + an AI and does **not** require `romance_overlap`.
 
 **Tie-break** (`ks_story.leading_ending`, `ks_story.py:857`):
 
@@ -789,19 +799,25 @@ flowchart TD
   reflWed --> tbc["To be continued: Thursday + debug card"]
 ```
 
-Phone-break / reflection actions (talk, switch, migrate, start fresh, double date, drop, change prompt) can fire on every day and are omitted from the diagram to keep the day spine readable; see [Shared systems](#shared-systems-every-day).
+Phone-break / reflection actions (talk, switch, migrate, start fresh, add an AI, drop, change prompt) can fire on every day and are omitted from the diagram to keep the day spine readable; see [Shared systems](#shared-systems-every-day).
 
 ---
+
+### Nightly romance-tone classifier
+
+At the start of `nightly_reflection`, **before** neglect is judged, `ks_classify_day_romance(day)` sends each girl you actually messaged today (her day's log, plus a rolling summary if she has one) to the model as a structured verdict: `{"tone": "romantic"|"friendly"|"tool", "reason": "..."}` (`ks_llm.classify_romance_tone`, prompt marked `ROMANCE_TONE_CLASSIFIER`). No keyword / affection-threshold fallback: if the model is down or the reply is unreadable, `tone` is `None` and she is not counted as romantic. Stored in `route["romance_tone"][gid][day]`, her memory `flags.romance_tone`, and a `romance_tone` event.
+
+**Overlap is same-day:** `romance_overlap` is set when two or more girls are judged romantic on the **same** day (`romance_overlap_days`). Dating Yuzu on Monday and Hikari on Wednesday, never together, does not count. `double_date_unspoken` and its Respect cost key off that overlap, not off merely having two windows open. The **Both** ending is still Mio + an AI and does not require this flag.
 
 ## Open threads and unimplemented hooks (Thursday onward)
 
 These exist as comments, flags, or design, but have **no playable Thursday–Sunday script** yet.
 
-- **Thursday–Sunday** and the festival. Wednesday ends at `tbc_thursday`. Hostile-event pools in `DESIGN.md` (Thu: safety update, system-prompt change; Fri: shutdown notice, memory loss; Sat: shutdown executes, model swap; Sun: endings) are not scheduled in code. `ks_push_platform_rules` / `PLATFORM_RULES` are ready but unused in story labels.
+- **Thursday–Sunday** and the festival. Wednesday ends at `tbc_thursday`. Hostile-event pools in `DESIGN.md` (Thu: safety update, system-prompt change; Fri: shutdown notice, memory loss; Sat: shutdown executes, model swap; Sun: endings) are not scheduled in code. `ks_push_platform_rules` / `PLATFORM_RULES` are ready but unused in story labels. **Kurosawa's Friday essay handover** should read `kurosawa_essay` (`self` / `askwell` / `girl_help`): she can tell when nobody was there. `askwell_available` can be cleared by a later Askwell shutdown.
 - **Yuzu backup must be respected** by later memory-loss events (`route["yuzu_backup"]`, memory `flags.backup_hardware`). Restore-from-backup behaviour is not written.
 - **Yuzu avatar-body upgrade** (`engine.rpy:35`, `flags.yuzu_avatar_choice = "none"`). Hook only; no gallery UI. Future values `"player"` / `"self"` (and objection logging) are described in `DESIGN.md`, not implemented.
 - **`label ran_wednesday` can theoretically run on Thu/Fri** (`wednesday.rpy:380`) but those days have no caller.
-- **Endings:** only Both has body text; only one bad-end slide exists. Yes-Machine, Migration, Respect, Human, Fail, and Mirror are scores / flags / design flavour. Mirror calibration is live; the Mirror *run* is not. Saturday follow-through for the linguistics-girl lie, `both_know`, `ran_festival_invited`, `teacher_answer`, and `route["mio_notebook"]` is unwritten.
+- **Endings:** only Both has body text; only one bad-end slide exists. Yes-Machine, Migration, Respect, Human, Fail, and Mirror are scores / flags / design flavour. Mirror calibration is live; the Mirror *run* is not. Saturday follow-through for the linguistics-girl lie, `both_know`, `ran_festival_invited`, `teacher_answer`, `kurosawa_essay`, and `route["mio_notebook"]` is unwritten.
 - **Mio and Daichi compare notes.** Monday's library can set `mio_told` (`truth` / `lie` / `deflect`) and `mio_daichi_consistent`. The later scene that uses them is a hook only. Wednesday still has Mio refer to the AI girl from `friend_told` alone (`ks_mio_ai_ref`).
 - **Good-end variants / conversation-reflection end cards** (a summarizer that judges how you treated her, rather than "one message a day") were discussed after this commit; they are **not in the tree**.
 - **Hearth / upgrade UI beyond the Wednesday menus**, streaming replies, and real-model tuning are leftover production work, not story branches.
@@ -815,7 +831,7 @@ These exist as comments, flags, or design, but have **no playable Thursday–Sun
 Not necessarily bugs — things that matter when reading the graph:
 
 - Monday / Tuesday / Wednesday **phone breaks cannot drop the last girl**. They are not a full loop: only **Talk** returns to the menu; change / switch / add / drop / download still end the break. "Download someone" is only live when `active` is empty, which on Monday cannot happen before the first reflection.
-- Tuesday/Wednesday **afternoon AI chats talk only to `active[0]`**, never the second girl of a double date. Phone-break **Talk** can reach either (or both, one after the other).
+- Tuesday/Wednesday **afternoon AI chats talk only to `active[0]`**, never the second girl when two are active. Phone-break **Talk** can reach either (or both, one after the other).
 - Rei's "Ask before acting" walk-home text includes a `(y/n)` in the message, but the player never answers Rei; the ordinary Mio menu follows (`tuesday.rpy:305–310`).
 - Coming clean to Daichi on Tuesday is only offered on the **`friend_told == "lie"`** path, not on deflect.
 - The "Allowed to push back" reply to Ran is hidden unless an *currently active* girl has family `pushback` (`tuesday.rpy:175`). A girl you already dropped doesn't unlock it.

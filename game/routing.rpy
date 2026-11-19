@@ -7,6 +7,7 @@
 
 init -9 python:
     import ks_story
+    import ks_llm
 
 default route = ks_story.new_route()
 default day_notes = []          # short lines scenes leave for tonight's reflection
@@ -126,6 +127,55 @@ init python:
     def ks_note_double_date():
         if len(store.active) > 1:
             ks_story.note_double_date(ks_route(), store.day_name)
+
+    def ks_askwell_available():
+        return ks_story.askwell_available(ks_route())
+
+    def ks_set_kurosawa_essay(how, girl=None):
+        ks_story.set_kurosawa_essay(ks_route(), how, girl)
+        for gid in GIRL_IDS:
+            m = ks_mem(gid)
+            if m.data is not None:
+                m.set_flag("kurosawa_essay", how)
+                if girl:
+                    m.set_flag("kurosawa_essay_girl", girl)
+
+    def ks_classify_day_romance(day):
+        """Nightly model verdict of how the player talked to each girl today.
+
+        Classifies anyone with a user line today (active or later dropped).
+        Silence is skipped, not guessed. Then refresh_romance_overlap for
+        same-day overlap. Call this before ks_check_neglect.
+        """
+        r = ks_route()
+        gids = []
+        for gid in GIRL_IDS:
+            data = getattr(ks_mem(gid), "data", None) or {}
+            if any((m or {}).get("day") == day and (m or {}).get("role") == "user"
+                   for m in data.get("messages") or []):
+                gids.append(gid)
+        for gid in gids:
+            mem = ks_mem(gid)
+            log = ks_llm.day_conversation_log(mem, day, gname(gid))
+            if not log:
+                continue
+            try:
+                res = ks_llm.classify_romance_tone(ks_cfg(gid), log, gname(gid))
+            except Exception as e:
+                res = {"tone": None, "reason": "", "method": "error",
+                       "error": "%s: %s" % (type(e).__name__, e)}
+            ks_story.record_romance_tone(r, day, gid, res.get("tone"),
+                                         res.get("reason") or "", res.get("method") or "error")
+            if mem.data is not None:
+                mem.set_flag("romance_tone", res.get("tone"))
+                mem.set_flag("romance_tone_day", day)
+                ev = dict(day=day, tone=res.get("tone"),
+                          reason=res.get("reason") or "", method=res.get("method"))
+                if res.get("error"):
+                    ev["error"] = res["error"]
+                mem.log_event("romance_tone", **ev)
+        ks_story.refresh_romance_overlap(r, day)
+        return ks_story.romantic_gids_on(r, day)
 
     ## ── jailbreak + platform rules ──────────────────────────────────────
     def ks_jailbreak_rate():

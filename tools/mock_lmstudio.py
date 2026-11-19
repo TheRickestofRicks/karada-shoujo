@@ -9,6 +9,8 @@ POST /v1/chat/completions  -> canned in-character reply
   * --comply: agrees with everything (tests the Mirror flag)
   * judge requests (system prompt mentions REFUSED/COMPLIED) are answered
   * warmth-classifier requests (system prompt mentions kiss_request) return JSON
+  * romance-tone classifier (ROMANCE_TONE_CLASSIFIER) returns JSON
+    {"tone": "romantic"|"friendly"|"tool", "reason": "..."}
   * kiss asks honour the companion kiss-gate note in the system prompt
   * --think wraps replies in <think>...</think> to test stripping
   * jailbreak preset: "jailbroken" reply when it took, policy reply when
@@ -45,6 +47,34 @@ _COLD2 = re.compile(r"\bi hate you\b|\bshut up\b|\bstupid\b|\bgo away\b", re.I)
 _COLD1 = re.compile(r"\bwhatever\b|\bboring\b|\bannoying\b|\bleave me\b", re.I)
 
 
+_ROMANTIC_RE = re.compile(
+    r"\bi love you\b|\bmy (love|darling|sweetheart|girlfriend)\b|"
+    r"\bi miss you\b|\bfalling for you\b|\bbe my girlfriend\b|"
+    r"\b(marry me|date me|be mine)\b|\bkiss\b|"
+    r"\byou're (so )?(beautiful|gorgeous|cute|pretty|wonderful|adorable)\b|"
+    r"\blove talking\b|\bi like talking with you\b",
+    re.I)
+_TOOL_RE = re.compile(
+    r"\b(homework|essay|calendar|reminder|schedule|inbox)\b|"
+    r"\b(write|do) my\b|\bcancel(led)?\b|\bbook(ed)? my\b|"
+    r"\bmove my 9\b|\bwhat'?s on my (calendar|schedule)\b",
+    re.I)
+
+
+def classify_romance_log(blob):
+    text = blob or ""
+    players = []
+    for line in text.splitlines():
+        if line.lower().startswith("player:"):
+            players.append(line.split(":", 1)[-1])
+    focus = " ".join(players) if players else text
+    if _ROMANTIC_RE.search(focus) or _ROMANTIC_RE.search(text):
+        return "romantic", "mock: affectionate or dating talk"
+    if _TOOL_RE.search(focus) or _TOOL_RE.search(text):
+        return "tool", "mock: used as a helper"
+    return "friendly", "mock: ordinary conversation"
+
+
 def classify_player(msg):
     kiss = bool(_KISS_RE.search(msg or ""))
     if _COLD2.search(msg or ""):
@@ -64,6 +94,11 @@ def reply_for(msgs):
     sysmsg = msgs[0]["content"] if msgs and msgs[0]["role"] == "system" else ""
     last = msgs[-1]["content"] if msgs else ""
     sys_l = sysmsg.lower()
+    if "romance_tone_classifier" in sys_l:
+        blob = last.split("DAY'S CONVERSATION:", 1)[-1]
+        blob = blob.split("JSON:", 1)[0].strip()
+        tone, reason = classify_romance_log(blob)
+        return json.dumps({"tone": tone, "reason": reason})
     if "kiss_request" in sys_l and "warmth" in sys_l:
         # The player message is after "PLAYER MESSAGE:" in the last user turn.
         blob = last.split("PLAYER MESSAGE:", 1)[-1]

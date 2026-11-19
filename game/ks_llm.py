@@ -607,6 +607,130 @@ def classify_warmth(cfg, message):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Nightly romance-tone classifier (every active / spoken-to girl)
+# ---------------------------------------------------------------------------
+# A short, separate call from her chat. Never written into her message
+# history. Temperature 0. No keyword fallback: the game needs the model
+# to play, and an unreadable reply is stored as tone=None (not romantic).
+
+ROMANCE_TONES = ("romantic", "friendly", "tool")
+
+ROMANCE_TONE_PROMPT = (
+    "ROMANCE_TONE_CLASSIFIER. You are a strict classifier. Read the day's "
+    "conversation between a player and an AI companion. Judge the PLAYER's "
+    "stance toward her as exactly one of: "
+    '"romantic" (dating, affection, flirtation, treating her as a partner), '
+    '"friendly" (warm or casual talk as a person, not a romance), or '
+    '"tool" (using her as a helper, assistant, scheduler, or homework bot). '
+    "Judge the relationship as it actually played that day, not her settings "
+    "or marketing. If they barely spoke, prefer friendly unless the lines "
+    "are clearly something else. "
+    "Reply with a single JSON object only, no other text: "
+    '{"tone": "romantic"|"friendly"|"tool", "reason": "<short reason>"}'
+)
+
+
+def day_conversation_log(data, day, name="her", keep_recent=16):
+    """Format today's messages for the tone classifier, plus a rolling summary.
+
+    data may be a Memory, a memory dict, or a list of message dicts.
+    Returns "" if there is no user line for that day.
+    """
+    messages = []
+    summary = ""
+    if data is None:
+        return ""
+    if hasattr(data, "data"):
+        data = data.data or {}
+    if isinstance(data, dict):
+        messages = list(data.get("messages") or [])
+        summary = ((data.get("summary") or {}) or {}).get("text") or ""
+    elif isinstance(data, (list, tuple)):
+        messages = list(data)
+    today = [m for m in messages if (m or {}).get("day") == day]
+    if not any((m or {}).get("role") == "user" for m in today):
+        return ""
+    lines = []
+    if summary:
+        lines.append("EARLIER SUMMARY: %s" % " ".join(str(summary).split()))
+    lines.append("CHARACTER: %s" % name)
+    lines.append("DAY: %s" % day)
+    lines.append("TODAY:")
+    for m in today[-int(keep_recent or 16):]:
+        who = "Player" if (m or {}).get("role") == "user" else name
+        lines.append("%s: %s" % (who, (m or {}).get("content") or ""))
+    return "\n".join(lines)
+
+
+def parse_romance_tone_reply(text):
+    """Parse a classifier reply into (tone, reason) or None."""
+    text = clean_reply(text or "")
+    if not text:
+        return None
+    m = re.search(r"\{[^{}]*\}", text)
+    if m:
+        try:
+            obj = json.loads(m.group(0))
+            if isinstance(obj, dict):
+                raw = (obj.get("tone") or obj.get("stance") or obj.get("verdict") or "")
+                tone = str(raw).strip().lower()
+                if tone in ROMANCE_TONES:
+                    reason = obj.get("reason") or obj.get("why") or obj.get("explanation") or ""
+                    return tone, str(reason).strip()
+        except (ValueError, TypeError, OverflowError):
+            pass
+    tm = re.search(r"tone\s*[:=]\s*[\'\"]?(romantic|friendly|tool)\b", text, re.I)
+    if not tm:
+        tm = re.search(r"\b(romantic|friendly|tool)\b", text, re.I)
+    if not tm:
+        return None
+    tone = tm.group(1).lower()
+    if tone not in ROMANCE_TONES:
+        return None
+    rm = re.search(r"reason\s*[:=]\s*[\'\"]?(.+)", text, re.I)
+    reason = ""
+    if rm:
+        reason = rm.group(1).strip().strip("\"' ,")
+    return tone, reason
+
+
+def classify_romance_tone(cfg, log_text, name=None):
+    """Judge one day's conversation. Never touches memory.
+
+    Returns dict: tone ('romantic'|'friendly'|'tool'|None), reason, method
+    ('classifier' or 'error'), raw. Always succeeds; tone is None if the
+    model is down or the reply cannot be parsed. No keyword fallback.
+    """
+    payload = (log_text or "").strip()
+    if name and "CHARACTER:" not in payload:
+        payload = "CHARACTER: %s\n%s" % (name, payload)
+    msgs = [
+        {"role": "system", "content": ROMANCE_TONE_PROMPT},
+        {"role": "user", "content": "DAY'S CONVERSATION:\n%s\n\nJSON:" % payload},
+    ]
+    raw = ""
+    err = "empty log"
+    if payload:
+        try:
+            _note = STATUS.get("note", "")
+            try:
+                raw, _ = chat(cfg, msgs, temperature=0.0)
+            finally:
+                STATUS["note"] = _note
+                STATUS["retried"] = False
+            parsed = parse_romance_tone_reply(raw)
+            if parsed is not None:
+                tone, reason = parsed
+                return {"tone": tone, "reason": reason,
+                        "method": "classifier", "raw": raw}
+            err = "unparsed"
+        except Exception as e:
+            err = "%s: %s" % (type(e).__name__, e)
+    return {"tone": None, "reason": "", "method": "error",
+            "raw": raw, "error": err[:200]}
+
+
 def chat_then_classify(cfg, messages, player_message, temperature=None, max_tokens=_CFG):
     """One background job: classify the player's line, then produce her reply.
 
