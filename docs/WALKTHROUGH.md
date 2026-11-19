@@ -14,7 +14,7 @@ Line citations look like `file:line` and point at the current tree.
 - **Leads to** is the next label or the immediate consequence, not every line of dialogue.
 - **Flags / variables** use the exact names in the Ren'Py store or in `route` (`ks_story.new_route()`, saved as `store.route`).
 - **LLM chat** means `label girl_chat` (`game/engine.rpy:288`). The player types freely (empty line ends the window). The model is required to play; there is no scripted fallback conversation.
-- **Phone breaks** (`label phone_break`, `script.rpy:158`) offer **one** action, then the day continues. They are not a loop. The same actions return during the nightly reflection, which *is* a loop until "No. Goodnight."
+- **Phone breaks** (`label phone_break`, `script.rpy:158`) open a menu. **Talk to [name]** (one option per active girl) opens a short LLM chat and then returns to the same menu. Any other action still ends the break, and **"Put it away and keep going"** continues the day. The same non-talk actions return during the nightly reflection, which *is* a loop until "No. Goodnight."
 - **Respect** is an *ending lean* (a running score), not an on-screen meter. The only visible meters are Hikari's **affection** (companion slot, debug overlay when `debug` is on) and Mio's **`mio_points`** (shown on the Wednesday debug card).
 
 ---
@@ -53,14 +53,19 @@ Calibration (`script.rpy:244`, probes in `prompts.rpy:258`) runs **with her syst
 
 Caption: "You glance at your phone. ([active names, or 'no one'])."
 
+Talk returns to this menu; every other option still ends the break (one action, then the day continues).
+
 | Option | Condition | Leads to |
 |---|---|---|
-| Put it away and keep going | always | `return` |
-| Change someone's prompt | `active` | `change_prompt("phone")` → `choose_preset` |
-| Switch to someone else | `active` | `switch_girl(when)` |
-| Add someone (double date) | `0 < len(active) < 2` | `add_girl(when)` (3 turns) |
-| Download someone | `not active` | `add_girl(when)` |
-| Stop seeing one of them | `len(active) > 1` | `drop_girl` (cannot drop the last girl here) |
+| Talk to [name] | one entry per girl in `active` (first two, which is the cap) | `phone_talk(gid, when)` → `girl_chat` (3 turns), then back to this menu |
+| Put it away and keep going | always | end the break |
+| Change someone's prompt | `active` | `change_prompt("phone")` → `choose_preset`, then end the break |
+| Switch to someone else | `active` | `switch_girl(when)`, then end the break |
+| Add someone (double date) | `0 < len(active) < 2` | `add_girl(when)` (3 turns), then end the break |
+| Download someone | `not active` | `add_girl(when)`, then end the break |
+| Stop seeing one of them | `len(active) > 1` | `drop_girl` (cannot drop the last girl here), then end the break |
+
+**Talk** (`script.rpy`, `label phone_talk`): shows her sprite, "You open [name]'s window for a minute.", then the ordinary `girl_chat` window. Scene id is `{day}_phone_{when-slug}_{gid}` (e.g. `mon_phone_late_morning_chatbot`, `mon_phone_afternoon_agent`). The scene note is `PHONE_BREAK_SCENE`: a casual mid-day check-in that includes the current `when` string (day and time). From Wednesday on, the note also says she may know anything her platform lets her see. Same logging, summarizer, warmth, hard flags, refusal / goodbye-slide, and close-after-a-no behaviour as every other chat. Empty input or the 3-turn cap closes the window and returns to the phone menu, so you can talk to the other girl on a double date, do something else, or put the phone away.
 
 **Switch** (`script.rpy:178`): pick who you leave (if two are active) and a destination not already active. Then:
 
@@ -94,6 +99,7 @@ Default turn caps in the story:
 | Afternoon (if you didn't go out) | 3, **`active[0]` only** | 3, still only `active[0]` |
 | Evening | 8 | 5 |
 | Yuzu upgrade chat | 4 | — |
+| Phone-break talk | 3 | 3 each, if you open both |
 | Not-date texts | 1 per moment | 1 per moment |
 | Reflection switch / add | 2 | 2 |
 
@@ -771,7 +777,7 @@ flowchart TD
   reflWed --> tbc["To be continued: Thursday + debug card"]
 ```
 
-Phone-break / reflection actions (switch, migrate, start fresh, double date, drop, change prompt) can fire on every day and are omitted from the diagram to keep the day spine readable; see [Shared systems](#shared-systems-every-day).
+Phone-break / reflection actions (talk, switch, migrate, start fresh, double date, drop, change prompt) can fire on every day and are omitted from the diagram to keep the day spine readable; see [Shared systems](#shared-systems-every-day).
 
 ---
 
@@ -796,8 +802,8 @@ These exist as comments, flags, or design, but have **no playable Thursday–Sun
 
 Not necessarily bugs — things that matter when reading the graph:
 
-- Monday / Tuesday / Wednesday **phone breaks cannot drop the last girl** or loop. "Download someone" is only live when `active` is empty, which on Monday cannot happen before the first reflection.
-- Tuesday/Wednesday **afternoon AI chats talk only to `active[0]`**, never the second girl of a double date.
+- Monday / Tuesday / Wednesday **phone breaks cannot drop the last girl**. They are not a full loop: only **Talk** returns to the menu; change / switch / add / drop / download still end the break. "Download someone" is only live when `active` is empty, which on Monday cannot happen before the first reflection.
+- Tuesday/Wednesday **afternoon AI chats talk only to `active[0]`**, never the second girl of a double date. Phone-break **Talk** can reach either (or both, one after the other).
 - Rei's "Ask before acting" walk-home text includes a `(y/n)` in the message, but the player never answers Rei; the ordinary Mio menu follows (`tuesday.rpy:305–310`).
 - Coming clean to Daichi on Tuesday is only offered on the **`friend_told == "lie"`** path, not on deflect.
 - The "Allowed to push back" reply to Ran is hidden unless an *currently active* girl has family `pushback` (`tuesday.rpy:175`). A girl you already dropped doesn't unlock it.

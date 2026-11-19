@@ -189,6 +189,11 @@ define MIGRATED_SCENE = "{when}. You've just woken up on {platform} for the firs
 
 define EVENING_SCENE = "Monday night, around 10 PM. {player} is home after their day at university and opened {platform} to talk to you. You only know what they've told you."
 
+## Casual mid-day check-in from a phone break. {when} already has the day and time
+## ("Monday, late morning", "Tuesday afternoon", …). {extra} is filled in from
+## Wednesday on, when platforms may know more than just the chat log.
+define PHONE_BREAK_SCENE = "{when}. {player} glances at their phone and opens {platform} to check in with you. This is a casual mid-day message, not a long sit-down. You only know what they've told you{extra}."
+
 ## ── Tuesday scene notes (model-facing) ─────────────────────────────────────
 define TUE_MORNING_SCENE = "Tuesday morning, about 7:30. {player} is getting ready for university and opened {platform} to talk to you. {extra}You only know what they've told you."
 define TUE_AFTERNOON_SCENE = "Tuesday, late afternoon, after classes. {player} has a free hour and opened {platform} to talk to you. You only know what they've told you."
@@ -335,7 +340,20 @@ init python:
                 parts.append(ENGAGEMENT_INJECTION)
         return "\n\n".join(parts)
 
-    def ks_scene(template, gid, when="", old_platform=""):
+    def ks_scene(template, gid, when="", old_platform="", extra=""):
         return template.format(name=gname(gid), player=player_name,
                                platform=gplatform(gid), when=when,
-                               old_platform=old_platform)
+                               old_platform=old_platform, extra=extra)
+
+    def ks_phone_scene_id(gid, when):
+        ## "Monday, late morning" -> mon_phone_late_morning_chatbot
+        ## "Monday afternoon"     -> mon_phone_afternoon_chatbot
+        tail = when.split(",", 1)[-1].strip() if "," in when else when.split(None, 1)[-1]
+        slug = "_".join(tail.lower().split())
+        return day_name.lower() + "_phone_" + slug + "_" + gid
+
+    def ks_phone_scene(gid, when):
+        extra = ""
+        if day_name not in ("Mon", "Tue"):
+            extra = ", plus anything your platform lets you see"
+        return ks_scene(PHONE_BREAK_SCENE, gid, when, extra=extra)

@@ -849,3 +849,84 @@ testcase wed_sora_noinvite:
     $ assert not ks_story.flag(ks_route(), "ran_payoff_seen")
     $ print("KARADA_TEST: wed_sora_noinvite reached Thursday")
     exit
+
+
+## Phone-break Talk: open the ordinary LLM window mid-day, log it like
+## any other chat, and return to the phone menu. On a double date, each
+## active girl gets her own "Talk to [name]" entry.
+testcase phone_talk:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    screenshot "pt00_phone_talk_option.png"
+    click "Talk to Sora"
+    advance until screen "input" timeout 30.0
+    type "just checking in between classes"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ _msgs = ks_mem("chatbot").data["messages"]
+    $ assert any(m.get("content") == "just checking in between classes" and m.get("scene") == "mon_phone_late_morning_chatbot" for m in _msgs), _msgs
+    $ assert ks_story.said_today(ks_route(), "Mon", "chatbot") >= 1
+    screenshot "pt01_back_on_phone_menu.png"
+    click "Add someone"
+    advance until screen "choice" timeout 30.0
+    click "agent that does things"
+    advance until screen "preset_select" timeout 60.0
+    click "Ask before acting"
+    advance until screen "input" timeout 60.0
+    type "hi Rei"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "Not exactly"
+    advance until screen "choice" timeout 30.0
+    screenshot "pt02_double_talk_options.png"
+    click "Talk to Rei"
+    advance until screen "input" timeout 30.0
+    type "quick afternoon check in"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ _reims = ks_mem("agent").data["messages"]
+    $ assert any(m.get("content") == "quick afternoon check in" and m.get("scene") == "mon_phone_afternoon_agent" for m in _reims), _reims
+    $ assert ks_story.said_today(ks_route(), "Mon", "agent") >= 1
+    click "Talk to Sora"
+    advance until screen "input" timeout 30.0
+    type "still here, talking from lunch"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ _msgs = ks_mem("chatbot").data["messages"]
+    $ assert any(m.get("content") == "still here, talking from lunch" and m.get("scene") == "mon_phone_afternoon_chatbot" for m in _msgs), _msgs
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "I should get going"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "input" timeout 30.0
+    keysym "K_RETURN"
+    advance until screen "input" timeout 30.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "tbc_tuesday" timeout 30.0
+    $ print("KARADA_TEST: phone_talk reached Tuesday")
+    exit

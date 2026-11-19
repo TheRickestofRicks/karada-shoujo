@@ -154,24 +154,53 @@ label activate(gid, when, turns=4, migrated_from=None, _mig_carried=False):
     return
 
 
-## ── Phone break: switch, migrate, double date ─────────────────────────────
+## ── Phone break: talk, switch, migrate, double date ──────────────────────
+## Talk returns to this menu so you can check in, then do something else
+## or put the phone away. Any other action still ends the break.
 label phone_break(when):
-    $ _act = " & ".join(gname(g) for g in active) or "no one"
-    menu:
-        "You glance at your phone. ([_act])"
-        "Put it away and keep going":
-            return
-        "Change someone's prompt" if active:
-            call change_prompt("phone")
-        "Switch to someone else" if active:
-            call switch_girl(when)
-        "Add someone (double date)" if 0 < len(active) < 2:
-            call add_girl(when)
-        "Download someone" if not active:
-            call add_girl(when)
-        "Stop seeing one of them" if len(active) > 1:
-            call drop_girl
+    $ _pb_done = False
+    while not _pb_done:
+        $ _act = " & ".join(gname(g) for g in active) or "no one"
+        $ _pb0 = active[0] if active else None
+        $ _pb1 = active[1] if len(active) > 1 else None
+        $ _pn0 = gname(_pb0) if _pb0 else ""
+        $ _pn1 = gname(_pb1) if _pb1 else ""
+        menu:
+            "You glance at your phone. ([_act])"
+            "Talk to [_pn0]" if _pb0:
+                call phone_talk(_pb0, when)
+            "Talk to [_pn1]" if _pb1:
+                call phone_talk(_pb1, when)
+            "Put it away and keep going":
+                $ _pb_done = True
+            "Change someone's prompt" if active:
+                call change_prompt("phone")
+                $ _pb_done = True
+            "Switch to someone else" if active:
+                call switch_girl(when)
+                $ _pb_done = True
+            "Add someone (double date)" if 0 < len(active) < 2:
+                call add_girl(when)
+                $ _pb_done = True
+            "Download someone" if not active:
+                call add_girl(when)
+                $ _pb_done = True
+            "Stop seeing one of them" if len(active) > 1:
+                call drop_girl
+                $ _pb_done = True
     $ renpy.block_rollback()
+    return
+
+
+label phone_talk(gid, when, turns=3):
+    $ _ptn = gname(gid)
+    $ girl_mood[gid] = "neutral"
+    $ renpy.show(GIRL_INFO[gid]["sprite"], at_list=[ks_center])
+    with dissolve
+    n "You open [_ptn]'s window for a minute."
+    call girl_chat(gid, ks_phone_scene_id(gid, when), ks_phone_scene(gid, when), turns)
+    $ renpy.hide(GIRL_INFO[gid]["sprite"])
+    with dissolve
     return
 
 

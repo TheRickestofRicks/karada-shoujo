@@ -36,6 +36,7 @@ Only the chosen girl appears. She gets the say-no calibration probe, then **her 
 
 At every scene break (late morning, afternoon, evening on Day 1; the same pattern for later days) the player can glance at their phone:
 
+- **Talk to [name]:** open a short mid-day chat with her (one option per active girl on a double date). When the window closes, the phone menu comes back, so you can talk to someone else, do another action, or put the phone away.
 - **Put it away:** keep going.
 - **Change someone's prompt:** reopen her preset screen (see *Preset prompts*).
 - **Switch to someone else:** leave the current girl (or one of two) for another platform. Three ways to arrive:
