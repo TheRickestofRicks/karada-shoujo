@@ -140,6 +140,14 @@ define gui.dialogue_width = 744
 ## aligned, 0.5 for centered, and 1.0 for right-aligned.
 define gui.dialogue_text_xalign = 0.0
 
+## The input screen has no namebox, so the prompt sits higher than dialogue.
+## Typed text is smaller so a long message can wrap inside the textbox.
+define gui.input_ypos = 16
+define gui.input_text_size = 18
+define gui.input_prompt_text_size = 18
+## Leaves room at the bottom of the 185px textbox for the quick menu.
+define gui.input_area_height = 115
+
 
 ## Buttons #####################################################################
 ##
@@ -444,6 +452,7 @@ init python:
         gui.name_xpos = 80
         gui.dialogue_xpos = 90
         gui.dialogue_width = 1100
+        gui.input_area_height = 160
 
         ## Change the size and spacing of various things.
         gui.slider_size = 36

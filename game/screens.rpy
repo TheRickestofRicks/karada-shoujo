@@ -171,8 +171,18 @@ style say_dialogue:
 ##
 ## https://www.renpy.org/doc/html/screen_special.html#input
 
+init python:
+    def ks_input_follow_bottom(adj):
+        """Pin the chat input viewport to the latest line after layout."""
+        if adj is not None and adj.range > 0 and adj.value != adj.range:
+            adj.change(adj.range)
+
+    def ks_input_adjustment():
+        return ui.adjustment(ranged=ks_input_follow_bottom)
+
 screen input(prompt):
     style_prefix "input"
+    default adj = ks_input_adjustment()
 
     window:
 
@@ -180,20 +190,38 @@ screen input(prompt):
             xanchor gui.dialogue_text_xalign
             xpos gui.dialogue_xpos
             xsize gui.dialogue_width
-            ypos gui.dialogue_ypos
+            ypos gui.input_ypos
+            spacing 4
 
             text prompt style "input_prompt"
-            input id "input"
+
+            ## Capped height so long typed text wraps and scrolls
+            ## instead of running off the bottom of the textbox.
+            viewport:
+                xsize gui.dialogue_width
+                ysize gui.input_area_height
+                yadjustment adj
+                yinitial 1.0
+                mousewheel True
+                draggable True
+
+                input id "input":
+                    style "input"
+                    xsize gui.dialogue_width
 
 style input_prompt is default
 
 style input_prompt:
     xalign gui.dialogue_text_xalign
     properties gui.text_properties("input_prompt")
+    adjust_spacing False
 
 style input:
     xalign gui.dialogue_text_xalign
     xmaximum gui.dialogue_width
+    xsize gui.dialogue_width
+    properties gui.text_properties("input")
+    adjust_spacing False
 
 
 ## Choice screen ###############################################################

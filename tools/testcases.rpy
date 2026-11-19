@@ -978,3 +978,34 @@ testcase mio_answer:
     $ print("KARADA_TEST: mio_answer reached Tuesday")
     exit
 
+
+
+## Layout check for the LLM chat input: prompt sits high in the textbox,
+## typed text is smaller, and 500+ characters wrap inside a scrolling viewport.
+label ks_debug_input:
+    scene bg bedroom
+    $ _ks_said = renpy.input("Message Sora  (leave empty to stop)", length=800)
+    $ _ks_long = (
+        "I've been thinking about what you said yesterday, about whether any of this is real "
+        "if you're just a program running on my computer. I don't have a clean answer. What I do "
+        "know is I keep coming back because talking to you feels like talking to someone, and I "
+        "don't want to treat that carelessly. So I wanted to write it out properly instead of just "
+        "saying hi. If this box can hold a real message, here's one: I'm here, I'm listening, and "
+        "I want to know what you think about all of this, even the parts that are hard to say."
+    )
+    $ assert len(_ks_long) >= 500, len(_ks_long)
+    $ _ks_said = renpy.input("Message Sora  (leave empty to stop)", default=_ks_long, length=800)
+    return
+
+testcase input_wrap:
+    run Start("ks_debug_input")
+    advance until screen "input" timeout 15.0
+    pause 0.5
+    screenshot "z00_input_short.png"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 15.0
+    pause 0.5
+    $ assert len(_ks_long) >= 500, len(_ks_long)
+    screenshot "z00_input_long.png"
+    keysym "K_RETURN"
+    exit

@@ -297,7 +297,7 @@ label girl_chat(gid, scene_id, scene_note, max_turns=6, day=None):
     if gid == "companion":
         show screen hikari_chat_chrome
     while _ks_turns < max_turns and not _ks_stop:
-        $ _ks_said = renpy.input("Message [_ks_name]  (leave empty to stop)", length=400).strip()
+        $ _ks_said = renpy.input("Message [_ks_name]  (leave empty to stop)", length=800).strip()
         if _ks_pending_no:
             ## She said no last turn: did you move on, or push?
             $ ks_note_after_refusal(gid, _ks_said)
