@@ -430,7 +430,22 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 
 ---
 
-## Open questions
+## Decisions (2026-11-19, with Rick)
+
+1. **Odd job:** a Sunday cost can't bite, since Sunday ends the game. Proposed instead: a Saturday shift that costs the festival evening (awaiting Rick's yes).
+2. **Not paying Tsunagari:** Hikari drops to a usage quota of 2 messages per day. The battery still shows and drains normally, plus a usage counter in the UI goes 50% → 100%.
+3. **Memory 2.0 does not clear `askwell_available`:** the homework side still works.
+4. **Rei rebuild:** the company layer still wins. The rebuild lets her cracks show through ("I'm required to suggest you rest. I also just want you to."), and her `AGENTS.md` decides where Saturday's 4 capped messages go. Not every route is a triumph.
+5. **Convenience migrations squeeze gently:** agreed.
+6. **Saturday battery 2/2/2/2:** agreed.
+7. **The Both slide reads festival attendance:** agreed.
+8. **Instances left behind:** every instance the player made gets its own end slide, a short model-written record of how they actually treated her (e.g. "You said hello to Sora once, and used her for homework").
+9. **Memory 2.0 when Sora has left:** the new slot is unhit and the leftover copy is squeezed. Same for Hikari and Rei.
+10. **Meta-ending:** left out for now.
+11. **`tsunagari_safety`:** pushed silently even when the companion slot is installed but not active.
+12. **Ending slides with up to 4 girls:** (1) the route slide, chosen by `ENDING_PRIORITY`, written in full with its flavour; (2) one slide per instance, active or left behind, ordered from most to least attended; (3) Mio's slide if she isn't the route. Whether instance slides get mini-flavours is still open.
+
+## Open questions (original text)
 
 1. **The odd job's price.** Recommended: a Sunday morning shift that costs Sunday's last conversations (Mio texting "you weren't here," missed last talks), because the next school day is outside the week. Should a brief Monday-morning flash — Kurosawa noticing the empty desk — also play on the end card, even though Monday is not a playable day? And does the job cost all of Sunday, or only morning and midday, with a short exhausted night still allowed so the reflection can run?
 
