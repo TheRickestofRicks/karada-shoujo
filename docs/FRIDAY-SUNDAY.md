@@ -443,7 +443,7 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 9. **Memory 2.0 when Sora has left:** the new slot is unhit and the leftover copy is squeezed. Same for Hikari and Rei.
 10. **Meta-ending:** left out for now.
 11. **`tsunagari_safety`:** pushed silently even when the companion slot is installed but not active.
-12. **Ending slides with up to 4 girls:** (1) the route slide, chosen by `ENDING_PRIORITY`, written in full with its flavour; (2) one slide per instance, active or left behind, ordered from most to least attended; (3) Mio's slide if she isn't the route. Whether instance slides get mini-flavours is still open.
+12. **Ending slides with up to 4 girls:** (1) the route slide, chosen by `ENDING_PRIORITY`, written in full with its flavour; (2) one slide per instance, active or left behind, ordered from most to least attended; (3) Mio's slide if she isn't the route. Instance slides stay plain records, with no flavours; only the route slide gets one.
 
 ## Open questions (original text)
 
