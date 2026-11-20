@@ -432,7 +432,7 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 
 ## Decisions (2026-11-19, with Rick)
 
-1. **Odd job:** a Sunday cost can't bite, since Sunday ends the game. Proposed instead: a Saturday shift that costs the festival evening (awaiting Rick's yes).
+1. **Odd job:** a Sunday cost can't bite, since Sunday ends the game. Decided: paying for Tsunagari means a Saturday shift that costs the festival evening.
 2. **Not paying Tsunagari:** Hikari drops to a usage quota of 2 messages per day. The battery still shows and drains normally, plus a usage counter in the UI goes 50% → 100%.
 3. **Memory 2.0 does not clear `askwell_available`:** the homework side still works.
 4. **Rei rebuild:** the company layer still wins. The rebuild lets her cracks show through ("I'm required to suggest you rest. I also just want you to."), and her `AGENTS.md` decides where Saturday's 4 capped messages go. Not every route is a triumph.
