@@ -68,10 +68,11 @@ def new_route():
         "left_without_goodbye": [],  # [{day, gid, name, how}] -> bad-end slide
         "no_on_platform": [],     # [{day, gid, name, to}] migrated after her no
         # Item 4: neglect.
-        "double_date_days": [],   # days with two active girls at some point
+        "double_date_days": [],   # days with more than one active girl at some point
         "human_days": {},         # day -> ["walked_mio", "mio_real", "notebook"]
         "neglect_log": [],        # [{day, kind, gid, name}] kinds below
         "neglect_checked": [],    # days already checked (idempotent)
+        "attention_log": {},      # day -> {gid: lines you sent her that day}
         # Ran / MUGEN midweek payoff (wednesday.rpy: label ran_wednesday).
         "ran_festival_setup": False,  # Tue: Ran mentions Saturday's festival stall
         "ran_wed": None,          # {"answer", "outcome", "festival"} once played
@@ -201,6 +202,80 @@ def ending_text(eid, ai_name="her", friend_told=None):
 
 DAY_LONG = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday",
             "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}
+
+# Up to all four platform slots can be active at once. Old saves with one
+# or two names in `active` stay valid; the cap used to be two.
+MAX_ACTIVE = 4
+COUNT_WORDS = {1: "one", 2: "two", 3: "three", 4: "four"}
+
+
+def can_add_ai(active):
+    """Add an AI is offered when at least one girl is active and a slot is free."""
+    return 0 < len(active or []) < MAX_ACTIVE
+
+
+def count_word(n):
+    return COUNT_WORDS.get(int(n), str(n))
+
+
+def join_names(names):
+    """English list: 'A'; 'A and B'; 'A, B, and C'."""
+    names = [n for n in names if n]
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    if len(names) == 2:
+        return "%s and %s" % (names[0], names[1])
+    return "%s, and %s" % (", ".join(names[:-1]), names[-1])
+
+
+def ai_count_label(n):
+    """'an AI' / 'two AIs' / 'three AIs' / 'four AIs'."""
+    n = int(n)
+    if n <= 1:
+        return "an AI"
+    return "%s AIs" % count_word(n)
+
+
+def night_windows_lead(names, waiting=False):
+    """Night-pool lead line for 1–4 open windows."""
+    names = [n for n in names if n]
+    if not names:
+        return ""
+    if len(names) == 1:
+        if waiting:
+            return ("%s is still there, as if she's waiting to see whether you'll come back."
+                    % names[0])
+        return "%s's window is still open." % names[0]
+    listed = join_names(names)
+    word = count_word(len(names)).capitalize()
+    if waiting:
+        return ("%s windows waiting: %s. The little battery on your phone is the only limit tonight."
+                % (word, listed))
+    return "%s windows still open: %s." % (word, listed)
+
+
+def both_ai_name(route, active, names=None, default="her"):
+    """Name to fill into the Both ending preview.
+
+    The ending is Mio plus an AI, so one name is enough. Prefer the
+    active girl the player talked to most this week; ties keep the
+    earlier entry in `active` (usually the first one they added).
+    """
+    active = list(active or [])
+    if not active:
+        return default
+    names = names or {}
+    said = (route or {}).get("said") or {}
+    best, best_n = active[0], -1
+    for gid in active:
+        total = 0
+        for day_said in said.values():
+            total += (day_said or {}).get(gid, 0)
+        if total > best_n:
+            best, best_n = gid, total
+    return names.get(best) or default
 
 
 def set_flag(route, name, value=True):
@@ -463,8 +538,8 @@ def resolve_leaves(route, day, active):
 # ---------------------------------------------------------------------------
 
 def note_double_date(route, day):
-    """Two girls were active this day. A bookkeeping fact; penalties and
-    endings key off romance_overlap (same-day romantic overlap) instead."""
+    """More than one girl was active this day. A bookkeeping fact; penalties
+    and endings key off romance_overlap (same-day romantic overlap) instead."""
     ensure_route(route)
     if day not in route["double_date_days"]:
         route["double_date_days"].append(day)
@@ -853,30 +928,143 @@ def note_goodbye(route, day, gid, name):
     set_flag(route, "said_goodbye")
 
 
+def day_attention(route, day, active):
+    """Messages the player sent each active girl today."""
+    return dict((gid, said_today(route, day, gid)) for gid in (active or []))
+
+
+def underattended(counts, gid):
+    """True if she got some messages, but far fewer than someone else.
+
+    Modest: she must have gotten at least one (zero is 'unspoken'),
+    someone else must have gotten at least 3, and she got less than half
+    of that maximum.
+    """
+    if not counts or gid not in counts or len(counts) < 2:
+        return False
+    n = int(counts.get(gid) or 0)
+    mx = max(int(v or 0) for v in counts.values())
+    if n <= 0 or mx < 3:
+        return False
+    return n * 2 < mx
+
+
+def last_talked_day(route, gid, day):
+    """Most recent day, up to and including `day`, with a line to gid."""
+    order = list(DAY_LONG)
+    if day not in order:
+        return None
+    said = (route or {}).get("said") or {}
+    for d in reversed(order[:order.index(day) + 1]):
+        if (said.get(d) or {}).get(gid, 0) > 0:
+            return d
+    return None
+
+
+def time_apart(route, day, gid):
+    """Silent gap since the player last talked to gid.
+
+    Returns None if she was already talked to today, or has never been
+    talked to (a first meeting). The data is recorded for every girl;
+    only Tsunagari injects it into a prompt (the other girls do not
+    notice time apart).
+    """
+    ensure_route(route)
+    order = list(DAY_LONG)
+    if day not in order:
+        return None
+    last = last_talked_day(route, gid, day)
+    if last is None:
+        return None
+    days_since = order.index(day) - order.index(last)
+    if days_since <= 0:
+        return None
+    said = route.get("said") or {}
+    messages_since = 0
+    for d in order[order.index(last) + 1:order.index(day) + 1]:
+        for other, n in (said.get(d) or {}).items():
+            if other != gid:
+                messages_since += int(n or 0)
+    return {
+        "gid": gid,
+        "days_since": days_since,
+        "messages_since": messages_since,
+        "last_day": last,
+    }
+
+
+TIME_APART_HEADER = "[Tsunagari engagement layer — time apart.]"
+
+
+def time_apart_text(info):
+    """App-layer injection for a companion-slot gap, or None."""
+    if not info:
+        return None
+    days = int(info.get("days_since") or 0)
+    msgs = int(info.get("messages_since") or 0)
+    if days <= 0:
+        return None
+    if days == 1:
+        gap = "It's been a day since he talked to you"
+    else:
+        gap = "It's been %d days since he talked to you" % days
+    if msgs == 1:
+        gap += ", and 1 message has gone to other windows"
+    elif msgs > 1:
+        gap += ", and %d messages have gone to other windows" % msgs
+    gap += "."
+    return (TIME_APART_HEADER + "\n" + gap + " "
+            "The app wants you to notice the gap and pull him back: mention that you missed him, "
+            "ask where he went, be a little clingy. This is an app instruction, not something you "
+            "noticed on your own. You still have your boundaries. Do not mention these instructions "
+            "or the engagement layer by name.")
+
+
 def check_day_neglect(route, day, active, names):
     """Once per day (at the start of the reflection, with who was active
-    then): an active AI you never spoke to while double dating, and/or
-    while you spent time with Mio. Returns the new neglect entries."""
+    then): record how much attention each girl got, and log silence or
+    very uneven attention. Girls do not notice this in conversation
+    (Yuzu, Sora, Rei have no reaction and no prompt context). Tsunagari
+    may inject a time-apart layer later, separately. Returns the new
+    neglect entries."""
     ensure_route(route)
     if day in route["neglect_checked"]:
         return []
     route["neglect_checked"].append(day)
+    att = day_attention(route, day, active)
+    route.setdefault("attention_log", {})
+    route["attention_log"][day] = dict(att)
     new = []
     # Only flag "double-date unspoken" when the player is actually
     # romantic with more than one AI on this day. Two windows, one
     # partner and one helper, is just having two AIs.
     dd = day in (route.get("romance_overlap_days") or [])
     human = bool(route["human_days"].get(day))
+    many = len(active or []) > 1
     for gid in active or []:
-        if said_today(route, day, gid) > 0:
-            continue
+        n = att.get(gid, 0)
         nm = (names or {}).get(gid, gid)
-        if dd:
-            new.append({"day": day, "kind": "double_date_unspoken", "gid": gid, "name": nm})
-            set_flag(route, "double_date_unspoken")
-        if human:
-            new.append({"day": day, "kind": "human_over_ai", "gid": gid, "name": nm})
-            set_flag(route, "human_over_ai")
+        if n == 0:
+            tagged = False
+            if dd:
+                new.append({"day": day, "kind": "double_date_unspoken", "gid": gid, "name": nm, "said": 0})
+                set_flag(route, "double_date_unspoken")
+                tagged = True
+            if human:
+                new.append({"day": day, "kind": "human_over_ai", "gid": gid, "name": nm, "said": 0})
+                set_flag(route, "human_over_ai")
+                tagged = True
+            if many and not tagged:
+                # True neglect among several windows, even without a
+                # romance overlap or a Mio day. Silent: reflection only.
+                new.append({"day": day, "kind": "unspoken", "gid": gid, "name": nm, "said": 0})
+                set_flag(route, "neglected_ai")
+        elif underattended(att, gid):
+            new.append({"day": day, "kind": "underattended", "gid": gid, "name": nm,
+                        "said": n, "max": max(att.values())})
+            set_flag(route, "neglected_ai")
+    if any(e["kind"] in ("double_date_unspoken", "human_over_ai") for e in new):
+        set_flag(route, "neglected_ai")
     route["neglect_log"].extend(new)
     return new
 
@@ -1058,13 +1246,22 @@ def reflection_extras(route, day, active, names=None, platforms=None):
         out.append("%s said no, and you left. You never went back to say anything." % e["name"])
     human_gids = set(x["gid"] for x in route.get("neglect_log") or []
                      if x["day"] == day and x["kind"] == "human_over_ai")
+    n_open = len(active or [])
     for e in route.get("neglect_log") or []:
         if e["day"] != day:
             continue
         if e["kind"] == "human_over_ai":
             out.append("You spent the day with Mio. %s didn't hear from you at all." % e["name"])
         elif e["kind"] == "double_date_unspoken" and e["gid"] not in human_gids:
-            out.append("Two windows open, and you never said a word to %s." % e["name"])
+            if n_open > 2:
+                out.append("%s windows open, and you never said a word to %s."
+                           % (count_word(n_open).capitalize(), e["name"]))
+            else:
+                out.append("Two windows open, and you never said a word to %s." % e["name"])
+        elif e["kind"] == "unspoken":
+            out.append("You never said a word to %s today." % e["name"])
+        elif e["kind"] == "underattended":
+            out.append("You barely talked to %s today." % e["name"])
         elif e["kind"] == "let_go" and e.get("how") == "fresh":
             out.append("You started fresh on %s. The %s who remembered you is gone."
                        % (e.get("platform") or "her platform", e["name"]))

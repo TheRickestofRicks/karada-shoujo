@@ -146,9 +146,9 @@ label nightly_reflection(day):
                     _rf_items.append(("Change " + gname(_g) + "'s " + ks_surface(_g), ("preset", _g)))
                 else:
                     _rf_items.append((ks_unreachable_note(_g), None))
-            if active:
+            if ks_can_switch():
                 _rf_items.append(("Move her somewhere else", ("switch", None)))
-            if len(active) < 2:
+            if ks_can_add_ai() or not active:
                 _rf_items.append(("Add an AI" if active else "Download someone", ("add", None)))
             if active:
                 _rf_items.append(("Let someone go", ("drop", None)))

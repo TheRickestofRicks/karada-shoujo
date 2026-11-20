@@ -612,10 +612,7 @@ label evening_wednesday:
         return
     if ks_companion_active() and len(active) > 1:
         call hikari_phone_notify("evening")
-    if len(active) > 1:
-        $ _lead = "Two windows still open: %s and %s." % (gname(active[0]), gname(active[1]))
-    else:
-        $ _lead = "%s's window is still open." % gname(active[0])
+    $ _lead = ks_night_lead()
     call message_pool("night", _lead, template=WED_EVENING_SCENE, scene_key="wed_evening")
     python:
         for _g in list(active):

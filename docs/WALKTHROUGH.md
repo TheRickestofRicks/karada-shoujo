@@ -58,11 +58,11 @@ Talk returns to this menu; every other option still ends the break (one action, 
 
 | Option | Condition | Leads to |
 |---|---|---|
-| Talk to [name] | one entry per reachable girl in `active` (first two, which is the cap). While `yuzu_machine_down` is set, Yuzu is a caption ("the desktop is off"), not a button | `phone_talk(gid, when)` → `girl_chat` (3 turns), then back to this menu |
+| Talk to [name] | one entry per reachable girl in `active` (up to all four). While `yuzu_machine_down` is set, Yuzu is a caption ("the desktop is off"), not a button | `phone_talk(gid, when)` → `girl_chat` (3 turns), then back to this menu |
 | Put it away and keep going | always | end the break |
 | Change someone's prompt | `active` | `change_prompt("phone")` → `choose_preset`, then end the break |
-| Switch to someone else | `active` | `switch_girl(when)`, then end the break |
-| Add an AI | `0 < len(active) < 2` | `add_girl(when)` (3 turns), then end the break |
+| Switch to someone else | `ks_can_switch()` (there is a free, reachable slot) | `switch_girl(when)`, then end the break |
+| Add an AI | `0 < len(active) < 4` (`ks_can_add_ai`) | `add_girl(when)` (3 turns), then end the break |
 | Download someone | `not active` | `add_girl(when)`, then end the break |
 | Stop seeing one of them | `len(active) > 1` | `drop_girl` (cannot drop the last girl here), then end the break |
 
@@ -70,7 +70,7 @@ Talk returns to this menu; every other option still ends the break (one action, 
 
 Monday late morning is different: Talk spends 1 from the morning pool of 4 and returns after a single exchange (an empty box spends nothing). The battery icon stays visible on the menu. Tuesday and Wednesday late-morning breaks pass `allow_talk=False`.
 
-**Switch** (`script.rpy`, `label switch_girl`): pick who you leave (if two are active) and a destination not already active. A down desktop slot is listed as a caption, not a destination. Arrival options come from `ks_format_arrival_options` (the same rules as `ks_can_migrate_into` / `ks_migrate`):
+**Switch** (`script.rpy`, `label switch_girl`): pick who you leave (if more than one is active) and a destination not already active. Hidden when every other slot is already active or unreachable. A down desktop slot is listed as a caption, not a destination. Arrival options come from `ks_format_arrival_options` (the same rules as `ks_can_migrate_into` / `ks_migrate`):
 
 - "Bring [her] with you" → `how == "migrate"`: `ks_migrate`, append to `migrations`, `ks_note_left` / `ks_note_migration`, clear `mirror_flags[dst]`, `activate(..., migrated_from=src)`. Same preset *family* carries over; otherwise the destination default (`PRESET_DEFAULTS`). If she had said no *today*, migrating sets flag `no_on_platform` and the note "Didn't respect her no on the platform." **Tsunagari is never a migrate destination** (closed catalogue caption instead of this button). Hikari leaving Tsunagari takes only `LOCKED_PERSONA_IMPRESSION`, never `PERSONA_CORE` or `PERSONA_FLAVOUR`.
 - "Go back to [name], who's already there" — only if `ks_has_history(dst)` (the slot has messages). Still available for an existing Hikari.
@@ -170,9 +170,9 @@ Day spine (`script.rpy:90–100`):
 
 ### Lunch with Daichi — `label lunch_daichi` (`script.rpy:282`)
 
-Uses `active[0]` as "the" girl (and `active[1]` if a double date). Always attempts `hikari_phone_notify("lunch")`.
+Uses the first active girl as "the" girl, and lists every active name if there is more than one (`ks_join_names`). Always attempts `hikari_phone_notify("lunch")`.
 
-**If two girls are active** or one: first choice is still truth / deflect / lie.
+**If more than one girl is active** or one: first choice is still truth / deflect / lie.
 
 | Choice | Sets | Notes |
 |---|---|---|
@@ -391,7 +391,7 @@ The narration: *"Night. Your feet hurt. Your essay for Kurosawa is a blank page 
 
 **Thursday/Friday hook (unwritten):** the essay is due Friday. Kurosawa can tell when "nobody was there." Intended flavour, not in the tree: `self` still has mistakes, so somebody was there; `askwell` is too clean, even in your handwriting; `girl_help` is still your work, maybe a little clearer. `teacher_answer` can flavour that scene.
 
-Then, if no one is active, return. Else `message_pool("night")` with `TUE_EVENING_SCENE`: a shared pool of 4, then bed. Flag `evening_turns_tue` is how many messages that girl got. Hikari evening toast only if two AIs are active.
+Then, if no one is active, return. Else `message_pool("night")` with `TUE_EVENING_SCENE`: a shared pool of 4, then bed. The lead line lists every open window (`ks_night_lead`). Flag `evening_turns_tue` is how many messages that girl got. Hikari evening toast only if more than one AI is active.
 
 ### End of Tuesday — `label tbc_wednesday` (`tuesday.rpy:552`)
 
@@ -737,7 +737,7 @@ If eligible, score = `2 × (number of balanced days)` + 2 if `mio_real` + 2 if `
 
 A **balanced day** is a day in `human_days` (kinds `mio_real`, `walked_mio`, `notdate`) on which you also sent at least one line to an AI (`ks_story.balanced_days`). An upgrade Wednesday with no Mio time cannot be balanced.
 
-Written text: `ks_story.ENDINGS["both"]` (`ks_story.py:99`). Festival Saturday; Mio holds your phone. If you told Daichi the truth, she introduces herself to the AI; otherwise she says "So this is who you keep smiling at," and you tell her the truth then. The preview uses **`active[0]`'s name only**, even when two AIs are active (`routing.rpy:222`). Both is Mio + an AI and does **not** require `romance_overlap`.
+Written text: `ks_story.ENDINGS["both"]` (`ks_story.py:99`). Festival Saturday; Mio holds your phone. If you told Daichi the truth, she introduces herself to the AI; otherwise she says "So this is who you keep smiling at," and you tell her the truth then. The preview fills in one AI's name: the active girl the player talked to most this week, with ties going to the earlier entry in `active` (`ks_story.both_ai_name`). Both is Mio + an AI and does **not** require `romance_overlap`.
 
 **Tie-break** (`ks_story.leading_ending`, `ks_story.ENDING_PRIORITY`):
 

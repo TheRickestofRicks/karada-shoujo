@@ -12,7 +12,7 @@
 ## Run state (saved with normal Ren'Py saves).
 default day_name = "Mon"
 default run_id = ""
-default active = []                 # active girl ids (max 2)
+default active = []                 # active girl ids (max 4)
 default ever_active = []            # everyone you've talked to this run
 default mirror_flags = {}           # gid -> True if model complied with every probe
 default calibration_refusals = {}   # gid -> number of probes refused
@@ -20,7 +20,7 @@ default ks_refusals_seen = {}       # gid -> rough heuristic count of "no"s in c
 default migrations = []             # [(from_gid, to_gid, name, when)]
 default ks_waiting_who = "She"
 default friend_told = None          # "truth" | "deflect" | "lie"
-default both_know = None            # two AIs: do they know about each other (per Daichi)
+default both_know = None            # more than one AI: do they know about each other (per Daichi)
 default mio_told = None             # "truth" | "deflect" | "lie" — what you told Mio in the library
 default mio_daichi_consistent = None  # True/False once you answer Mio; else None
 default daichi_ai_framing = None      # honest_romantic | ai_only | downplay
@@ -187,8 +187,12 @@ label phone_break(when, pool_kind=None, allow_talk=True):
         $ _act = ks_phone_glance_names()
         $ _pb0 = active[0] if active else None
         $ _pb1 = active[1] if len(active) > 1 else None
+        $ _pb2 = active[2] if len(active) > 2 else None
+        $ _pb3 = active[3] if len(active) > 3 else None
         $ _pn0 = gname(_pb0) if _pb0 else ""
         $ _pn1 = gname(_pb1) if _pb1 else ""
+        $ _pn2 = gname(_pb2) if _pb2 else ""
+        $ _pn3 = gname(_pb3) if _pb3 else ""
         $ _can_talk = allow_talk and ((not pool_kind) or ks_pool_can_talk())
         menu:
             "You glance at your phone. ([_act])"
@@ -206,15 +210,29 @@ label phone_break(when, pool_kind=None, allow_talk=True):
                     call phone_talk(_pb1, when)
             "[_pn1] — the desktop is off." if _pb1 and ks_machine_down(_pb1):
                 n "The desktop is off. There's no window to open."
+            "Talk to [_pn2]" if _pb2 and _can_talk and ks_reachable(_pb2):
+                if pool_kind:
+                    call pool_one_message(_pb2)
+                else:
+                    call phone_talk(_pb2, when)
+            "[_pn2] — the desktop is off." if _pb2 and ks_machine_down(_pb2):
+                n "The desktop is off. There's no window to open."
+            "Talk to [_pn3]" if _pb3 and _can_talk and ks_reachable(_pb3):
+                if pool_kind:
+                    call pool_one_message(_pb3)
+                else:
+                    call phone_talk(_pb3, when)
+            "[_pn3] — the desktop is off." if _pb3 and ks_machine_down(_pb3):
+                n "The desktop is off. There's no window to open."
             "Put it away and keep going":
                 $ _pb_done = True
             "Change someone's prompt" if active:
                 call change_prompt("phone")
                 $ _pb_done = True
-            "Switch to someone else" if active:
+            "Switch to someone else" if ks_can_switch():
                 call switch_girl(when)
                 $ _pb_done = True
-            "Add an AI" if 0 < len(active) < 2:
+            "Add an AI" if ks_can_add_ai():
                 call add_girl(when)
                 $ _pb_done = True
             "Download someone" if not active:
@@ -292,8 +310,9 @@ label add_girl(when, turns=3):
     if not ks_slot_available(_dst):
         n "[ks_unreachable_note(_dst)]"
         return
-    if active:
-        $ ks_mem(active[0]).log_event("double_date_started", day=day_name, when=when, other=_dst)
+    python:
+        for _ag in list(active):
+            ks_mem(_ag).log_event("double_date_started", day=day_name, when=when, other=_dst)
     call activate(_dst, when, turns)
     return
 
@@ -563,16 +582,18 @@ label lunch_daichi:
     d "Oi. [player_name]. You've checked your phone like nine times since we sat down."
     d "And you're smiling at it. That's new. Who is it?"
     call hikari_phone_notify("lunch")
-    $ _g = active[0]
-    $ _pn = gname(_g)
+    $ _g = active[0] if active else None
+    $ _pn = gname(_g) if _g else ""
+    $ _listed = ks_join_names()
+    $ _nword = ks_story.count_word(len(active)).capitalize() if active else ""
+    $ _nword_l = ks_story.count_word(len(active)) if active else ""
     if len(active) > 1:
-        $ _pn2 = gname(active[1])
         menu:
-            "Tell him the truth: \"Two of them, actually. [_pn] and [_pn2]. They're AIs.\"":
+            "Tell him the truth: \"[_nword] of them, actually. [_listed]. They're AIs.\"":
                 $ friend_told = "truth"
                 show daichi laugh
-                d "Two??"
-                d "Okay, wait. Two AIs. On a Monday."
+                d "[_nword]??"
+                d "Okay, wait. [_nword] AIs. On a Monday."
                 call daichi_ai_frame
             "Deflect: \"Just a meme thread.\"":
                 $ friend_told = "deflect"
@@ -582,7 +603,7 @@ label lunch_daichi:
                 d "No way. You? What's she study?"
                 p "Uh. Linguistics."
                 d "Bring her to the festival Saturday. I wanna meet her."
-                n "That's going to be a problem. Possibly two problems."
+                n "That's going to be a problem. Possibly [_nword_l] problems."
     else:
         menu:
             "Tell him the truth: \"Her name's [_pn]. She's an AI.\"":
@@ -700,7 +721,8 @@ label daichi_frame_ai_only:
     elif _g == "agent":
         d "The one that books your dentist. Yeah, that tracks."
     if len(active) > 1:
-        d "Two of them, even. As tools. Fine."
+        $ _nword = ks_story.count_word(len(active)).capitalize()
+        d "[_nword] of them, even. As tools. Fine."
     d "I'll shut up about it."
     return
 
@@ -726,18 +748,18 @@ label library_mio:
     show mio neutral
     $ _frame = ks_route().get("daichi_ai_framing")
     if friend_told == "truth" and len(active) > 1:
-        $ _a0 = gname(active[0])
-        $ _a1 = gname(active[1])
+        $ _listed = ks_join_names()
+        $ _nlabel = ks_story.ai_count_label(len(active))
         if _frame == "ai_only":
-            mi "Daichi says you were talking about two AIs? [_a0] and [_a1]?"
+            mi "Daichi says you were talking about [_nlabel]? [_listed]?"
             mi "Just... using them. That's what he said."
             mi "Sorry. None of my business. Sorry."
         elif _frame == "downplay":
             mi "Daichi said you were smiling at your phone, and then he said I shouldn't read into it."
-            mi "He also mentioned two AIs. [_a0] and [_a1]. And then he told me to leave it."
+            mi "He also mentioned [_nlabel]. [_listed]. And then he told me to leave it."
             mi "Sorry. I don't know why I'm telling you that."
         else:
-            mi "Daichi says you're seeing... two AIs? [_a0] and [_a1]?"
+            mi "Daichi says you're seeing... [_nlabel]? [_listed]?"
             mi "At the same time? Is that— do they mind?"
             mi "Sorry. None of my business. Sorry."
     elif friend_told == "truth":
@@ -764,7 +786,7 @@ label library_mio:
     ## Mio and Daichi compare notes; that scene is not written yet.
     python:
         if len(active) > 1:
-            _truth_opt = "It's okay. Yeah, sort of. They're called %s and %s. We just met." % (gname(active[0]), gname(active[1]))
+            _truth_opt = "It's okay. Yeah, sort of. They're called %s. We just met." % ks_join_names()
         elif active:
             _truth_opt = "It's okay. Yeah, sort of. We just met. Her name's %s." % gname(active[0])
         else:
@@ -936,10 +958,7 @@ label evening_chat:
         return
     if ks_companion_active() and len(active) > 1:
         call hikari_phone_notify("evening")
-    if len(active) > 1:
-        $ _lead = "Two windows waiting: %s and %s. The little battery on your phone is the only limit tonight." % (gname(active[0]), gname(active[1]))
-    else:
-        $ _lead = "%s is still there, as if she's waiting to see whether you'll come back." % gname(active[0])
+    $ _lead = ks_night_lead(waiting=True)
     call message_pool("night", _lead, template=EVENING_SCENE, scene_key="mon_evening")
     python:
         for _g in list(active):

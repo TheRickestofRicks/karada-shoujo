@@ -139,6 +139,8 @@ label class_kurosawa:
             ra "You run one, though. Askwell? The homework bot? With all the guardrails?"
         else:
             ra "You run one, though. Relay? You let an agent read your email? Brave."
+        if len(active) > 1:
+            ra "Wait, more than one? Okay."
         if ks_any_family("romance"):
             ra "Let me guess. Girlfriend mode. Everybody's is girlfriend mode."
     else:
@@ -230,7 +232,8 @@ label lunch_kenta:
     if friend_told == "truth":
         if _frame == "ai_only":
             if len(active) > 1:
-                ke "Daichi says you run two AIs? Like, you just use them. Not... dating them."
+                $ _nlabel = ks_story.ai_count_label(len(active))
+                ke "Daichi says you run [_nlabel]? Like, you just use them. Not... dating them."
             elif active:
                 ke "Daichi says you run an AI? Like, you just use it. Not... dating it."
             else:
@@ -242,7 +245,8 @@ label lunch_kenta:
                 ke "An AI, he said. Then he said to leave it."
             ke "So I'm leaving it."
         elif len(active) > 1:
-            ke "Daichi says you're seeing {i}two{/i} of them? Like, the AIs themselves?"
+            $ _nword = ks_story.count_word(len(active))
+            ke "Daichi says you're seeing {i}[_nword]{/i} of them? Like, the AIs themselves?"
             ke "Okay, that's honestly more honest than what I'm doing."
         elif active:
             ke "Daichi says you're dating one? Like, the AI itself? Not using it, dating it?"
@@ -665,10 +669,7 @@ label evening_tuesday:
         return
     if ks_companion_active() and len(active) > 1:
         call hikari_phone_notify("evening")
-    if len(active) > 1:
-        $ _lead = "Two windows still open: %s and %s." % (gname(active[0]), gname(active[1]))
-    else:
-        $ _lead = "%s's window is still open." % gname(active[0])
+    $ _lead = ks_night_lead()
     call message_pool("night", _lead, template=TUE_EVENING_SCENE, scene_key="tue_evening")
     python:
         for _g in list(active):

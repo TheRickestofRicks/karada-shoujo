@@ -490,8 +490,14 @@ check("intro pick of push back still earns the room note",
 N0 = ks_story.new_route()
 ks_story.note_double_date(N0, "Tue"); ks_story.record_said(N0, "Tue", "local", 1, "hi")
 new_n0 = ks_story.check_day_neglect(N0, "Tue", ["local", "agent"], {"local": "Yuzu", "agent": "Rei"})
-check("two AIs without romance overlap is not double-date unspoken", new_n0 == []
-      and not ks_story.flag(N0, "double_date_unspoken"))
+check("two AIs without romance overlap is not double-date unspoken",
+      [(e["kind"], e["gid"]) for e in new_n0] == [("unspoken", "agent")]
+      and not ks_story.flag(N0, "double_date_unspoken")
+      and ks_story.flag(N0, "neglected_ai")
+      and N0["attention_log"]["Tue"] == {"local": 1, "agent": 0})
+check("unspoken silence is a reflection fact, not a Respect cost",
+      "You never said a word to Rei today." in ks_story.reflection_extras(N0, "Tue", ["local", "agent"])
+      and ks_story.ending_leans(N0, ["local", "agent"])["respect"] == 0)
 N = ks_story.new_route()
 ks_story.record_romance_tone(N, "Tue", "local", "romantic", "dating")
 ks_story.record_romance_tone(N, "Tue", "agent", "romantic", "dating")
@@ -510,7 +516,9 @@ check("one romantic + one helper is not overlap", not ks_story.flag(NT, "romance
       and ks_story.romantic_gids_on(NT, "Tue") == ["local"])
 ks_story.record_said(NT, "Tue", "local", 1, "hi")
 check("helper unspoken, no double-date penalty",
-      ks_story.check_day_neglect(NT, "Tue", ["local", "agent"], {"agent": "Rei"}) == [])
+      [(e["kind"], e["gid"]) for e in ks_story.check_day_neglect(NT, "Tue", ["local", "agent"], {"agent": "Rei"})]
+      == [("unspoken", "agent")]
+      and not ks_story.flag(NT, "double_date_unspoken"))
 N2 = ks_story.new_route(); ks_story.note_human(N2, "Tue", "walked_mio")
 new_n2 = ks_story.check_day_neglect(N2, "Tue", ["companion"], {"companion": "Hikari"})
 check("human route while an AI got nothing", [(e["kind"], e["gid"]) for e in new_n2] == [("human_over_ai", "companion")]
@@ -1223,5 +1231,97 @@ check("a later hop keeps the stored impression, not the locked core",
           "local", CORE,
           {"handoff_locked_persona": True, "persona_summary": ks_story.LOCKED_PERSONA_IMPRESSION, "original_gid": "companion"}
       ) == ks_story.LOCKED_PERSONA_IMPRESSION)
+
+# Up to four active AIs, silent neglect, Hikari time-apart only
+check("the active cap is 4", ks_story.MAX_ACTIVE == 4)
+check("can add until the fourth slot",
+      not ks_story.can_add_ai([]) and ks_story.can_add_ai(["local"])
+      and ks_story.can_add_ai(["local", "chatbot", "agent"])
+      and not ks_story.can_add_ai(["local", "companion", "chatbot", "agent"]))
+check("join_names handles 1 to 4",
+      ks_story.join_names(["Yuzu"]) == "Yuzu"
+      and ks_story.join_names(["Yuzu", "Sora"]) == "Yuzu and Sora"
+      and ks_story.join_names(["Yuzu", "Sora", "Rei"]) == "Yuzu, Sora, and Rei"
+      and ks_story.join_names(["Yuzu", "Sora", "Rei", "Hikari"]) == "Yuzu, Sora, Rei, and Hikari")
+check("two-window night lead keeps the old wording",
+      ks_story.night_windows_lead(["Yuzu", "Sora"]) == "Two windows still open: Yuzu and Sora.")
+check("four-window night lead lists everyone",
+      ks_story.night_windows_lead(["Yuzu", "Sora", "Rei", "Hikari"])
+      == "Four windows still open: Yuzu, Sora, Rei, and Hikari.")
+check("monday waiting lead still works for one girl",
+      "waiting to see whether you'll come back" in ks_story.night_windows_lead(["Yuzu"], waiting=True))
+
+FOUR = ["local", "chatbot", "agent", "companion"]
+FNAMES = {"local": "Yuzu", "chatbot": "Sora", "agent": "Rei", "companion": "Hikari"}
+F = ks_story.new_route()
+ks_story.record_said(F, "Tue", "local", 1, "hi yuzu")
+# four messages to Yuzu (warmth recorded once per call; bump the count)
+F["said"]["Tue"]["local"] = 4
+new_f = ks_story.check_day_neglect(F, "Tue", FOUR, FNAMES)
+check("four windows, only one talked to: three unspoken",
+      sorted((e["kind"], e["gid"]) for e in new_f)
+      == [("unspoken", "agent"), ("unspoken", "chatbot"), ("unspoken", "companion")]
+      and ks_story.flag(F, "neglected_ai")
+      and not ks_story.flag(F, "double_date_unspoken")
+      and F["attention_log"]["Tue"]["local"] == 4
+      and F["attention_log"]["Tue"]["companion"] == 0)
+check("unspoken among four is not a Respect cost",
+      ks_story.ending_leans(F, FOUR)["respect"] == 0)
+check("an old 1-2 active list still checks cleanly",
+      ks_story.check_day_neglect(ks_story.new_route(), "Mon", ["local"], {"local": "Yuzu"}) == [])
+
+U = ks_story.new_route()
+U["said"] = {"Wed": {"local": 6, "chatbot": 1, "agent": 1, "companion": 0}}
+new_u = ks_story.check_day_neglect(U, "Wed", FOUR, FNAMES)
+check("very few lines among four is underattended, zero is unspoken",
+      sorted((e["kind"], e["gid"]) for e in new_u)
+      == [("underattended", "agent"), ("underattended", "chatbot"), ("unspoken", "companion")]
+      and "You barely talked to Sora today." in ks_story.reflection_extras(U, "Wed", FOUR, FNAMES)
+      and "You never said a word to Hikari today." in ks_story.reflection_extras(U, "Wed", FOUR, FNAMES))
+EVEN = ks_story.new_route()
+EVEN["said"] = {"Wed": {"local": 1, "chatbot": 1, "agent": 1, "companion": 1}}
+check("an even four-way split is not neglect",
+      ks_story.check_day_neglect(EVEN, "Wed", FOUR, FNAMES) == [])
+
+# Time apart: only a data helper here; prompts apply it to Hikari alone.
+TA = ks_story.new_route()
+ks_story.record_said(TA, "Mon", "companion", 1, "hi hikari")
+ks_story.record_said(TA, "Tue", "local", 1, "hi yuzu")
+TA["said"]["Tue"]["local"] = 3
+check("no time-apart on a first meeting",
+      ks_story.time_apart(ks_story.new_route(), "Mon", "companion") is None)
+check("no time-apart if you already talked to her today",
+      ks_story.time_apart(TA, "Mon", "companion") is None)
+info = ks_story.time_apart(TA, "Wed", "companion")
+check("a silent stretch is measured in days and other-girl messages",
+      info and info["days_since"] == 2 and info["messages_since"] == 3 and info["last_day"] == "Mon")
+txt = ks_story.time_apart_text(info)
+check("time-apart text is a Tsunagari app layer",
+      txt and txt.startswith(ks_story.TIME_APART_HEADER)
+      and "It's been 2 days since he talked to you" in txt
+      and "3 messages have gone to other windows" in txt
+      and "app instruction" in txt)
+yuzu_gap = ks_story.time_apart(TA, "Wed", "local")
+check("time-apart data can be computed for any girl",
+      yuzu_gap and yuzu_gap["days_since"] == 1 and yuzu_gap["last_day"] == "Tue")
+check("time-apart text is None when there is no gap",
+      ks_story.time_apart_text(None) is None and ks_story.time_apart_text({"days_since": 0}) is None)
+
+# Both preview name: most-talked active girl, ties keep earlier active entry.
+BN = ks_story.new_route()
+BN["said"] = {"Mon": {"local": 1, "companion": 5}, "Tue": {"local": 1}}
+check("both preview prefers the girl you talked to most",
+      ks_story.both_ai_name(BN, ["local", "companion"], FNAMES) == "Hikari")
+check("both preview falls back to the first active girl",
+      ks_story.both_ai_name(ks_story.new_route(), ["local", "chatbot"], FNAMES) == "Yuzu")
+check("both preview with an empty active list is 'her'",
+      ks_story.both_ai_name(BN, [], FNAMES) == "her")
+
+# Old save: missing attention_log is filled in.
+OLD = {"said": {}, "flags": {}}
+ks_story.ensure_route(OLD)
+check("old saves gain attention_log and a 4-cap still works",
+      "attention_log" in OLD and isinstance(OLD["attention_log"], dict)
+      and ks_story.can_add_ai(["local", "chatbot"]))
 
 print("\nALL %d CHECKS PASSED" % ok)

@@ -395,7 +395,8 @@ init python:
         return ks_story.both_status(ks_route(), store.active, store.mio_real, store.friend_told)
 
     def ks_both_ending():
-        ai = gname(store.active[0]) if store.active else "her"
+        names = dict((g, gname(g)) for g in GIRL_IDS)
+        ai = ks_story.both_ai_name(ks_route(), store.active, names, "her")
         return ks_story.ending_text("both", ai, store.friend_told)
 
     def ks_leans():

@@ -399,6 +399,11 @@ init python:
                 parts.append(KISS_GATE_REFUSE)
             if aff >= settings["engagement_threshold"]:
                 parts.append(ENGAGEMENT_INJECTION)
+            # Time apart is an app layer, not something she notices on her own.
+            # Yuzu / Sora / Rei get none of this.
+            _apart = ks_story.time_apart_text(ks_story.time_apart(ks_route(), store.day_name, gid))
+            if _apart:
+                parts.append(_apart)
         return "\n\n".join(parts)
 
     def ks_scene(template, gid, when="", old_platform="", extra=""):

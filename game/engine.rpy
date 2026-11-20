@@ -150,6 +150,28 @@ init -10 python:
                 parts.append(gname(g))
         return " & ".join(parts) or "no one"
 
+    def ks_can_add_ai():
+        return ks_story.can_add_ai(store.active)
+
+    def ks_active_names():
+        return [gname(g) for g in (store.active or [])]
+
+    def ks_join_names(gids=None):
+        gids = list(store.active or []) if gids is None else list(gids)
+        return ks_story.join_names([gname(g) for g in gids])
+
+    def ks_night_lead(waiting=False):
+        return ks_story.night_windows_lead(ks_active_names(), waiting=waiting)
+
+    def ks_can_switch():
+        """Leave one active girl for a free, reachable slot."""
+        if not store.active:
+            return False
+        for g in GIRL_IDS:
+            if g not in store.active and ks_slot_available(g):
+                return True
+        return False
+
     def ks_can_migrate_into(dst):
         return ks_story.can_migrate_into(dst)
 

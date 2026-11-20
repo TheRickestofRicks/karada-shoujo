@@ -1089,7 +1089,7 @@ testcase bookstore_present:
 
 
 ## Phone-break Talk: open the ordinary LLM window mid-day, log it like
-## any other chat, and return to the phone menu. When two AIs are active, each
+## any other chat, and return to the phone menu. When more than one AI is active, each
 ## active girl gets her own "Talk to [name]" entry.
 testcase phone_talk:
     click "Start"
@@ -2662,4 +2662,172 @@ testcase tsunagari_closed_migrate:
     advance until screen "choice" timeout 30.0
     $ assert active == ["chatbot"]
     $ print("KARADA_TEST: tsunagari_closed_migrate refused bring-into-app")
+    exit
+
+
+## All four AIs active through Thursday. Shared battery, silent neglect
+## (Yuzu/Sora/Rei do not notice; only Hikari's app injects time apart).
+testcase thu_all_four:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Run your own"
+    advance until screen "preset_select" timeout 60.0
+    click "Be yourself"
+    advance until screen "input" timeout 60.0
+    type "hi Yuzu"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ assert active == ["local", "chatbot"]
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "Yeah. I like them."
+    advance until screen "choice" timeout 30.0
+    click "Not exactly"
+    advance until screen "choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "agent that does things"
+    advance until screen "preset_select" timeout 60.0
+    click "Ask before acting"
+    advance until screen "input" timeout 60.0
+    type "hi Rei"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ assert active == ["local", "chatbot", "agent"]
+    click "always the last one"
+    advance until screen "choice" timeout 30.0
+    click "Which book needed"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Message Yuzu"
+    advance until screen "input" timeout 30.0
+    type "good night"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "the companion app"
+    advance until screen "preset_select" timeout 60.0
+    click "Leave it empty"
+    advance until screen "input" timeout 60.0
+    type "hi Hikari"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert active == ["local", "chatbot", "agent", "companion"], active
+    $ assert not ks_can_add_ai() and not ks_can_switch()
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "Doesn't that get boring?"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Sure. Let's go."
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Silence it."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone away"
+    advance until screen "choice" timeout 30.0
+    click "What's it like"
+    advance until eval (ks_shot == "library") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Have you written one"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Write it yourself."
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    $ _kinds = sorted(set(e["kind"] for e in ks_route()["neglect_log"] if e["day"] == "Tue"))
+    $ assert "human_over_ai" in _kinds or "unspoken" in _kinds, ks_route()["neglect_log"]
+    $ assert ks_story.flag(ks_route(), "neglected_ai")
+    click "No. Goodnight."
+    advance until label "wednesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Not today"
+    advance until screen "choice" timeout 30.0
+    click "Go to class"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Can't today, sorry."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Can't today."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "thursday" timeout 90.0
+    advance until screen "hikari_toast" timeout 60.0
+    advance until screen "choice" timeout 60.0
+    $ assert sorted(active) == ["agent", "chatbot", "companion", "local"], active
+    $ assert ks_route()["platform_rules"].get("chatbot") == "askwell_update"
+    $ assert ks_route()["platform_rules"].get("agent") == "relay_update"
+    $ assert ks_route().get("tsunagari_tanabata_event")
+    $ assert ks_route().get("yuzu_thu_event") in ("restored", "lost")
+    $ assert not ks_machine_down("local")
+    $ _hp = ks_system_prompt("companion")
+    $ assert ks_story.TIME_APART_HEADER in _hp, _hp
+    $ assert "It's been" in _hp and "since he talked to you" in _hp
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("local")
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("chatbot")
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("agent")
+    click "Message Hikari"
+    advance until screen "input" timeout 60.0
+    type "hey, I'm back"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 60.0
+    click "Just get to class."
+    advance until screen "choice" timeout 30.0
+    click "I can't tonight."
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert len(active) == 4
+    click "No. Goodnight."
+    advance until label "tbc_friday" timeout 30.0
+    $ print("KARADA_TEST: thu_all_four reached Friday with four active")
     exit
