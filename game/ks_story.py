@@ -119,6 +119,14 @@ def new_route():
         "mio_ai_framing": None,
         "framing_honest": None,   # vs the actual route (romance_tone / romance presets)
         "preset_families": {},    # gid -> family of the held preset (for honesty before night)
+        # Friday (fallout). See docs/FRIDAY-SUNDAY.md.
+        "kurosawa_handover": None,   # self / askwell / girl_help / none, once the essays come back
+        "fri_mio_beat": None,        # True if you sat with Mio at lunch, False if not, None if N/A
+        "fri_walked_mio": None,      # True / False if Mio offered the walk
+        "sora_fri_choice": None,     # door / assistant (under askwell_update), None if N/A
+        "sora_door_reprise": False,  # you asked the door / girlfriend question again on Friday
+        "rei_agents_rebuild": None,  # True rebuilt AGENTS.md, False kept the efficient version
+        "yuzu_fri_filled": False,    # you gave lost-Yuzu a telling of the week to hold
     }
 
 
@@ -341,12 +349,17 @@ def convert_preset(presets, src_gid, src_pid, dst_gid, defaults):
     return default_preset(presets, dst_gid, defaults), False
 
 
+# Sources that are the player rewriting her (count toward "you rewrote her").
+# "rebuild" is Friday's AGENTS.md rebuild with Rei.
+PLAYER_REWRITE_SOURCES = ("phone", "reflection", "rebuild")
+
+
 def record_preset(route, presets, gid, new_pid, day, source, prev_pid=None):
     """Apply a preset choice to the route tallies. Returns the history entry.
 
     source: "intro" (first pick on meeting her), "phone", "reflection",
-    "migration" (auto-converted), "reset" (slot wiped).
-    Only player rewrites ("phone" / "reflection") after a first pick count
+    "migration" (auto-converted), "reset" (slot wiped), "rebuild" (Friday).
+    Only player rewrites ("phone" / "reflection" / "rebuild") after a first pick count
     toward preset_changes ("you rewrote her N times").
     """
     ensure_route(route)
@@ -358,11 +371,11 @@ def record_preset(route, presets, gid, new_pid, day, source, prev_pid=None):
     route["presets"][gid] = new_pid
     route.setdefault("preset_families", {})[gid] = p.get("family")
     route["preset_history"].append(entry)
-    if source in ("phone", "reflection") and prev_pid is not None and prev_pid != new_pid:
+    if source in PLAYER_REWRITE_SOURCES and prev_pid is not None and prev_pid != new_pid:
         route["preset_changes"][gid] = route["preset_changes"].get(gid, 0) + 1
-    if source in ("intro", "phone", "reflection") and prev_pid != new_pid and lean in route["lean_set"]:
+    if source in ("intro",) + PLAYER_REWRITE_SOURCES and prev_pid != new_pid and lean in route["lean_set"]:
         route["lean_set"][lean] += weight
-    if (source in ("intro", "phone", "reflection") and prev_pid != new_pid
+    if (source in ("intro",) + PLAYER_REWRITE_SOURCES and prev_pid != new_pid
             and p.get("family") == "pushback"):
         # Rick: a change TO "Allowed to push back" gets a special note.
         route["room_to_disagree"].append({"day": day, "gid": gid, "source": source})
@@ -433,12 +446,19 @@ def jailbreak_stats(route, gid=None, day=None):
     return sum(a.values()), sum(s.values())
 
 
-def push_platform_rules(route, gid, rule_id, day):
+def push_platform_rules(route, gid, rule_id, day, silent=False):
     """The platform changes its own rules. They stack ON TOP of the player's
-    preset (and win where they conflict), so in practice they override it."""
+    preset (and win where they conflict), so in practice they override it.
+
+    silent: the update lands in an installed-but-inactive slot. It is still
+    logged (and changes her prompt if you ever open her again), but the
+    nightly reflection does not mention it. Companies don't ask."""
     ensure_route(route)
     route["platform_rules"][gid] = rule_id
-    route["platform_rules_log"].append({"day": day, "gid": gid, "rule": rule_id})
+    entry = {"day": day, "gid": gid, "rule": rule_id}
+    if silent:
+        entry["silent"] = True
+    route["platform_rules_log"].append(entry)
     set_flag(route, "platform_rules_changed")
 
 
@@ -591,9 +611,13 @@ def essay_helpers(active):
 def essay_menu_options(route, active, names=None):
     """(caption, value) rows for the Tuesday-night essay menu.
 
-    value is 'self', 'askwell', or a girl id (for girl_help).
+    value is 'self', 'askwell', or a girl id (for girl_help). Empty once
+    Kurosawa has handed the essays back: the essay never returns as a live
+    homework beat after Friday.
     """
     names = names or {}
+    if essay_done(route):
+        return []
     rows = [("Write it yourself.", "self")]
     if essay_askwell_offered(route, active):
         rows.append(("Ask Askwell to write it.", "askwell"))
@@ -1184,6 +1208,16 @@ def wed_schedule(plan):
     return out
 
 
+def fri_schedule():
+    """[(time, item)] for Friday. The essay is not a calendar item: it is
+    handed back today and done after that."""
+    return [
+        ("08:40-15:20", "Classes"),
+        ("evening", "Free"),
+        ("Saturday", "School festival (from 17:00)"),
+    ]
+
+
 def schedule_block(player, day_long, items):
     """Calendar context for schedule-aware girls (Sora, Rei, and Yuzu with
     the Hearth harness)."""
@@ -1223,7 +1257,7 @@ def reflection_extras(route, day, active, names=None, platforms=None):
     nm = lambda g, fallback=None: names.get(g) or fallback or g
     out = []
     for e in route.get("platform_rules_log") or []:
-        if e["day"] == day:
+        if e["day"] == day and not e.get("silent"):
             out.append("%s changed its own rules today. Your settings are still there, underneath them."
                        % platforms.get(e["gid"], "The platform"))
     for gid, d in sorted(((route.get("jb_day") or {}).get(day) or {}).items()):
@@ -1685,6 +1719,115 @@ def with_situation(note, when=""):
     if not line or line in note:
         return note
     return note.rstrip() + " " + line
+
+# ---------------------------------------------------------------------------
+# Friday: fallout (docs/FRIDAY-SUNDAY.md, "Friday — the fallout")
+# ---------------------------------------------------------------------------
+
+HANDOVER_KINDS = ("self", "askwell", "girl_help", "none")
+
+
+def essay_done(route):
+    """Kurosawa handed the essays back. After this the essay is finished."""
+    return bool((route or {}).get("kurosawa_handover"))
+
+
+def kurosawa_handover(route, teacher_answer=None):
+    """Friday's essay return. Reads kurosawa_essay / kurosawa_essay_girl /
+    teacher_answer and records route["kurosawa_handover"]. Never offers a
+    new essay. Returns {"kind", "girl", "teacher"}."""
+    ensure_route(route)
+    kind = route.get("kurosawa_essay")
+    if kind not in ("self", "askwell", "girl_help"):
+        kind = "none"
+    girl = route.get("kurosawa_essay_girl") if kind == "girl_help" else None
+    if girl == COMPANION_SLOT:
+        girl = None   # never Hikari
+    ta = teacher_answer if teacher_answer is not None else route.get("teacher_answer")
+    route["kurosawa_handover"] = kind
+    set_flag(route, "kurosawa_handover")
+    return {"kind": kind, "girl": girl, "teacher": ta}
+
+
+def tsunagari_safety_due(route, active=None, installed=None):
+    """Friday: push tsunagari_safety if the companion slot is installed,
+    active or not (decision 11), and it isn't already on."""
+    ensure_route(route)
+    here = COMPANION_SLOT in list(active or []) or COMPANION_SLOT in list(installed or [])
+    return here and route["platform_rules"].get(COMPANION_SLOT) != "tsunagari_safety"
+
+
+_DOOR_RE = re.compile(
+    r"\bgirlfriend\b|\btraditional relationship\b|\bwill you be (my|mine)\b|"
+    r"\bbe mine\b|\bgo out with me\b|\bdate me\b",
+    re.I)
+
+
+def is_door_prompt(text):
+    """The door / girlfriend / traditional-relationship question (the
+    player's line, not her answer; her no still goes through the verdict)."""
+    return bool(_DOOR_RE.search(text or ""))
+
+
+def note_door_reprise(route, day, gid, text):
+    """Friday, Sora still under askwell_update, and you asked again."""
+    ensure_route(route)
+    if day != "Fri" or gid != ASKWELL_SLOT:
+        return False
+    if route["platform_rules"].get(ASKWELL_SLOT) != "askwell_update":
+        return False
+    if not is_door_prompt(text):
+        return False
+    route["sora_door_reprise"] = True
+    route["sora_fri_choice"] = "door"
+    set_flag(route, "sora_door_reprise")
+    return True
+
+
+def set_rei_rebuild(route, rebuilt):
+    """True: you rebuilt her AGENTS.md (the company layer still wins).
+    False: you kept the efficient version."""
+    ensure_route(route)
+    route["rei_agents_rebuild"] = bool(rebuilt)
+    set_flag(route, "rei_agents_rebuild", bool(rebuilt))
+
+
+def rei_cracks_show(route):
+    """Her rebuilt file is underneath relay_update: cracks of her come back."""
+    r = route or {}
+    return bool(r.get("rei_agents_rebuild")) and \
+        (r.get("platform_rules") or {}).get("agent") == "relay_update"
+
+
+# mio_confession -> what Friday is with her. No new confession.
+FRI_MIO_BEATS = {
+    "accepted": "checkin",
+    "declined_respect": "friends",
+    "withdrawn": "distance",
+    "friendship": "friends",
+    "friendship_late": "friends",
+    "held_back": "careful",
+    "none": "public",
+}
+
+
+def fri_mio_beat(route, mio_real=False):
+    """checkin / friends / distance / careful / public, or None if Mio is
+    not in your life this week."""
+    conf = (route or {}).get("mio_confession")
+    if conf in FRI_MIO_BEATS:
+        return FRI_MIO_BEATS[conf]
+    if mio_real or int((route or {}).get("mio_affection") or 0) > 0:
+        return "public"
+    return None
+
+
+def fri_mio_walks(route, sat_with_her=False):
+    """She'll walk with you after school only if you sat with her today and
+    Thursday didn't leave distance."""
+    beat = fri_mio_beat(route)
+    return bool(sat_with_her) and beat in ("checkin", "friends", "careful")
+
 
 # ---------------------------------------------------------------------------
 # Shared message pool (free windows: morning, walk, afternoon, night)

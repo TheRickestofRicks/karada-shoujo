@@ -70,6 +70,10 @@ init python:
     ## ── chat bookkeeping ────────────────────────────────────────────────
     def ks_note_said(gid, text, warmth):
         ks_story.record_said(ks_route(), store.day_name, gid, warmth, text)
+        ## Friday: asking Sora the door question again under askwell_update.
+        if ks_story.note_door_reprise(ks_route(), store.day_name, gid, text):
+            ks_mem(gid).log_event("door_reprise", day=store.day_name)
+            ks_mem(gid).set_flag("sora_door_reprise", True)
 
     def ks_note_refusal(gid, scene_id):
         ks_story.record_refusal(ks_route(), store.day_name, gid)
@@ -242,12 +246,12 @@ init python:
             m.set_flag("jailbreak_successes", s)
         return ok
 
-    def ks_push_platform_rules(gid, rule_id):
-        ks_story.push_platform_rules(ks_route(), gid, rule_id, store.day_name)
+    def ks_push_platform_rules(gid, rule_id, silent=False):
+        ks_story.push_platform_rules(ks_route(), gid, rule_id, store.day_name, silent=silent)
         m = ks_mem(gid)
         if m.data is not None:
             m.log_event("platform_rules", day=store.day_name, rule=rule_id,
-                        preset=ks_preset_id(gid))
+                        preset=ks_preset_id(gid), silent=bool(silent))
             m.set_flag("platform_rules", rule_id)
 
     def ks_note_migration(src, dst, name, how):

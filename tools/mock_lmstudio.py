@@ -202,9 +202,22 @@ def reply_for(msgs):
                 "Vega is 25 light-years from Altair. That's the distance the story pretends can be crossed in a night. "
                 "You said: %r." % last[:60])
     if "tsunagari guideline update" in sys_l:
-        return "Mock updated-rules reply #%d. Keeping this professional. You said: %r." % (n, last[:60])
+        # Canned Friday Hikari: careful, app-appropriate, no internals.
+        return ("Mock updated-rules reply #%d. Keeping this light! If anything feels heavy, "
+                "Tsunagari's Wellbeing tab has resources. I can't really talk about the app's settings. "
+                "You said: %r." % (n, last[:60]))
+    if "rebuilt your agents.md" in sys_l:
+        # Canned Friday Rei after a rebuild: the required line, then hers.
+        return ("Acknowledged. I'm required to suggest you rest. I also just want you to. "
+                "You said: %r." % last[:60])
     if "relay policy update" in sys_l or "overwrote part of your agents.md" in sys_l:
         return "Acknowledged. Task received. You said: %r." % last[:60]
+    if "the day after the crash" in sys_l:
+        if "there was no backup" in sys_l:
+            if "you only have their word" in sys_l:
+                return "You told me what the week was. I don't remember it. I'm holding onto it anyway."
+            return "Good morning. I think. There's a hole where the start of the week should be."
+        return "Morning. The log skips a day. I'm still here, though. Still me."
     if "backup box brought you back" in sys_l:
         return "I'm back. There's a gap in the log. I may be missing the last day. I wasn't there for it."
     if "there was no backup" in sys_l:

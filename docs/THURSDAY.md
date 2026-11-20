@@ -287,7 +287,7 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Ran: already invited her to the stall | No rescue scene required | n/a |
 | Two or three girls active | Each event fires; morning/afternoon/night pools still cap at 4 | Combined mocks |
 
-Thursday is playable (`game/thursday.rpy`). Wednesday's `tbc_thursday` jumps straight into Thursday (no player-facing card; Thursday has its own title). The day ends on a *To be continued: Friday* card, with no player-facing debug. Play-throughs: `thu_wish_accept` (also covers the Sora door crack and the Ran safety net), `thu_wish_decline`, `thu_discovery`, `thu_friendship_wish`, `thu_fess_held`, `thu_yuzu_backup`, `thu_yuzu_lost`. The confession selector and Yuzu hardware helper are also unit-tested in `tools/test_ks_llm.py`.
+Thursday is playable (`game/thursday.rpy`). Wednesday's `tbc_thursday` jumps straight into Thursday (no player-facing card; Thursday has its own title). The day flows straight into Friday: `tbc_friday` saves Thursday's memory flags and jumps to `friday` (no player-facing card; Friday has its own title, and the debug recap stays behind `ks_debug()`). Play-throughs: `thu_wish_accept` (also covers the Sora door crack and the Ran safety net), `thu_wish_decline`, `thu_discovery`, `thu_friendship_wish`, `thu_fess_held`, `thu_yuzu_backup`, `thu_yuzu_lost`. The confession selector and Yuzu hardware helper are also unit-tested in `tools/test_ks_llm.py`.
 
 ---
 

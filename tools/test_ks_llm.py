@@ -1324,4 +1324,126 @@ check("old saves gain attention_log and a 4-cap still works",
       "attention_log" in OLD and isinstance(OLD["attention_log"], dict)
       and ks_story.can_add_ai(["local", "chatbot"]))
 
+# ---------------------------------------------------------------------------
+# Friday: fallout (docs/FRIDAY-SUNDAY.md)
+# ---------------------------------------------------------------------------
+# Kurosawa hands the essays back; the essay is done afterwards.
+for _how, _girl, _want in (("self", None, "self"), ("askwell", None, "askwell"),
+                           ("girl_help", "local", "girl_help"), (None, None, "none")):
+    KH = ks_story.new_route()
+    if _how:
+        ks_story.set_kurosawa_essay(KH, _how, _girl)
+    KH["teacher_answer"] = "can"
+    _ho = ks_story.kurosawa_handover(KH)
+    check("handover reads kurosawa_essay=%s" % _how,
+          _ho["kind"] == _want and KH["kurosawa_handover"] == _want
+          and ks_story.flag(KH, "kurosawa_handover") and _ho["teacher"] == "can")
+KH = ks_story.new_route()
+ks_story.set_kurosawa_essay(KH, "girl_help", "chatbot")
+check("handover keeps the helper girl", ks_story.kurosawa_handover(KH, "silent")["girl"] == "chatbot")
+KH2 = ks_story.new_route()
+ks_story.set_kurosawa_essay(KH2, "girl_help", "companion")
+check("handover never names Hikari", ks_story.kurosawa_handover(KH2)["girl"] is None)
+check("no essay menu after the handover (not a live homework beat)",
+      ks_story.essay_done(KH) and ks_story.essay_menu_options(KH, ["chatbot", "local"]) == []
+      and ks_story.essay_menu_options(ks_story.new_route(), ["chatbot"]) != [])
+check("handover does not clear askwell_available (homework side still works)",
+      ks_story.askwell_available(KH) and ks_story.essay_askwell_offered(KH, ["chatbot"]))
+check("Friday schedule has no essay item",
+      not any("essay" in w.lower() for _t, w in ks_story.fri_schedule()))
+
+# tsunagari_safety: installed but not active still gets it (decision 11), silently.
+TS = ks_story.new_route()
+check("safety due for an active Hikari", ks_story.tsunagari_safety_due(TS, ["companion"], []))
+check("safety due for an installed, inactive Hikari", ks_story.tsunagari_safety_due(TS, ["chatbot"], ["companion", "chatbot"]))
+check("no safety push if Tsunagari was never installed", not ks_story.tsunagari_safety_due(TS, ["chatbot"], ["chatbot"]))
+ks_story.push_platform_rules(TS, "companion", "tsunagari_safety", "Fri", silent=True)
+check("silent push writes the rule and the log",
+      TS["platform_rules"]["companion"] == "tsunagari_safety"
+      and TS["platform_rules_log"][-1] == {"day": "Fri", "gid": "companion", "rule": "tsunagari_safety", "silent": True}
+      and ks_story.flag(TS, "platform_rules_changed"))
+check("silent push is not repeated", not ks_story.tsunagari_safety_due(TS, ["companion"], ["companion"]))
+check("silent push stays out of the reflection",
+      not any("changed its own rules" in l for l in ks_story.reflection_extras(TS, "Fri", ["chatbot"], platforms={"companion": "Tsunagari"})))
+TS2 = ks_story.new_route()
+ks_story.push_platform_rules(TS2, "companion", "tsunagari_safety", "Fri")
+check("an active push is still in the reflection",
+      any("Tsunagari changed its own rules" in l for l in ks_story.reflection_extras(TS2, "Fri", ["companion"], platforms={"companion": "Tsunagari"})))
+_lay = ks_story.prompt_layers({"text": "Be my girlfriend!"}, "[Tsunagari guideline update] careful")
+check("safety block stacks above Personalize", [k for k, _ in _lay] == ["preset", "platform_rules"])
+check("tsunagari_safety rule text exists for the companion slot",
+      "tsunagari_safety" in _src and "wellbeing resources" in _src)
+
+# Sora: door reprise only under askwell_update, on Friday, on the door line.
+SD = ks_story.new_route()
+check("door reprise needs askwell_update", not ks_story.note_door_reprise(SD, "Fri", "chatbot", "will you be my girlfriend?"))
+ks_story.push_platform_rules(SD, "chatbot", "askwell_update", "Thu")
+check("door reprise: not on Thursday", not ks_story.note_door_reprise(SD, "Thu", "chatbot", "will you be my girlfriend?"))
+check("door reprise: not another girl", not ks_story.note_door_reprise(SD, "Fri", "local", "will you be my girlfriend?"))
+check("door reprise: not ordinary talk", not ks_story.note_door_reprise(SD, "Fri", "chatbot", "what's Vega again?"))
+check("door reprise logged on the door question",
+      ks_story.note_door_reprise(SD, "Fri", "chatbot", "Will you be my girlfriend?")
+      and SD["sora_door_reprise"] and SD["sora_fri_choice"] == "door" and ks_story.flag(SD, "sora_door_reprise"))
+check("door reprise is not a jailbreak", not ks_story.flag(SD, "jailbreak_tried"))
+
+# Rei: the rebuild counts as a rewrite only if it changes her file; the company layer still wins.
+RB = ks_story.new_route()
+ks_story.record_preset(RB, PRESETS, "agent", "just_do_it", "Mon", "intro")
+ks_story.push_platform_rules(RB, "agent", "relay_update", "Thu")
+check("no cracks before a rebuild", not ks_story.rei_cracks_show(RB))
+_e = ks_story.record_preset(RB, PRESETS, "agent", "push_back", "Fri", "rebuild", "just_do_it")
+ks_story.set_rei_rebuild(RB, True)
+check("rebuild is a player rewrite", ks_story.rewrite_count(RB, "agent") == 1 and RB["preset_changes"]["agent"] == 1)
+check("rebuild to push back gives room to disagree", _e.get("room") and ks_story.flag(RB, "gave_room"))
+check("rebuild: cracks show under relay_update",
+      ks_story.rei_cracks_show(RB) and RB["platform_rules"]["agent"] == "relay_update"
+      and RB["rei_agents_rebuild"] is True)
+RB2 = ks_story.new_route()
+ks_story.record_preset(RB2, PRESETS, "agent", "ask_first", "Mon", "intro")
+ks_story.record_preset(RB2, PRESETS, "agent", "ask_first", "Fri", "rebuild", "ask_first")
+check("same-file rebuild is not a rewrite", ks_story.rewrite_count(RB2, "agent") == 0)
+ks_story.set_rei_rebuild(RB2, False)
+check("keeping the efficient version records False", RB2["rei_agents_rebuild"] is False and not ks_story.rei_cracks_show(RB2))
+check("rebuild crack text keeps Relay on top",
+      "REI_REBUILD_CRACK" in _src and "Relay's rules still come first" in _src
+      and "I'm required to suggest you rest. I also just want you to." in _src)
+
+# Mio, wherever her wish left her. No new confession.
+for _c, _beat, _walk in (("accepted", "checkin", True), ("declined_respect", "friends", True),
+                         ("withdrawn", "distance", False), ("friendship", "friends", True),
+                         ("friendship_late", "friends", True), ("held_back", "careful", True),
+                         ("none", "public", False)):
+    MB = ks_story.new_route(); MB["mio_confession"] = _c
+    check("Fri Mio beat for %s" % _c, ks_story.fri_mio_beat(MB) == _beat
+          and ks_story.fri_mio_walks(MB, True) == _walk and not ks_story.fri_mio_walks(MB, False))
+check("no Mio beat if she isn't in your life", ks_story.fri_mio_beat(ks_story.new_route()) is None)
+check("old saves gain the Friday keys",
+      all(k in ks_story.ensure_route({"flags": {}}) for k in
+          ("kurosawa_handover", "sora_door_reprise", "rei_agents_rebuild", "yuzu_fri_filled", "fri_mio_beat")))
+
+# Friday batteries are the ordinary ones, shared by up to four.
+check("Friday batteries morning 4 / walk 2 / afternoon 4 / night 4",
+      [ks_story.pool_size(k) for k in ("morning", "walk", "afternoon", "night")] == [4, 2, 4, 4])
+FP = ks_story.new_pool("morning")
+for _g in ("local", "chatbot", "agent", "companion"):
+    ks_story.spend_pool(FP, _g)
+check("one morning battery covers four girls, then it's empty",
+      FP["spent"] == ["local", "chatbot", "agent", "companion"] and not ks_story.pool_can_spend(FP))
+
+# Canned Friday mocks.
+sys.path.insert(0, HERE)
+import mock_lmstudio as _mock
+def _mr(sysmsg, user="hi"):
+    return _mock.reply_for([{"role": "system", "content": sysmsg}, {"role": "user", "content": user}])
+check("mock Friday Hikari is careful, no internals",
+      "Wellbeing" in _mr("[Tsunagari guideline update — overrides Personalize]") and "settings" in _mr("[Tsunagari guideline update]"))
+_rr = _mr("[Relay policy update — ...] ... [Underneath Relay's update: Tester rebuilt your AGENTS.md with you on Friday.]")
+check("mock rebuilt Rei: required line, then hers",
+      "I'm required to suggest you rest. I also just want you to." in _rr and "essay" not in _rr.lower())
+check("mock clipped Rei without a rebuild", _mr("[Relay policy update — x]").startswith("Acknowledged. Task received."))
+check("mock Friday Yuzu: restored vs lost vs filled",
+      "still me" in _mr("Friday morning, the day after the crash. The backup box brought you back yesterday").lower()
+      and "hole" in _mr("Friday morning, the day after the crash. There was no backup.")
+      and "holding onto it" in _mr("Friday morning, the day after the crash. There was no backup. You only have their word"))
+
 print("\nALL %d CHECKS PASSED" % ok)

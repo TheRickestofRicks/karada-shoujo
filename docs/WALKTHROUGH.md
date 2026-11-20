@@ -1,8 +1,8 @@
 # Karada Shoujo — branching walkthrough (through Wednesday)
 
-Version **0.4-day4** (`game/options.rpy`: `config.version`). Thursday is playable; see also `docs/THURSDAY.md`.
+Version **0.5-day5** (`game/options.rpy`: `config.version`). Thursday and Friday are playable; see also `docs/THURSDAY.md` and `docs/FRIDAY-SUNDAY.md`.
 
-This covers everything implemented so far: intro through Thursday, ending on the **"To be continued: Friday"** card. Friday–Sunday are design-only (`docs/FRIDAY-SUNDAY.md`). Anything below that is only a hook in the current code is marked as such. Nothing here is invented from design intent alone; when the design doc and the code disagree, the **code** wins, and unclear points are labelled unclear.
+This covers everything implemented so far: intro through Friday, ending on the **"To be continued: Saturday"** card. Friday is written to `docs/FRIDAY-SUNDAY.md` (see its *Friday status* section); Saturday and Sunday are design-only. Anything below that is only a hook in the current code is marked as such. Nothing here is invented from design intent alone; when the design doc and the code disagree, the **code** wins, and unclear points are labelled unclear.
 
 Line citations look like `file:line` and point at the current tree.
 
@@ -837,7 +837,23 @@ flowchart TD
   thuAfter -->|home| thuEve
   tanzaku --> thuEve["LLM: night pool of 4, then bed"]
   thuEve --> reflThu[Nightly reflection]
-  reflThu --> friCard["To be continued: Friday"]
+  reflThu --> tbcFri["tbc_friday (debug recap only if ks_debug)"]
+  tbcFri --> fri[friday]
+
+  fri --> friMorn["tsunagari_safety (screen if Hikari active, silent if only installed)"]
+  friMorn --> friRei{Rei under relay_update?}
+  friRei -->|rebuild / she drafts / keep| friYuzu{Yuzu lost?}
+  friYuzu -->|tell her the week / leave the hole| friSora{Sora under askwell_update?}
+  friSora -->|door question again / let her be the assistant| friPool["LLM: morning pool of 4"]
+  friPool --> friClass[Kurosawa hands the essays back: kurosawa_handover]
+  friClass --> friLunch[Daichi; Mio per mio_confession: fri_mio_beat]
+  friLunch --> friWalk{Mio walks?}
+  friWalk -->|yes| friWalkPool["LLM: walk pool of 2 (costs mio_points)"]
+  friWalk -->|no| friAft
+  friWalkPool --> friAft["LLM: afternoon pool of 4"]
+  friAft --> friEve["LLM: night pool of 4, then bed"]
+  friEve --> reflFri[Nightly reflection]
+  reflFri --> satCard["To be continued: Saturday (tbc_saturday)"]
 ```
 
 Phone-break / reflection actions (talk, switch, migrate, start fresh, add an AI, drop, change prompt) can fire on every day and are omitted from the diagram to keep the day spine readable; see [Shared systems](#shared-systems-every-day).
@@ -852,9 +868,9 @@ At the start of `nightly_reflection`, **before** neglect is judged, `ks_classify
 
 ## Open threads and unimplemented hooks (Thursday onward)
 
-Thursday is playable (`game/thursday.rpy`, `docs/THURSDAY.md`). Friday–Sunday and the festival are not.
+Thursday and Friday are playable (`game/thursday.rpy`, `game/friday.rpy`, `docs/THURSDAY.md`, `docs/FRIDAY-SUNDAY.md`). Saturday, Sunday and the festival are not.
 
-- **Friday–Sunday** and the festival. Thursday ends at `tbc_friday`. Hostile-event pools in `DESIGN.md` for Fri–Sat are not scheduled in code. **Kurosawa's Friday essay handover** should read `kurosawa_essay` (`self` / `askwell` / `girl_help`): she can tell when nobody was there. `askwell_available` can be cleared by a later Askwell shutdown.
+- **Saturday–Sunday** and the festival. Friday ends at `tbc_saturday` (a placeholder card). Saturday night's company cuts, the handoff helper, and the ending slides are design-only (`docs/FRIDAY-SUNDAY.md`). Kurosawa's handover is done on Friday (`kurosawa_handover`); the essay never returns. `askwell_available` stays true (decision 3).
 - **Yuzu backup is respected on Thursday** (`apply_yuzu_hardware`: `restored_from_backup` or a real wipe). The early-week hint is `yuzu_bsod_seen`. Later Friday+ memory-loss events, if any, should keep respecting the backup.
 - **Yuzu avatar-body upgrade** (`engine.rpy:35`, `flags.yuzu_avatar_choice = "none"`). Hook only; no gallery UI. Future values `"player"` / `"self"` (and objection logging) are described in `DESIGN.md`, not implemented.
 - **`label ran_wednesday` can theoretically run on Thu/Fri** (`wednesday.rpy:380`) but those days have no caller.
@@ -884,4 +900,4 @@ Not necessarily bugs — things that matter when reading the graph:
 
 ---
 
-*End of walkthrough for v0.4-day4. Friday is the next event day.*
+*End of walkthrough for v0.5-day5. Saturday (the festival) is next.*

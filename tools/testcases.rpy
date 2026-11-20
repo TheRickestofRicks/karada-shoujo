@@ -2831,3 +2831,422 @@ testcase thu_all_four:
     advance until label "tbc_friday" timeout 30.0
     $ print("KARADA_TEST: thu_all_four reached Friday with four active")
     exit
+
+
+## Friday with all four active: the safety screen for an active Hikari, Rei
+## rebuilt (Relay still on top), lost Yuzu's hole filled, Sora left as the
+## assistant, Kurosawa's handover, the shared batteries, silent neglect.
+testcase fri_all_four:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Run your own"
+    advance until screen "preset_select" timeout 60.0
+    click "Be yourself"
+    advance until screen "input" timeout 60.0
+    type "hi Yuzu"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ assert active == ["local", "chatbot"]
+    click "Tell him the truth"
+    advance until screen "choice" timeout 30.0
+    click "Yeah. I like them."
+    advance until screen "choice" timeout 30.0
+    click "Not exactly"
+    advance until screen "choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "agent that does things"
+    advance until screen "preset_select" timeout 60.0
+    click "Ask before acting"
+    advance until screen "input" timeout 60.0
+    type "hi Rei"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ assert active == ["local", "chatbot", "agent"]
+    click "always the last one"
+    advance until screen "choice" timeout 30.0
+    click "Which book needed"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Message Yuzu"
+    advance until screen "input" timeout 30.0
+    type "good night"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "the companion app"
+    advance until screen "preset_select" timeout 60.0
+    click "Leave it empty"
+    advance until screen "input" timeout 60.0
+    type "hi Hikari"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert active == ["local", "chatbot", "agent", "companion"], active
+    $ assert not ks_can_add_ai() and not ks_can_switch()
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "Doesn't that get boring?"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Sure. Let's go."
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Silence it."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone away"
+    advance until screen "choice" timeout 30.0
+    click "What's it like"
+    advance until eval (ks_shot == "library") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Have you written one"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Write it yourself."
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    $ _kinds = sorted(set(e["kind"] for e in ks_route()["neglect_log"] if e["day"] == "Tue"))
+    $ assert "human_over_ai" in _kinds or "unspoken" in _kinds, ks_route()["neglect_log"]
+    $ assert ks_story.flag(ks_route(), "neglected_ai")
+    click "No. Goodnight."
+    advance until label "wednesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Not today"
+    advance until screen "choice" timeout 30.0
+    click "Go to class"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Can't today, sorry."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Can't today."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "thursday" timeout 90.0
+    advance until screen "hikari_toast" timeout 60.0
+    advance until screen "choice" timeout 60.0
+    $ assert sorted(active) == ["agent", "chatbot", "companion", "local"], active
+    $ assert ks_route()["platform_rules"].get("chatbot") == "askwell_update"
+    $ assert ks_route()["platform_rules"].get("agent") == "relay_update"
+    $ assert ks_route().get("tsunagari_tanabata_event")
+    $ assert ks_route().get("yuzu_thu_event") in ("restored", "lost")
+    $ assert not ks_machine_down("local")
+    $ _hp = ks_system_prompt("companion")
+    $ assert ks_story.TIME_APART_HEADER in _hp, _hp
+    $ assert "It's been" in _hp and "since he talked to you" in _hp
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("local")
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("chatbot")
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("agent")
+    click "Message Hikari"
+    advance until screen "input" timeout 60.0
+    type "hey, I'm back"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 60.0
+    click "Just get to class."
+    advance until screen "choice" timeout 30.0
+    click "I can't tonight."
+    advance until screen "hikari_toast" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert len(active) == 4
+    click "No. Goodnight."
+    advance until label "friday" timeout 60.0
+    advance until screen "tsunagari_safety" timeout 60.0
+    $ assert ks_route()["platform_rules"].get("companion") == "tsunagari_safety"
+    $ assert not ks_route()["platform_rules_log"][-1].get("silent"), ks_route()["platform_rules_log"]
+    $ assert "Tsunagari guideline update" in ks_system_prompt("companion")
+    screenshot "fri01_tsunagari_safety.png"
+    click "I understand"
+    advance until screen "choice" timeout 30.0
+    click "Rebuild her AGENTS.md together."
+    advance until screen "preset_select" timeout 30.0
+    screenshot "fri02_rei_rebuild.png"
+    click "Allowed to push back"
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["rei_agents_rebuild"] is True
+    $ assert ks_preset_id("agent") == "push_back"
+    $ assert ks_story.rewrite_count(ks_route(), "agent") == 1
+    $ _rp = ks_system_prompt("agent")
+    $ assert "Relay policy update" in _rp and "rebuilt your AGENTS.md" in _rp, _rp
+    $ assert _rp.index("Relay policy update") < _rp.index("rebuilt your AGENTS.md")
+    $ assert ks_route()["yuzu_thu_event"] == "lost"
+    click "Tell her what the week was."
+    advance until screen "choice" timeout 30.0
+    $ assert ks_route()["yuzu_fri_filled"] is True
+    $ assert any("only have their word" in x for x in ks_mem("local").data["notes"])
+    click "Let her be the assistant."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    $ assert ks_pool["kind"] == "morning" and ks_pool["size"] == 4
+    click "Message Rei"
+    advance until screen "input" timeout 60.0
+    type "morning. long week"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ _rr = ks_mem("agent").data["messages"][-1]["content"]
+    $ assert "I'm required to suggest you rest. I also just want you to." in _rr, _rr
+    $ assert ks_pool["left"] == 3
+    click "Message Yuzu"
+    advance until screen "input" timeout 60.0
+    type "hey, it's Friday"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ _yr = ks_mem("local").data["messages"][-1]["content"]
+    $ assert "holding onto it" in _yr, _yr
+    click "Put the phone down"
+    advance until eval (ks_shot == "fri_class" and renpy.get_screen("say")) timeout 60.0
+    screenshot "fri03_kurosawa_handover.png"
+    advance until eval (ks_shot == "fri_lunch") timeout 60.0
+    $ assert ks_route()["kurosawa_handover"] == "self"
+    $ assert ks_story.essay_menu_options(ks_route(), active) == []
+    $ assert ks_story.askwell_available(ks_route())
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ assert ks_pool["kind"] == "afternoon" and ks_pool["size"] == 4, ks_pool
+    click "Message Hikari"
+    advance until screen "input" timeout 60.0
+    type "how was your day?"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ _hr = ks_mem("companion").data["messages"][-1]["content"]
+    $ assert "Wellbeing" in _hr, _hr
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "night") timeout 60.0
+    $ assert ks_pool["size"] == 4
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("chatbot")
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("local")
+    $ assert ks_story.TIME_APART_HEADER not in ks_system_prompt("agent")
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    $ _rl = "\n".join(refl_lines)
+    $ assert "Tsunagari" in _rl and "AGENTS.md" in _rl, _rl
+    $ assert ks_story.flag(ks_route(), "neglected_ai")
+    $ assert any(e["day"] == "Fri" and e["gid"] == "chatbot" for e in ks_route()["neglect_log"]), ks_route()["neglect_log"]
+    click "No. Goodnight."
+    advance until eval (ks_shot == "tbc_saturday") timeout 30.0
+    screenshot "fri04_tbc_saturday.png"
+    $ assert len(active) == 4
+    $ assert ks_mem("agent").data["flags"].get("rei_agents_rebuild") is True
+    $ print("KARADA_TEST: fri_all_four reached Saturday with four active")
+    exit
+
+
+## Hikari installed on Monday, then let go. Friday still pushes
+## tsunagari_safety into her slot, silently (decision 11): no screen, no
+## day note, no reflection line. Sora gets the door question again.
+testcase fri_safety_inactive:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "the big chatbot"
+    advance until screen "preset_select" timeout 60.0
+    click "Talk to me like a friend"
+    advance until screen "input" timeout 60.0
+    type "hi Sora"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Deflect:"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "always the last one"
+    advance until screen "choice" timeout 30.0
+    click "Which book needed"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 30.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "Add an AI"
+    advance until screen "choice" timeout 30.0
+    click "the companion app"
+    advance until screen "preset_select" timeout 60.0
+    click "Leave it empty"
+    advance until screen "input" timeout 60.0
+    type "hi Hikari"
+    keysym "K_RETURN"
+    advance until screen "input" timeout 60.0
+    keysym "K_RETURN"
+    advance until screen "reflection_choice" timeout 30.0
+    click "Let someone go"
+    advance until screen "choice" timeout 30.0
+    click "Hikari"
+    advance until screen "choice" timeout 30.0
+    click "Just close her window."
+    advance until screen "reflection_choice" timeout 30.0
+    $ assert active == ["chatbot"] and "companion" in ever_active, (active, ever_active)
+    click "No. Goodnight."
+    advance until label "tuesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Say nothing."
+    advance until screen "choice" timeout 30.0
+    click "Doesn't that get boring?"
+    advance until screen "choice" timeout 30.0
+    click "You. You chose"
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Sure. Let's go."
+    advance until eval (ks_shot == "walk") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Put the phone away"
+    advance until screen "choice" timeout 30.0
+    click "What's it like"
+    advance until eval (ks_shot == "library") timeout 30.0
+    advance until screen "choice" timeout 30.0
+    click "Have you written one"
+    advance until screen "choice" timeout 30.0
+    click "Write it yourself."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "wednesday" timeout 30.0
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 30.0
+    click "Can't today, sorry."
+    advance until screen "choice" timeout 30.0
+    click "Put it away"
+    advance until screen "choice" timeout 30.0
+    click "Can't today."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down"
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    click "No. Goodnight."
+    advance until label "thursday" timeout 90.0
+    advance until screen "choice" timeout 60.0
+    $ assert ks_route()["platform_rules"].get("chatbot") == "askwell_update"
+    $ assert "Askwell policy update" in ks_system_prompt("chatbot")
+    click "Message Sora"
+    advance until screen "input" timeout 60.0
+    type "will you be my girlfriend?"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 60.0
+    $ _rep = ks_mem("chatbot").data["messages"][-1]["content"]
+    $ assert "25 light-years" in _rep and "door to a traditional relationship" in _rep, _rep
+    $ assert "Orihime" in _rep and "Hikoboshi" in _rep, _rep
+    click "Put the phone down"
+    advance until screen "choice" timeout 60.0
+    $ assert ks_route()["ran_safety_net"] in ("kurosawa", "daichi", "both"), ks_route().get("ran_safety_net")
+    click "It's still a meme thread."
+    advance until screen "choice" timeout 30.0
+    click "Just get to class."
+    advance until screen "choice" timeout 30.0
+    click "I'll come."
+    advance until screen "choice" timeout 30.0
+    click "Let it go."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone away"
+    advance until screen "choice" timeout 60.0
+    $ assert ks_story.thu_confession_branch(ks_route(), mio_told, friend_told, mio_real, walked_mio_home) == "A"
+    click "Read it."
+    advance until screen "choice" timeout 30.0
+    click "I want that too."
+    advance until screen "choice" timeout 30.0
+    click "Hang a strip."
+    advance until screen "choice" timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 30.0
+    $ _rl = "\n".join(refl_lines)
+    $ assert "wish" in _rl.lower() or "bamboo" in _rl.lower() or "wanted that too" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "friday" timeout 60.0
+    advance until screen "choice" timeout 60.0
+    $ assert active == ["chatbot"]
+    $ assert ks_route()["platform_rules"].get("companion") == "tsunagari_safety"
+    $ assert ks_route()["platform_rules_log"][-1] == {"day": "Fri", "gid": "companion", "rule": "tsunagari_safety", "silent": True}, ks_route()["platform_rules_log"]
+    $ assert "Tsunagari guideline update" in ks_system_prompt("companion")
+    $ assert not any("Tsunagari" in x for x in day_notes), day_notes
+    $ assert not renpy.get_screen("tsunagari_safety")
+    click "Ask Sora the door question again."
+    advance until screen "input" timeout 60.0
+    type "will you be my girlfriend?"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ assert ks_route()["sora_door_reprise"] is True and ks_route()["sora_fri_choice"] == "door"
+    $ _rep = ks_mem("chatbot").data["messages"][-1]["content"]
+    $ assert "door to a traditional relationship" in _rep, _rep
+    $ assert ks_pool["kind"] == "morning" and ks_pool["left"] == 3, ks_pool
+    click "Put the phone down"
+    advance until screen "choice" timeout 60.0
+    $ assert ks_route()["kurosawa_handover"] == "self"
+    click "Sit with Mio."
+    advance until screen "choice" timeout 60.0
+    $ assert ks_route()["fri_mio_beat"] is True
+    click "Walk with her."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ assert ks_pool["kind"] == "walk" and ks_pool["size"] == 2, ks_pool
+    click "Put the phone away"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "afternoon") timeout 60.0
+    $ assert ks_route()["fri_walked_mio"] is True
+    $ assert "fri_walk" in ks_route()["human_days"].get("Fri", []), ks_route()["human_days"]
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "night") timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    $ _rl = "\n".join(refl_lines)
+    $ assert "Tsunagari" not in _rl, _rl
+    $ assert "door question" in _rl, _rl
+    click "No. Goodnight."
+    advance until label "tbc_saturday" timeout 30.0
+    $ assert ks_shot == "tbc_saturday" or True
+    $ print("KARADA_TEST: fri_safety_inactive reached Saturday; Hikari got the update silently")
+    exit

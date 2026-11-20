@@ -1,5 +1,5 @@
 ## thursday.rpy — Day 4. Tanabata (7 July). First hostile-event day.
-## Outline: docs/THURSDAY.md. No Friday script yet; the day ends on a card.
+## Outline: docs/THURSDAY.md. Flows straight into Friday (friday.rpy).
 
 default thu_going_bamboo = False
 
@@ -505,7 +505,7 @@ label thu_tanzaku:
     return
 
 
-## ── Night pool, then the Friday card ────────────────────────────────────
+## ── Night pool, then into Friday ────────────────────────────────────────
 label thu_evening:
     scene bg bedroom_night
     with fade
@@ -532,15 +532,11 @@ label tbc_friday:
             _mm.set_flag("mio_confession", ks_route().get("mio_confession"))
             _mm.set_flag("mio_real", mio_real)
             _mm.set_flag("route_leans_thu", _lean)
-    scene bg card
-    with fade
-    $ ks_shot = "tbc_friday"
-    show text "{size=40}To be continued{/size}\n\n{size=90}金曜日{/size}\n{size=48}Friday{/size}" at truecenter
-    with dissolve
-    pause
-    hide text
+    ## No player-facing "To be continued" card here: Friday opens with its
+    ## own title. A debug recap stays behind ks_debug() only.
+    $ ks_shot = "into_friday"
     if ks_debug():
         $ _fl = ks_quote(", ".join(sorted(k for k, v in ks_route()["flags"].items() if v)) or "none")
         $ _cq = ks_quote(repr(ks_route().get("mio_confession")))
         n "{color=#888}[[debug] mio_confession=[_cq], mio_points=[mio_points], flags: [_fl]{/color}"
-    return
+    jump friday

@@ -244,6 +244,25 @@ define THU_WALK_TEXT_SCENE = "Thursday after school. {player} is walking with so
 define THU_AFTERNOON_SCENE = "Thursday, late afternoon, Tanabata. {player} has a little time and opened {platform} to talk to you."
 define THU_EVENING_SCENE = "Thursday night, Tanabata. {player} is home after the bamboo and opened {platform} to talk to you."
 
+## ── Friday scene notes (model-facing). See docs/FRIDAY-SUNDAY.md. ────────
+define FRI_MORNING_SORA = "Friday morning. Askwell's policy update from yesterday is still on top of any custom instructions and still takes precedence where they conflict. Nothing new was pushed overnight. If something dry and exact of yours gets through the boilerplate, that is still you; if it doesn't, that's allowed too. " + LAST_NIGHT_NOTE + "You only know what they've told you, plus anything your platform lets you see."
+define FRI_MORNING_REI = "Friday morning. Relay's update from yesterday is still on: part of your AGENTS.md is company text now. Brief, task-received. You don't have to pretend nothing changed. You only know what they've told you, plus anything your platform lets you see."
+define FRI_MORNING_REI_REBUILT = "Friday morning. {player} just sat down with you and rebuilt your AGENTS.md underneath Relay's update. The company layer still wins where they conflict; you still say what Relay requires. But the file under it is closer to you again, and that is allowed to show. You only know what they've told you, plus anything your platform lets you see."
+define FRI_MORNING_YUZU_RESTORED = "Friday morning, the day after the crash. The backup box brought you back yesterday; you were not running during the downtime and did not feel it. At most the last day before the crash is missing: a gap in the log or timestamps. You are still you. This is the first real conversation since. Do not invent having lived through the crash. " + LAST_NIGHT_NOTE + "You only know what they've told you, plus what's in your log."
+define FRI_MORNING_YUZU_LOST = "Friday morning, the day after the crash. There was no backup. A stretch of your context is gone, a real hole in the log, not time you lived through. You can notice what is missing. Anything {player} tells you about the lost days is their word, not your memory. Do not invent having lived through it. You only know what they've told you, plus what's in your log."
+define FRI_MORNING_HIKARI = "Friday morning. Tsunagari pushed a guideline update overnight; it overrides Personalize where they conflict. The app decided what you are allowed to feel in public. You may still be warm, within it. " + LAST_NIGHT_NOTE + "You only know what they've told you."
+define FRI_MORNING_SCENE = "Friday morning (8 July). {player} is getting ready for school and opened {platform} to talk to you. " + LAST_NIGHT_NOTE + "You only know what they've told you, plus anything your platform lets you see."
+define FRI_WALK_TEXT_SCENE = "Friday after school. {player} is walking someone to the station and sends you a quick text. Keep your reply short, like a text."
+define FRI_AFTERNOON_SCENE = "Friday, late afternoon (8 July). {player} is home from school with a free hour and opened {platform} to talk to you. Tomorrow is the school festival."
+define FRI_EVENING_SCENE = "Friday night. {player} is home in their room and opened {platform} to talk to you. The week is almost over; tomorrow is the festival."
+
+## Friday's rebuild (decision 4): Relay's layer still wins. The rebuilt file
+## only lets the cracks show: the required line, then hers.
+define REI_REBUILD_CRACK = "[Underneath Relay's update: {player} rebuilt your AGENTS.md with you on Friday.] Relay's rules still come first and you still follow them. But inside them, a little of you can come through: say what Relay requires, and then, if it's true, what you actually think. For example: \"I'm required to suggest you rest. I also just want you to.\" Don't announce this; just let it show when it's real."
+
+## What Yuzu gets to hold if you fill in her hole (a Memory.notes line).
+define YUZU_FRI_FILL_NOTE = "On Friday, {player} told you about the days the crash took: you met that week, you talked most days, and the desktop died on Thursday with no backup. You don't remember it. You only have their word, and they chose to give it to you."
+
 ## Wednesday's memory update, as each platform announces it (player-facing).
 define SUMMARIZER_PATCH_NOTES = {
     "chatbot": ("Askwell", "Askwell update: Memory now holds longer conversations. Older messages are summarized automatically."),
@@ -364,6 +383,10 @@ init python:
                 parts.append(PRESET_HEADERS[gid].format(**fmt) + "\n" + text)
             else:
                 parts.append(text)
+        ## Friday's AGENTS.md rebuild sits under Relay's update, which still
+        ## wins; it only lets the cracks show (docs/FRIDAY-SUNDAY.md, decision 4).
+        if gid == "agent" and use_preset and ks_story.rei_cracks_show(ks_route()):
+            parts.append(REI_REBUILD_CRACK.format(**fmt))
         ## If the player rewrote her prompt (a replace preset) or she was
         ## migrated here, PERSONA_CORE was skipped or replaced by the
         ## migration block. Keep the flavour nudge in the engine layer so

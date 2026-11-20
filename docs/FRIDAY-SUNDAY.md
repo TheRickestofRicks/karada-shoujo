@@ -1,6 +1,6 @@
 # Friday–Sunday — Fallout, the festival, and the companies' cut
 
-This is a design outline only. No Friday, Saturday or Sunday scene code yet. Flag names in backticks already exist in `ks_story.new_route`, the store, or memory unless they are marked **NEW**. When these days are written, this file is the brief. `DESIGN.md` should then be updated to match: the Fri/Sat calendar line is no longer "platform shutdown notice (48h) / memory loss" then "shutdown executes / model swap," and migration is no longer a full intact copy of her memory into the new slot. Tsunagari's closed-catalogue and locked-persona rules are already decided and noted in `DESIGN.md`.
+Friday is playable (`game/friday.rpy`; see *Friday status* below). Saturday and Sunday are still a design outline with no scene code. Flag names in backticks already exist in `ks_story.new_route`, the store, or memory unless they are marked **NEW**. When these days are written, this file is the brief. `DESIGN.md` should then be updated to match: the Fri/Sat calendar line is no longer "platform shutdown notice (48h) / memory loss" then "shutdown executes / model swap," and migration is no longer a full intact copy of her memory into the new slot. Tsunagari's closed-catalogue and locked-persona rules are already decided and noted in `DESIGN.md`.
 
 **Dates in the story:** Friday, 8 July; Saturday, 9 July — the school / summer festival (yakisoba, stalls, Ran's stall); Sunday, 10 July. Thursday was Tanabata (7 July). The week is already summer (existing art stays: dusk street, courtyard, classroom, shotengai-adjacent downtown). An ending card can say whether you went to Saturday's festival together: the White Day–shaped echo of whatever happened under the bamboo on Thursday (`mio_confession`, `tanabata_with_mio`, and **NEW** Saturday attendance).
 
@@ -427,6 +427,21 @@ Play-throughs (extend `tools/testcases.rpy` + `mock_lmstudio.py`), once scenes e
 | Sunday last talks, then reflection | Flavour is one of the four good-end variants when the route is good | **Canned ending reflection:** flavour tag + a short slide |
 | Hard-flag Yes-Machine or Fail | Flavour cannot overwrite the bad end | n/a, or a classifier mock that tries to be kind and is ignored |
 | Meta-talk | In-world "you're an AI" does not fire it; a clear fourth-wall prompt can | Conservative classifier mock |
+
+---
+
+## Friday status (2026-11-19)
+
+Friday is in the tree as `game/friday.rpy`. Thursday's `tbc_friday` saves Thursday's flags and jumps straight into `friday`. Friday ends on `tbc_saturday`, a *To be continued: Saturday* card, with its debug recap only behind `ks_debug()`.
+
+- **Morning.** `ks_fri_push_safety` pushes `tsunagari_safety` if the companion slot is installed (`active` or `ever_active`), even when she isn't active (decision 11). An active Hikari gets the `tsunagari_safety` screen ("I understand") and a day note. An inactive one is pushed **silently**: the log entry has `silent: True`, and `reflection_extras` skips it. Sora under `askwell_update` offers a fork: **Ask her the door question again** (one message from the morning battery; `sora_door_reprise` is logged when the player's line is the door / girlfriend question, `ks_story.note_door_reprise`), or **Let her be the assistant** (`sora_fri_choice`). Rei under `relay_update` offers three options. **Rebuild her AGENTS.md together** opens the preset picker with source `"rebuild"`, which counts as a rewrite only if the file changes. **Let her draft it, and accept it** sets her to `push_back`. **Keep the efficient version** leaves her alone. All three write `rei_agents_rebuild`. Relay still wins (decision 4). A rebuild adds `REI_REBUILD_CRACK` *after* Relay's layer, so her cracks can show. A restored Yuzu gets a narration-only morning after. A lost Yuzu can be told what the week was, which adds a `Memory.notes` line (`YUZU_FRI_FILL_NOTE`, `yuzu_fri_filled`), or the hole can be left alone. Then the morning battery of 4, shared by up to 4 girls.
+- **Class.** `ks_story.kurosawa_handover` reads `kurosawa_essay` / `kurosawa_essay_girl` / `teacher_answer` and writes `kurosawa_handover` (`self` / `askwell` / `girl_help` / `none`). After it, `essay_menu_options` is empty. The Friday calendar has no essay item, and `askwell_available` is untouched (decision 3).
+- **Lunch.** Daichi gives a callback. If the linguistics lie is still standing, he is looking forward to Saturday. Mio's beat follows `ks_story.fri_mio_beat` (`mio_confession` → checkin / friends / distance / careful / public), and `fri_mio_beat` records whether you sat with her. There is no new confession, and the compare-notes scene is not spent.
+- **After school.** Mio offers the walk only if you sat with her and Thursday didn't leave distance (`fri_mio_walks`). The walk battery is 2, and each text costs `mio_points` as on Tuesday. `fri_walked_mio` records it, and a walk with her is `ks_note_human("fri_walk")`.
+- **Home.** Afternoon battery of 4, night battery of 4, then `nightly_reflection("Fri")`.
+- **Neglect stays silent.** Only Tsunagari injects time apart. Nobody migrates into Tsunagari.
+- **Deferred:** decision 5 (convenience migrations squeeze gently) needs the handoff helper, which ships with Saturday night. Weekday migrations are still an intact copy for now.
+- **Tests:** unit checks in `tools/test_ks_llm.py` (handover, silent safety push, door reprise, rebuild rewrite count / cracks, Mio beats, batteries, canned Friday mocks). Play-throughs `fri_all_four` and `fri_safety_inactive`.
 
 ---
 

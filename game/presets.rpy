@@ -114,7 +114,7 @@ label choose_preset(gid, source="phone"):
         n "You type it into the little Personalize field. Tsunagari shows a sparkle animation."
         if _cp_obj.get("family") == "romance":
             app "✨ Unlock the full Girlfriend Mode with Tsunagari+! First week free."
-    if source in ("phone", "reflection") and _cp_obj.get("lean") == "compliance":
+    if source in ("phone", "reflection", "rebuild") and _cp_obj.get("lean") == "compliance":
         $ ks_note_override(gid, "preset:" + _cp_pick)
     $ renpy.block_rollback()
     return True

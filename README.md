@@ -8,6 +8,8 @@ Also new: Sora and Hikari have a **Jailbreak** preset, unlocked when Ran teaches
 
 New in Day 3, **Wednesday** (a quiet day, nothing punishes you): the platforms ship a **memory summarizer** (Sora, Rei and Hikari fold older history into a rolling summary via the LLM, with a heuristic fallback). Yuzu can get the free **Hearth** harness (she sees your calendar) and an optional **upgrade day** that skips school for backup hardware and her own summarizer. Sora, Rei and Hearth-Yuzu see **today's schedule**. Mio invites you to a bookstore "not a date" where you can text your AI (she notices, never punishes). Ran invites you to an **AI protest** downtown, if you didn't judge her on Tuesday, where she and MUGEN have their scene. Having an AI *and* Mio in your life opens a new **Both** ending lean (previewed on the debug card). Then "To be continued — Thursday".
 
+Day 4, **Thursday** (Tanabata) is the first hostile-event day: Askwell, Relay and Tsunagari change their own rules, Yuzu's desktop crashes (the backup matters), and Mio's tanzaku. Day 5, **Friday**, is the fallout: Tsunagari's safety update (silently, even if Hikari isn't active), Kurosawa hands the essays back, you can rebuild Rei's AGENTS.md under Relay's rules, fill lost-Yuzu's hole, ask Sora the door question again, and see Mio wherever her wish left her. Then "To be continued — Saturday".
+
 ## Run it with LM Studio (Windows)
 
 1. Install the **Ren'Py SDK 8.x** (tested with 8.6.1) from https://www.renpy.org/latest.html and unzip it anywhere.
@@ -43,6 +45,7 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 - `game/script.rpy`: Monday's story flow (intros, pick, calibration, Daichi, Mio, evening) and the shared phone-menu labels
 - `game/tuesday.rpy`: Tuesday (morning, Kurosawa + Ran, Kenta, walk Mio home or not, library, night)
 - `game/wednesday.rpy`: Wednesday (summarizer update, Hearth, Yuzu upgrade day, Ran's invite, Mio's not-date, the AI protest with Ran / MUGEN, night, Thursday card)
+- `game/thursday.rpy`: Thursday (Tanabata: platform updates, Yuzu crash, Kurosawa, Daichi, Mio's tanzaku); `game/friday.rpy`: Friday (safety update, essay handover, Rei rebuild, Yuzu's morning after, Mio, Saturday card)
 - `game/presets.rpy`: the per-platform preset settings screen; `game/reflection.rpy`: the nightly reflection
 - `game/routing.rpy` + `game/ks_story.py`: story-routing tallies (presets, refusals respected/pushed/overridden, jailbreak rolls, platform rules, goodbye / no-on-platform / neglect flags, warmth, Mio, migrations, Ran), ending notes, bad-end slides and ending leans
 - `game/engine.rpy`: Ren'Py ↔ LLM glue: background requests, typing indicator, chat loop, error/retry, LLM Check
