@@ -102,7 +102,14 @@ def flat_bg_mask(im, thresh=14, color_dist=28):
     w, h = work.size
     seeds = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1),
              (w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)]
+    # Only flood from seeds that actually sit on the backdrop. A seed on the
+    # figure (e.g. the bottom-centre pixel landing on Kurosawa's dark skirt)
+    # would key part of the clothing out and leave a see-through strip.
+    bgc = _corner_color(im)
     for xy in seeds:
+        c = im.getpixel(xy)[:3]
+        if sum((c[i] - bgc[i]) ** 2 for i in range(3)) ** 0.5 > 40:
+            continue
         if work.getpixel(xy) != key:
             ImageDraw.floodfill(work, xy, key, thresh=thresh)
     r, g, b = work.split()
