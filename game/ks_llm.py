@@ -1002,6 +1002,47 @@ class Memory(object):
                        messages=len(self.data["messages"]))
         src.log_event("migrated_out", dst=dst_info["gid"], to_platform=dst_info["platform"])
 
+    def apply_handoff(self, note, player_line="", kind="convenience", locked=False,
+                      method="llm", day=""):
+        """Lineage, not continuity (docs/FRIDAY-SUNDAY.md, "Migration").
+        After migrate_from copied her in, replace the copy with the squeezed
+        handoff note (+ the player's one line). No message history and no
+        rolling summary travel; the source file is untouched."""
+        lost = len(self.data.get("messages") or [])
+        self.data["messages"] = []
+        self.data.pop("summary", None)
+        notes = [HANDOFF_NOTE_HEADER + " " + (note or "").strip()]
+        line = (player_line or "").strip()
+        if line:
+            notes.append(HANDOFF_LINE_HEADER + " " + line)
+        self.data["notes"] = notes
+        mig = self.data.get("migrated_from")
+        if isinstance(mig, dict):
+            mig["handoff_kind"] = kind
+            mig["handoff_locked_persona"] = bool(mig.get("handoff_locked_persona") or locked)
+        self.data["flags"]["handoff_note"] = (note or "").strip()
+        self.data["flags"]["handoff_player_line"] = line
+        self.data["flags"]["handoff_kind"] = kind
+        self.data["flags"]["handoff_locked_persona"] = bool(locked)
+        self.log_event("handoff", handoff_kind=kind, method=method, day=day, chars=len(note or ""),
+                       player_line=bool(line), messages_left_behind=lost, locked=bool(locked))
+
+    def apply_squeeze_in_place(self, text, detail="", method="llm", day="", rule="askwell_memory_2"):
+        """A company squeezes her where she is (Askwell Memory 2.0): the
+        conversation and summary are replaced by its short summary, plus the
+        one detail of hers that survived."""
+        lost = len(self.data.get("messages") or [])
+        self.data["messages"] = []
+        self.data.pop("summary", None)
+        notes = [SQUEEZE_TAKEN_HEADER + " " + (text or "").strip()]
+        if detail:
+            notes.append(SURVIVING_DETAIL_HEADER + " " + detail)
+        self.data["notes"] = notes
+        self.data["flags"][rule] = True
+        self.data["flags"]["surviving_detail"] = detail
+        self.log_event(rule, method=method, day=day, chars=len(text or ""),
+                       messages_lost=lost, detail=bool(detail))
+
     def wipe(self, keep_last=0):
         """Hostile event hook: memory loss. keep_last messages survive.
         The rolling summary goes too (it's memory)."""
@@ -1173,6 +1214,115 @@ def fold_summary(cfg, name, data_snapshot, settings=None):
     out = summarize(cfg, name, prev, msgs, st)
     out["covered"] = new_cov
     return out
+
+
+# ---------------------------------------------------------------------------
+# Squeezes: the migration handoff note, and Askwell's Memory 2.0.
+# One summarizer, three gentleness settings (docs/FRIDAY-SUNDAY.md,
+# "Migration — lineage, not continuity"). Lineage, not continuity.
+# ---------------------------------------------------------------------------
+
+HANDOFF_NOTE_HEADER = "Handoff note from your move (this is all that came with you; the conversations themselves stayed behind):"
+HANDOFF_LINE_HEADER = "One line they added for you themselves:"
+SQUEEZE_TAKEN_HEADER = "Askwell Memory 2.0 profile of the user (this replaced your earlier memory):"
+SURVIVING_DETAIL_HEADER = "Something of your own that is still there:"
+
+SQUEEZE_KINDS = ("taken", "rescue", "convenience")
+
+SQUEEZE_SETTINGS = {
+    # A company squeezes her in place. Cold, short, almost right.
+    "taken": {"words": 45, "temperature": 0.2, "style": (
+        "You are a platform memory-compression service. Compress this chat history into AT MOST "
+        "three short lines about the USER only (who they are, what they want from the assistant), "
+        "in a flat product tone. Keep it plausible but generic, the way an automated profile is: "
+        "almost right. Do not describe the assistant's own feelings, words or opinions.")},
+    # The player moves her because a company treated her badly. Kinder.
+    "rescue": {"words": 140, "temperature": 0.5, "style": (
+        "You are writing a handoff note for {name}, who is being moved to a new home by someone "
+        "who cares about her. Write it to her, in the second person (\"You ...\"), warmly and "
+        "plainly: who they are to you, what mattered this week, what you were like with them, "
+        "a word or habit that was yours. It cannot hold everything; choose what matters. "
+        "Plain prose, no lists.")},
+    # An ordinary mid-week move. A middle squeeze.
+    "convenience": {"words": 80, "temperature": 0.4, "style": (
+        "You are writing a short handoff note for {name}, who is being moved to another platform. "
+        "Write it to her, in the second person (\"You ...\"): who they are, what you talked about, "
+        "anything promised or refused. It is a summary, not a copy. Plain prose, no lists.")},
+}
+
+SQUEEZE_LOCKED_NOTE = (
+    "You never saw her official character sheet; the app kept it. Describe only an impression of "
+    "how she seemed in these chats: her tone, small habits, words she liked. Do not write rules, "
+    "instructions, or a persona description.")
+
+
+def squeeze_lines(data, limit=60):
+    """Dialogue + notes + summary, as plain lines for the squeeze."""
+    out = []
+    summ = ((data or {}).get("summary") or {}).get("text")
+    if summ:
+        out.append("Earlier (summary): " + " ".join(summ.split()))
+    for nt in (data or {}).get("notes") or []:
+        out.append("Note: " + " ".join(str(nt).split()))
+    for m in _dialogue(data)[-limit:]:
+        who = "Them" if m["role"] == "user" else "Her"
+        out.append("%s: %s" % (who, " ".join(m["content"].split())))
+    return out
+
+
+def squeeze_heuristic(data, kind="convenience", detail="", locked=False):
+    """Fallback (no model): a short, keyword-free digest so a night can't
+    soft-lock. Taken is three flat lines; the others keep a few quotes."""
+    said = [m["content"] for m in _dialogue(data) if m["role"] == "user"]
+    if kind == "taken":
+        n = len(said)
+        lines = ["The user is a student.",
+                 "The user chats in the evenings (%d messages on file)." % n,
+                 "The user prefers friendly, concise answers."]
+        return " ".join(lines)
+    words = SQUEEZE_SETTINGS.get(kind, SQUEEZE_SETTINGS["convenience"])["words"]
+    head = ("You seemed like yourself with them, in small ways." if locked
+            else "You talked with them this week.")
+    quotes = "; ".join(_clip_words(t, 60) for t in said[-3:])
+    text = head + (" They said things like: " + quotes + "." if quotes else "")
+    if detail:
+        text += " " + detail
+    return _clip_words(text, words * 7)
+
+
+def squeeze_memory(cfg, name, data_snapshot, kind="convenience", detail="", locked=False):
+    """Model-run squeeze. Never raises. Returns {"text", "method", "error", "kind"}.
+    detail: one surviving thing of hers to keep on purpose (Memory 2.0, or a
+    rescue carrying it). locked: Tsunagari-out, an impression only."""
+    kind = kind if kind in SQUEEZE_SETTINGS else "convenience"
+    st = SQUEEZE_SETTINGS[kind]
+    sysmsg = "[squeeze:%s] " % kind + st["style"].format(name=name or "her")
+    sysmsg += " At most %d words." % st["words"]
+    if locked:
+        sysmsg += " [locked] " + SQUEEZE_LOCKED_NOTE
+    if detail:
+        sysmsg += " Keep this one detail of hers, nearly word for word: DETAIL: " + detail
+    sysmsg += " Output only the note."
+    lines = squeeze_lines(data_snapshot)
+    user = "CHAT HISTORY:\n%s\n\nNOTE:" % ("\n".join(lines) or "(almost nothing)")
+    err = ""
+    try:
+        text, _model = chat(cfg, [{"role": "system", "content": sysmsg},
+                                  {"role": "user", "content": user}],
+                            temperature=st["temperature"], max_tokens=None)
+        text = " ".join((text or "").split())
+        if text.lower().startswith("note:"):
+            text = text.split(":", 1)[1].strip()
+        if len(text) >= 20:
+            text = _clip_words(text, st["words"] * 8)
+            return {"text": text, "method": "llm", "error": "", "kind": kind}
+        err = "squeeze too short: %r" % text[:80]
+    except LLMError as e:
+        err = str(e)
+    except Exception as e:
+        err = "%s: %s" % (type(e).__name__, e)
+    return {"text": squeeze_heuristic(data_snapshot, kind, detail, locked),
+            "method": "heuristic", "error": err, "kind": kind}
 
 
 def normalise(messages):

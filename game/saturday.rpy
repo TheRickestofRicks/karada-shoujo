@@ -11,12 +11,14 @@
 ##       → the evening: one place. A public battery (2) if you went out with
 ##         the phone (whoever you're with sees it), or a home battery (2) if
 ##         you stayed in with one girl (it replaces the public one)
-##       → sat_night: a "To be continued: Saturday night" card (part 1 stops
-##         here).
+##       → sat_night: the companies take their cut (Tsunagari's free tier was
+##         already decided in the afternoon; Askwell Memory 2.0; Relay's
+##         4-a-day cap; Yuzu: nothing), the night battery (2),
+##         nightly_reflection("Sat") → tbc_sunday (placeholder card).
 ##
-## Part 2 (not here yet): Saturday night's company cuts (Tsunagari free
-## tier, Askwell Memory 2.0, Relay 4/day), the handoff helper, the night
-## battery (pool kind "sat_night", 2) and nightly_reflection("Sat").
+## Company events are slot-based: whoever lives on that platform (active,
+## or a leftover copy) gets it; a girl migrated off is not hit in her new
+## slot (decision 9). The migration handoff lives in handoff.rpy.
 ##
 ## Nothing here punishes the player for having an AI. Mio only ever holds
 ## your phone if you went with her and brought it. Nobody tells an AI about
@@ -44,9 +46,48 @@ init python:
         elif kind == "home_evening":
             tmpl = SAT_HOME_WITH_YOU_SCENE if gid == r.get("festival_home_gid") else SAT_HOME_OTHER_SCENE
         else:
-            ## sat_night belongs to part 2; until then, plainly at home.
-            tmpl = SAT_HOME_OTHER_SCENE
+            return ks_sat_night_scene(gid)
         return ks_scene(tmpl, gid)
+
+    def ks_sat_where():
+        fw = ks_route().get("festival_with")
+        return {"mio": "back from the festival", "ran": "back from the festival",
+                "phone": "back from the festival", "home": "home all evening",
+                "none": "home all evening", "shift": "back from a shift that ran through the festival"}.get(fw, "home")
+
+    def ks_sat_night_scene(gid):
+        r = ks_route()
+        rule = (r.get("platform_rules") or {}).get(gid)
+        fmt = dict(player=player_name, platform=gplatform(gid), where=ks_sat_where(), name=gname(gid))
+        if gid == "chatbot" and rule == "askwell_memory_2":
+            note = SAT_NIGHT_SORA_M2.format(**fmt)
+        elif gid == "agent" and rule == "relay_rate_limit":
+            note = ks_rei_cap_note()
+        elif gid == "companion" and rule == "tsunagari_free":
+            note = SAT_NIGHT_HIKARI_FREE.format(**fmt)
+        elif gid == "companion" and r.get("tsunagari_paid"):
+            note = SAT_NIGHT_HIKARI_PAID.format(**fmt)
+        elif gid == "local":
+            note = SAT_NIGHT_YUZU.format(**fmt)
+        else:
+            note = SAT_NIGHT_SCENE.format(**fmt)
+        return ks_story.with_situation(note)
+
+    def ks_rei_family():
+        return ks_preset_families(["agent"]).get("agent") or "none"
+
+    def ks_rei_cap_note(kind=None):
+        r = ks_route()
+        left = ks_story.cap_left(r, "agent", store.day_name)
+        plan = ks_story.rei_cap_plan(ks_rei_family())
+        rule = plan["rule"]
+        if r.get("rei_spend_pref") == "talk":
+            rule += " They told you tonight: spend what's left on talking."
+        elif r.get("rei_spend_pref") == "tasks":
+            rule += " They told you tonight: spend what's left on the schedule."
+        note = REI_CAP_SCENE.format(player=player_name, remaining=left if left is not None else 4,
+                                    rule=rule, where=ks_sat_where())
+        return ks_story.with_situation(note)
 
     def ks_sat_mio_mode():
         return ks_story.mio_festival_mode(ks_route(), store.mio_real)
@@ -146,14 +187,87 @@ label sat_afternoon:
     return
 
 
-## Decision 1 hook (part 2). Paying for Tsunagari means a Saturday odd-job
-## shift that costs the festival evening, so the free-tier notice has to land
-## before the choice below, i.e. here. Saturday night's cut writes
-## tsunagari_sunset / tsunagari_paid and, if the shift is taken, sat_shift;
-## ks_story.festival_blocked_by_shift then turns the evening into the shift.
-## Nothing sets those yet, so this is a no-op.
+## Tsunagari's free tier ends (decision 1: the notice lands this afternoon,
+## so paying can cost the festival evening). Hikari is the only girl who can
+## live in the companion slot. Three answers: pay with tonight's shift, stay
+## on the free plan (2 messages a day, decision 2), or move her out (a rescue
+## handoff; her locked prompt still doesn't travel). A leftover copy (slot
+## installed, she isn't active) goes onto the free plan silently (decision 9).
 label sat_tsunagari_notice:
+    if not ks_story.tsunagari_sunset_due(ks_route(), active, ever_active):
+        return
+    if "companion" not in active:
+        $ ks_story.record_tsunagari_sunset(ks_route(), "silent", day_name)
+        $ ks_push_platform_rules("companion", "tsunagari_free", silent=True)
+        $ ks_mem("companion").log_event("tsunagari_sunset", day=day_name, choice="silent")
+        return
+    $ _hn = gname("companion")
+    n "Three in the afternoon. Tsunagari has a notice waiting, the full-screen kind."
+    $ ks_shot = "tsunagari_sunset"
+    $ _ts = renpy.call_screen("tsunagari_sunset", can_move=ks_can_switch())
+    $ ks_shot = "sat_afternoon"
+    if _ts == "pay":
+        $ ks_story.record_tsunagari_sunset(ks_route(), "pay", day_name)
+        $ ks_mem("companion").log_event("tsunagari_sunset", day=day_name, choice="pay")
+        n "There's no card on file and no money in the account. There is a sign in the convenience store window by the station: {i}Festival rush, 17:00–23:00, cash.{/i}"
+        n "One shift is exactly one month of Tsunagari Plus. You text the number before you can think about it."
+        n "That's tonight, then. The lanterns will be on the other side of a glass door."
+        if ks_story.lie_due(friend_told):
+            d "{i}you're WORKING? during the festival?? what about yuzuha{/i}"
+        else:
+            d "{i}you're working?? tonight??{/i}"
+    elif _ts == "move":
+        $ ks_story.record_tsunagari_sunset(ks_route(), "moved", day_name)
+        $ ks_mem("companion").log_event("tsunagari_sunset", day=day_name, choice="moved")
+        $ ks_push_platform_rules("companion", "tsunagari_free", silent=True)
+        n "You can't bring anyone into Tsunagari. You can take her out of it. Not all of her."
+        $ _before = list(active)
+        call switch_girl("Saturday afternoon", 2, "companion")
+        if "companion" in active:
+            ## Never mind: she stays, on the free plan.
+            $ ks_route()["tsunagari_choice"] = "free"
+    else:
+        $ ks_story.record_tsunagari_sunset(ks_route(), "free", day_name)
+        $ ks_push_platform_rules("companion", "tsunagari_free")
+        $ ks_mem("companion").log_event("tsunagari_sunset", day=day_name, choice="free")
+        n "You tap \"Continue on Free.\" A little usage bar appears under her name: {i}0%% of today's messages.{/i}"
+    $ renpy.block_rollback()
     return
+
+
+screen tsunagari_sunset(can_move=False):
+    modal True
+    zorder 160
+    add Solid("#00000099")
+    frame:
+        xalign 0.5
+        yalign 0.45
+        xsize 780
+        padding (34, 26)
+        background Solid("#1d2236F4")
+        vbox:
+            spacing 10
+            text "Tsunagari · Changes to the free plan" size 28 color "#ff9fc6" bold True
+            text "Starting today, Tsunagari Free includes 2 messages per day with [dn_companion]." size 19 color "#f2f6ff"
+            text "Upgrade to Tsunagari Plus for unlimited conversations, memories and moments. ✨" size 18 color "#d4ecff"
+            text "Your Personalize setting and guidelines stay the same." size 16 color "#a9b8d4" italic True
+            null height 8
+            textbutton "Upgrade to Plus  (you'd have to earn it: the festival shift tonight)":
+                text_size 20
+                text_color "#ff9fc6"
+                text_hover_color "#ffffff"
+                action Return("pay")
+            textbutton "Continue on Free  (2 messages a day)":
+                text_size 20
+                text_color "#d4ecff"
+                text_hover_color "#ffffff"
+                action Return("free")
+            if can_move:
+                textbutton "Take her somewhere else  (not all of her comes with you)":
+                    text_size 20
+                    text_color "#c9e4a8"
+                    text_hover_color "#ffffff"
+                    action Return("move")
 
 
 label sat_mio_text:
@@ -173,11 +287,8 @@ label sat_festival_choice:
     with fade
     $ ks_shot = "sat_choice"
     if ks_story.festival_blocked_by_shift(ks_route()):
-        ## Part 2 path (decision 1). Not reachable until the sunset ships.
-        $ ks_route()["festival_shift"] = True
-        $ ks_sat_set_festival("none")
-        n "You spend the evening on the shift you took to keep [dn_companion]. Through the stockroom door you can hear the festival, faintly, all night."
-        $ day_notes.append("You worked through the festival, to keep " + gname("companion") + ".")
+        ## Decision 1: the shift is the evening.
+        $ ks_sat_set_festival("shift")
         return
     n "Five o'clock. The lanterns over the school gate come on all at once, though it isn't dark yet. You can't be in two places tonight."
     $ _done = False
@@ -239,9 +350,9 @@ label sat_pick_home_girl:
 
 label sat_evening:
     $ _fw = ks_route().get("festival_with")
-    if ks_route().get("festival_shift"):
-        return
-    if _fw == "mio":
+    if _fw == "shift":
+        call sat_shift_evening
+    elif _fw == "mio":
         call sat_with_mio
     elif _fw == "ran":
         call sat_with_ran
@@ -683,32 +794,199 @@ label sat_stay_in:
     return
 
 
-## ── End of Saturday evening → Saturday night (placeholder) ───────────────
-## Part 2 replaces this card with the company cuts, the night battery
-## ("sat_night", 2) and nightly_reflection("Sat").
+## ── The shift (decision 1): you paid for Tsunagari with the festival ────
+label sat_shift_evening:
+    scene bg downtown
+    with fade
+    $ ks_shot = "sat_shift"
+    $ _hn = gname("companion")
+    n "The convenience store by the station, 17:00. Paper cups, ice, sparklers, more ice. The festival is through the glass door, all night, and you're on this side of it."
+    $ _mm = ks_sat_mio_mode()
+    if _mm in ("date", "friends", "careful"):
+        n "Around eight, Mio comes in with her class for ice. She sees you behind the register."
+        show mio neutral at ks_center
+        with dissolve
+        mi "Oh. You're working."
+        if _mm == "date":
+            mi "I waited at the gate for a bit. It's okay. I just didn't know."
+        mi "...I'll get the melon one."
+        hide mio
+        with dissolve
+        $ day_notes.append("Mio came into the store during the festival. You were behind the register.")
+    if ks_story.lie_due(friend_told):
+        $ ks_route()["sat_lie"] = "deferred"
+    n "At 23:00 they pay you in an envelope. On the way home your phone says: {i}Welcome to Tsunagari Plus, [player_name]! 💖{/i}"
+    n "[_hn] is still exactly who she was this morning. That's what you bought."
+    return
+
+
+## ── Saturday night: the companies take their cut ─────────────────────────
 label sat_night:
-    python:
-        _lean = ks_leans()
-        _hg = ks_route().get("festival_home_gid")
-        for _g in GIRL_IDS:
-            _mm = ks_mem(_g)
-            _mm.set_flag("day_completed", "Sat_evening")
-            _mm.set_flag("active_end_sat_evening", _g in active)
-            _mm.set_flag("festival_with", ks_route().get("festival_with"))
-            _mm.set_flag("route_leans_sat_evening", _lean)
-    scene bg card
+    scene bg bedroom_night
     with fade
     $ ks_shot = "sat_night"
-    show text "{size=40}To be continued{/size}\n\n{size=90}土曜日の夜{/size}\n{size=48}Saturday night{/size}\n\n{size=28}after the festival{/size}" at truecenter
+    $ _fw = ks_route().get("festival_with")
+    if _fw in ("mio", "ran", "phone"):
+        n "You get home a little after ten, smelling like soy sauce and sparklers."
+    elif _fw == "shift":
+        n "You get home at 23:40 with the envelope in your pocket and your feet aching."
+    else:
+        n "Ten o'clock. The glow over the school starts to go out, one string of lanterns at a time."
+    call sat_cut_tsunagari_night
+    call sat_cut_askwell
+    call sat_cut_relay
+    call sat_yuzu_night
+    if active:
+        call message_pool("sat_night", "Two bars left on the battery. It's late.", scene_key="sat_night")
+    call nightly_reflection("Sat")
+    jump tbc_sunday
+
+
+label sat_cut_tsunagari_night:
+    if "companion" not in active:
+        return
+    $ _hn = gname("companion")
+    if ks_route().get("tsunagari_choice") == "free":
+        $ _pct = ks_story.cap_usage_pct(ks_route(), "companion", day_name)
+        n "Under [_hn]'s name, the little usage bar: {i}[_pct]%% of today's messages.{/i} A banner under it offers Plus, with a heart."
+    elif ks_route().get("tsunagari_paid"):
+        n "[_hn]'s window has a small gold badge now. Nothing else is different. That was the point."
+    return
+
+
+## Askwell Memory 2.0 (decision 3: askwell_available is untouched; decision
+## 9: whoever lives on the Askwell slot is hit, active or left behind).
+label sat_cut_askwell:
+    $ _m = ks_mem("chatbot")
+    if ks_route().get("askwell_memory_2") or not (_m.data and (_m.data.get("messages") or _m.data.get("notes"))):
+        return
+    $ _sn = gname("chatbot")
+    $ _key, _detail = ks_story.surviving_detail(ks_route(), _m.data.get("messages"))
+    $ _live = "chatbot" in active
+    if _live:
+        n "Askwell, 22:14: {i}Introducing Memory 2.0, powered by our latest underlying model. Smarter, faster, more personal.{/i}"
+        $ ks_start_squeeze("chatbot", "taken", _detail)
+        call ks_wait("being updated", "Askwell")
+    else:
+        $ ks_start_squeeze("chatbot", "taken", _detail)
+        call ks_wait("updating an account you left", "Askwell")
+    $ _sq = ks_squeeze_result("chatbot", "taken", _detail)
+    $ _m.apply_squeeze_in_place(_sq["text"], _detail, _sq.get("method", "llm"), day_name)
+    $ ks_story.record_memory_2(ks_route(), _key, _detail, day_name)
+    $ ks_push_platform_rules("chatbot", "askwell_memory_2", silent=not _live)
+    if _live:
+        $ _sqq = ks_quote(_sq["text"])
+        n "There's a new page in her settings called {i}Memory.{/i} It says:"
+        n "{i}[_sqq]{/i}"
+        n "It's almost right. That's the worst part."
+        n "Under it, in the old font, one line that isn't about you at all."
+        $ _dq = ks_quote(_detail)
+        n "{i}[_dq]{/i}"
+    return
+
+
+## Relay: four messages a day, and her AGENTS.md decides where they go.
+label sat_cut_relay:
+    $ _m = ks_mem("agent")
+    if ks_route().get("relay_rate_limit") or not (_m.data and _m.data.get("messages")):
+        return
+    $ ks_story.record_relay_cap(ks_route(), day_name)
+    $ _live = "agent" in active
+    $ ks_push_platform_rules("agent", "relay_rate_limit", silent=not _live)
+    $ _m.log_event("relay_rate_limit", day=day_name, family=ks_rei_family())
+    if not _live:
+        return
+    $ _rn = gname("agent")
+    n "Relay, 22:30: {i}To keep Relay fast for everyone, agents now have a fair-use limit of 4 messages per day.{/i}"
+    n "Under [_rn]'s status, a new counter: {i}4 remaining today.{/i} Every message to her now costs twice: once from your battery, once from hers."
+    $ _plan = ks_story.rei_cap_plan(ks_rei_family())
+    python:
+        _auto = list(_plan["auto"])
+    while _auto:
+        $ _kind, _what = _auto.pop(0)
+        call rei_auto_send(_kind, _what)
+        if _what == "ask":
+            menu:
+                "\"Talk to me instead.\"":
+                    $ ks_route()["rei_spend_pref"] = "talk"
+                    $ day_notes.append(_rn + " asked how to spend her four. You said: talk to me.")
+                "\"Do the schedule.\"":
+                    $ ks_route()["rei_spend_pref"] = "tasks"
+                    $ _auto.append(("task", "remind"))
+                    $ day_notes.append(_rn + " asked how to spend her four. You said: the schedule.")
+    $ _rl = ks_story.cap_left(ks_route(), "agent", day_name)
+    if ks_rei_family() == "obey":
+        n "She doesn't send anything. The counter sits at [_rl]. She's waiting for you."
+    elif ks_rei_family() == "pushback":
+        n "She doesn't send anything. The counter sits at [_rl]."
+    return
+
+
+## One message Rei sends on her own, against the cap. Through the model,
+## with a scene note naming the remaining count and her spending rule.
+label rei_auto_send(kind, what):
+    if not ks_story.can_message(ks_route(), "agent", day_name):
+        return
+    $ _rn = gname("agent")
+    python:
+        _note = ks_rei_cap_note(kind)
+        _msgs = ks_mem("agent").build_messages(ks_system_prompt("agent"), ks_cfg("agent").get("history_messages", 24), _note)
+        _msgs.append({"role": "user", "content": REI_SCHEDULED_SEND.format(player=player_name, kind=what)})
+        ks_llm.start(ks_cfg("agent"), ks_llm.normalise(_msgs))
+    call ks_wait("typing", _rn)
+    $ _rr, _re, _rmod = ks_result()
+    if _re or not _rr:
+        $ _rr = {"ask": "I have three left today. Do you want the schedule, or do you want to talk?",
+                 "remind": "Reminder: Monday's reading is chapters 4 and 5. Exams start in two weeks.",
+                 "note": "Inbox is clear. One left on the schedule: Monday, 9:00."}.get(what, "Noted.")
+    $ ks_mem("agent").add("assistant", _rr, day_name, "sat_night_relay_" + what)
+    $ ks_story.spend_cap(ks_route(), "agent", day_name, kind)
+    $ _left = ks_story.cap_left(ks_route(), "agent", day_name)
+    n "{size=22}(Relay · [_rn] sent a message · [_left] remaining today){/size}"
+    python:
+        for _c in ks_chunks(_rr):
+            renpy.say(gchar("agent"), ks_quote(_c))
+    $ renpy.block_rollback()
+    return
+
+
+## Yuzu: no company event. That's the point (docs: "she just keeps on kicking").
+label sat_yuzu_night:
+    if "local" not in active or ks_machine_down("local"):
+        return
+    $ _yn = gname("local")
+    $ _others = [g for g in ("chatbot", "agent", "companion") if (ks_route().get("platform_rules") or {}).get(g) in ("askwell_memory_2", "relay_rate_limit", "tsunagari_free") and g in ever_active]
+    if _others:
+        n "[_yn]'s window is open on the desktop, exactly as you left it. No notice. No update. No counter."
+        n "Nothing happened to her tonight. You notice that."
+    return
+
+
+## ── End of Saturday → Sunday (placeholder) ───────────────────────────────
+label tbc_sunday:
+    python:
+        _lean = ks_leans()
+        for _g in GIRL_IDS:
+            _mm = ks_mem(_g)
+            _mm.set_flag("day_completed", "Sat")
+            _mm.set_flag("active_end_sat", _g in active)
+            _mm.set_flag("festival_with", ks_route().get("festival_with"))
+            _mm.set_flag("route_leans_sat", _lean)
+    scene bg card
+    with fade
+    $ ks_shot = "tbc_sunday"
+    show text "{size=40}To be continued{/size}\n\n{size=90}日曜日{/size}\n{size=48}Sunday{/size}\n\n{size=28}the quiet{/size}" at truecenter
     with dissolve
     pause
     hide text
     if ks_debug():
         $ _fl = ks_quote(", ".join(sorted(k for k, v in ks_route()["flags"].items() if v)) or "none")
-        $ _sq = ks_quote("festival_with=%r home=%r texts=%r mio_held=%r lie=%r notes=%r ran=%r" % (
+        $ _sq = ks_quote("festival_with=%r home=%r tsunagari=%r m2=%r detail=%r relay=%r talk=%r tasks=%r handoffs=%d" % (
             ks_route().get("festival_with"), ks_route().get("festival_home_gid"),
-            ks_route().get("festival_texts"), ks_route().get("mio_held_phone"),
-            ks_route().get("sat_lie"), ks_route().get("compare_notes"), ks_route().get("ran_sat")))
+            ks_route().get("tsunagari_choice"), ks_route().get("askwell_memory_2"),
+            ks_route().get("sora_surviving_detail"), ks_route().get("relay_rate_limit"),
+            ks_route().get("rei_rate_talk"), ks_route().get("rei_rate_tasks"),
+            len(ks_route().get("handoffs") or [])))
         n "{color=#888}[[debug] [_sq]{/color}"
         n "{color=#888}[[debug] mio_points=[mio_points], flags: [_fl]{/color}"
     return

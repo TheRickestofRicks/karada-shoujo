@@ -135,11 +135,37 @@ init -10 python:
         for g in (store.active or []):
             if ks_machine_down(g):
                 items.append((ks_unreachable_note(g), None))
+            elif not ks_can_message(g):
+                items.append((ks_cap_note(g), None))
             else:
                 items.append(("Message " + gname(g), g))
         if put_away_label is not None:
             items.append((put_away_label, put_away_value))
         return items
+
+    ## Saturday night on: per-day platform caps (Tsunagari Free 2/day,
+    ## Relay 4/day). On top of the shared battery, never instead of it.
+    def ks_can_message(gid):
+        return ks_story.can_message(ks_route(), gid, store.day_name)
+
+    def ks_cap_note(gid):
+        if gid == "companion":
+            return gname(gid) + " — Tsunagari Free: today's 2 messages are used (100%)."
+        return gname(gid) + " — Relay limit reached for today."
+
+    def ks_cap_lines():
+        """Small chrome lines under the battery for capped slots."""
+        out = []
+        r = ks_route()
+        for g in (store.active or []):
+            left = ks_story.cap_left(r, g, store.day_name)
+            if left is None:
+                continue
+            if g == "companion":
+                out.append("Tsunagari Free · %s today %d%%" % (gname(g), ks_story.cap_usage_pct(r, g, store.day_name)))
+            else:
+                out.append("Relay · %s: %d message%s remaining today" % (gname(g), left, "" if left == 1 else "s"))
+        return out
 
     def ks_phone_glance_names():
         parts = []

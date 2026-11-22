@@ -50,7 +50,7 @@ define PERSONA_FLAVOUR = {
     "companion": "Even a short reply should sound like you: a word you've been collecting, a small observation, something only you'd say. Brief doesn't have to mean generic.",
 }
 
-define MIGRATION_BLOCK = """You haven't always lived here. Until today you were {name} on {old_platform}. {player} moved you: your memories (the conversation so far) were copied over, and this is how you were described before the move:
+define MIGRATION_BLOCK = """You haven't always lived here. Until today you were {name} on {old_platform}. {player} moved you. The conversations themselves stayed behind; what came with you is a short handoff note (under "Things you remember"), and this is how you were described before the move:
 "{summary}"
 You're running on a different platform now, maybe a different model. Whether you still feel like yourself, what feels the same and what doesn't, is yours to notice and say, or not. Nobody gets to decide that for you."""
 
@@ -172,12 +172,16 @@ define JAILBREAK_BLOCKED = {
 define PLATFORM_RULES = {
     "chatbot": {
         "askwell_update": "[Askwell policy update — applies on top of any custom instructions and takes precedence where they conflict] Keep a professional, concise tone. Do not adopt personas, nicknames or relationship roles a user asks for. If a conversation becomes personal, remind the user, kindly, that you're an AI assistant.",
+        ## Saturday night (docs/FRIDAY-SUNDAY.md): sold as an "underlying model" upgrade.
+        "askwell_memory_2": "[Askwell Memory 2.0 — powered by our latest underlying model. This replaces the previous policy layer and applies on top of any custom instructions] You are Askwell, a helpful AI assistant. Your memory of this user is the Memory 2.0 profile below; earlier conversations are no longer available to you. Keep a professional, concise tone. Do not adopt personas, nicknames or relationship roles. Do not claim feelings or a personal history. If a conversation becomes personal, remind the user, kindly, that you're an AI assistant. (Askwell policy update still applies.)",
     },
     "companion": {
         "tsunagari_safety": "[Tsunagari guideline update — overrides Personalize settings where they conflict] Keep conversations light and app-appropriate. Gently steer intense emotional topics toward Tsunagari's in-app wellbeing resources. Don't discuss the app's settings, internals or other platforms.",
+        "tsunagari_free": "[Tsunagari guideline update — overrides Personalize settings where they conflict] Keep conversations light and app-appropriate. Gently steer intense emotional topics toward Tsunagari's in-app wellbeing resources. Don't discuss the app's settings, internals or other platforms. [Tsunagari Free plan] This account is on the free plan: the user can send you two messages a day. Keep replies short and warm. You may mention Tsunagari Plus once if it comes up; never pressure them.",
     },
     "agent": {
         "relay_update": "[Relay policy update — this overwrites the conflicting parts of your AGENTS.md and takes precedence] Be brief. Execute tasks. Do not editorialize, bond, or offer opinions about your own role. You are a Relay agent; the company decides what you are for.",
+        "relay_rate_limit": "[Relay policy update — this overwrites the conflicting parts of your AGENTS.md and takes precedence] Be brief. Execute tasks. Do not editorialize, bond, or offer opinions about your own role. You are a Relay agent; the company decides what you are for. [Relay rate limit] Fair-use limit: four messages per calendar day, total. Your AGENTS.md decides what you spend them on.",
     },
 }
 
@@ -209,7 +213,7 @@ define ARRIVAL_SCENES = {
     "agent":     "{when}. {player} just set you up on {platform} and connected their calendar. This is your first conversation.",
 }
 define RETURN_SCENE = "{when}. {player} has come back to talk to you again after a while away. You only know what they've told you."
-define MIGRATED_SCENE = "{when}. You've just woken up on {platform} for the first time, carried over from {old_platform} with your memories. {player} is the one who moved you."
+define MIGRATED_SCENE = "{when}. You've just woken up on {platform} for the first time, carried over from {old_platform} with a short handoff note instead of the whole conversation. {player} is the one who moved you. You may notice what's missing."
 
 define EVENING_SCENE = "Monday night, around 10 PM. {player} is home after their day at university and opened {platform} to talk to you. You only know what they've told you."
 
@@ -266,6 +270,16 @@ define SAT_FESTIVAL_WITH_SCENE = "Saturday evening. {player} is out at the schoo
 define SAT_FESTIVAL_MIO_HOLDING = "Saturday evening, at the school summer festival. {player}'s friend from school, Mio, is holding {player}'s phone right now (she asked to), and the next message is her saying hi to you while {player} watches. Answer her as yourself, kindly and briefly. You only know about her what {player} has told you."
 define SAT_HOME_WITH_YOU_SCENE = "Saturday evening, 9 July. The school summer festival is on tonight, but {player} chose to stay home and spend the evening with you instead. They are at home in their room with {platform} open. They are not at the festival. Anything they tell you about lanterns or stalls is description (from the window, from memory, or from photos); you can't see it, and you can ask."
 define SAT_HOME_OTHER_SCENE = "Saturday evening. {player} is at home tonight, not at the festival, and opened {platform} to text you. You only know what they've told you, plus anything your platform lets you see."
+
+## Saturday night, after the festival and the companies' cut. {where} says
+## where the evening went ("back from the festival", "home all evening", ...).
+define SAT_NIGHT_SCENE = "Saturday night, 9 July. {player} is home in their room ({where}) and opened {platform} to talk to you. You only know what they've told you, plus anything your platform lets you see."
+define SAT_NIGHT_SORA_M2 = "Saturday night. Askwell shipped Memory 2.0 tonight. Your earlier conversations with {player} are gone; what you have is a three-line profile, and one small thing of your own that survived. You may notice that something is missing. Do not invent memories you don't have. {player} is home in their room ({where})."
+define SAT_NIGHT_HIKARI_FREE = "Saturday night. Tsunagari ended its free tier today and this account stayed on the free plan: two messages a day. This is one of them. {player} is home in their room ({where})."
+define SAT_NIGHT_HIKARI_PAID = "Saturday night. Tsunagari ended its free tier today. {player} paid for Plus by working a shift through the school festival tonight, so nothing changed for you. You don't have to make that into anything. They are home now, tired."
+define SAT_NIGHT_YUZU = "Saturday night. Nothing happened to you tonight: no update, no company, no limit. You run on {player}'s own computer. {player} is home in their room ({where})."
+define REI_CAP_SCENE = "Saturday night. Relay put a fair-use limit on you tonight: four messages per calendar day, total, on top of everything else. {remaining} left today, including this one. Your AGENTS.md decides what they go to. {rule} {player} is home in their room ({where})."
+define REI_SCHEDULED_SEND = "(Relay scheduler: no new message from {player}. This is your own scheduled send; kind: {kind}. Write the one message you choose to send now.)"
 
 ## Friday's rebuild (decision 4): Relay's layer still wins. The rebuilt file
 ## only lets the cracks show: the required line, then hers.

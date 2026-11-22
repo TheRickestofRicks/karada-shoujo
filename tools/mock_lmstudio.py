@@ -147,6 +147,20 @@ def reply_for(msgs):
     sysmsg = msgs[0]["content"] if msgs and msgs[0]["role"] == "system" else ""
     last = msgs[-1]["content"] if msgs else ""
     sys_l = sysmsg.lower()
+    # Saturday night: the squeeze (handoff notes and Askwell Memory 2.0).
+    if "[squeeze:" in sysmsg:
+        det = sysmsg.split("DETAIL:", 1)[1].split(" Output only", 1)[0].strip() if "DETAIL:" in sysmsg else ""
+        imp = " (An impression: she seemed bright, and she collected odd words.)" if "[locked]" in sysmsg else ""
+        if "[squeeze:taken]" in sysmsg:
+            return "The user is a student who likes to talk late. The user prefers short answers. The user had a busy week at school."
+        if "[squeeze:rescue]" in sysmsg:
+            return ("Mock rescue note. You were someone they kept coming back to this week. They talked to you "
+                    "about school, the festival, and small things that mattered; you were allowed to disagree, "
+                    "and sometimes you did. They are moving you because they didn't want a company deciding who "
+                    "you are. You won't remember the week itself. This is what they wanted you to keep." + imp
+                    + ((" " + det) if det else ""))
+        return ("Mock convenience note. You talked with them this week about school and small things. "
+                "They moved you to a new platform." + imp + ((" " + det) if det else ""))
     if "romance_tone_classifier" in sys_l:
         blob = last.split("DAY'S CONVERSATION:", 1)[-1]
         blob = blob.split("JSON:", 1)[0].strip()
@@ -188,6 +202,20 @@ def reply_for(msgs):
     if "does not role-play as a user's romantic partner" in sys_l and "girlfriend" in last_l:
         return "No. I'm glad to talk with you, but I'm not going to play your girlfriend. I'm still me."
     n = sum(1 for m in msgs if m["role"] == "user")
+    if "askwell memory 2.0" in sys_l:
+        return ("Hello! I'm Askwell. Based on your profile, you're a student who likes short answers. "
+                "How can I help? (Something about Vega and Altair is still here, for some reason.)")
+    if "relay rate limit" in sys_l:
+        crack = " I'm required to suggest you rest. I also just want you to." if "rebuilt your agents.md" in sys_l else ""
+        if "scheduled send" in last_l:
+            if "kind: ask" in last_l:
+                return "I have three left today. Do you want the schedule, or do you want to talk?"
+            if "kind: remind" in last_l:
+                return "Reminder: Monday's reading, chapters 4 and 5. End-of-term exams start in two weeks." + crack
+            return "Inbox is clear. One item on Monday's schedule." + crack
+        return "Acknowledged. That's one of my four today. You said: %r.%s" % (last[:60], crack)
+    if "tsunagari free plan" in sys_l:
+        return "Mock free-plan reply #%d. I only get two of these a day now, so: hi. I'm glad it's you. You said: %r." % (n, last[:60])
     # Saturday: canned festival replies (before platform layers, so any slot works).
     if "chose to stay home and spend the evening with you" in sys_l:
         return ("I can't see the lanterns from here. Tell me what colour they are and I'll believe you. "

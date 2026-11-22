@@ -1472,7 +1472,7 @@ try:
     ks_story.set_festival(FR, "bamboo"); _bad = False
 except ValueError:
     _bad = True
-check("only the five festival values", _bad and tuple(ks_story.FESTIVAL_WITH) == ("mio", "ran", "phone", "home", "none"))
+check("only the six festival values (shift is the paid Tsunagari shift)", _bad and tuple(ks_story.FESTIVAL_WITH) == ("mio", "ran", "phone", "home", "none", "shift"))
 ks_story.set_festival(FR, "home", "local")
 check("home records who", FR["festival_with"] == "home" and FR["festival_home_gid"] == "local" and ks_story.festival_valid(FR))
 check("home is not 'together'", not ks_story.festival_together(FR)
@@ -1584,5 +1584,131 @@ check("mock Saturday: lanterns she cannot see",
       "can't see the lanterns" in _mr("Saturday evening. Tester chose to stay home and spend the evening with you instead.", "they're orange"))
 check("mock Saturday: Mio says hi through the phone",
       "Hi, Mio" in _mr("Tester's friend from school, Mio, is holding Tester's phone right now"))
+
+# --- Saturday night: the companies' cut, caps, the handoff ---------------
+CR = ks_story.new_route()
+check("no cap until a company sets one", ks_story.cap_left(CR, "agent", "Sat") is None and ks_story.can_message(CR, "agent", "Sat")
+      and ks_story.spend_cap(CR, "agent", "Sat") is True and not CR["cap_used"])
+ks_story.record_relay_cap(CR, "Sat")
+check("Relay cap is four a day", ks_story.cap_left(CR, "agent", "Sat") == 4 and CR["rei_day_cap"]["Sat"] == 4 and CR["relay_rate_limit"])
+for _k in ("talk", "task", "talk", "talk"):
+    ks_story.spend_cap(CR, "agent", "Sat", _k)
+check("talk vs task counters", CR["rei_rate_talk"] == 3 and CR["rei_rate_tasks"] == 1 and CR["rei_day_cap"]["Sat"] == 0
+      and [e["remaining"] for e in CR["rei_rate_log"]] == [3, 2, 1, 0])
+check("at zero she can't be messaged; spend refuses", not ks_story.can_message(CR, "agent", "Sat") and ks_story.spend_cap(CR, "agent", "Sat") is False
+      and CR["rei_rate_talk"] == 3)
+check("other girls unaffected by Rei's cap", ks_story.can_message(CR, "local", "Sat") and ks_story.can_message(CR, "chatbot", "Sat"))
+check("the cap resets tomorrow", ks_story.cap_left(CR, "agent", "Sun") == 4)
+# The window battery and the cap both go down for one Rei message.
+CP = ks_story.new_route(); ks_story.record_relay_cap(CP, "Sat")
+_pl = ks_story.new_pool("sat_night")
+ks_story.spend_pool(_pl, "agent"); ks_story.spend_cap(CP, "agent", "Sat", "talk")
+check("one Rei message costs the pool and the cap", _pl["left"] == 1 and ks_story.cap_left(CP, "agent", "Sat") == 3)
+
+TR = ks_story.new_route()
+check("Tsunagari sunset due only if the slot was ever installed",
+      not ks_story.tsunagari_sunset_due(TR, ["local"], []) and ks_story.tsunagari_sunset_due(TR, ["local"], ["companion"]))
+ks_story.record_tsunagari_sunset(TR, "free", "Sat")
+check("free plan: quota 2, usage 0%", ks_story.cap_left(TR, "companion", "Sat") == 2 and ks_story.cap_usage_pct(TR, "companion", "Sat") == 0
+      and not ks_story.tsunagari_sunset_due(TR, ["companion"], []))
+ks_story.spend_cap(TR, "companion", "Sat")
+check("usage 50% after one", ks_story.cap_usage_pct(TR, "companion", "Sat") == 50)
+ks_story.spend_cap(TR, "companion", "Sat")
+check("usage 100% after two, then locked", ks_story.cap_usage_pct(TR, "companion", "Sat") == 100 and not ks_story.can_message(TR, "companion", "Sat"))
+TP = ks_story.new_route(); ks_story.record_tsunagari_sunset(TP, "pay")
+check("pay: the shift, no cap", TP["tsunagari_paid"] and TP["sat_shift"] and ks_story.cap_left(TP, "companion", "Sat") is None)
+check("shift costs the festival", ks_story.festival_blocked_by_shift(TP))
+ks_story.set_festival(TP, "shift")
+check("festival_with shift has a card line", "worked through" in (ks_story.festival_card_line(TP) or ""))
+TM = ks_story.new_route(); ks_story.record_tsunagari_sunset(TM, "moved")
+check("moved/silent leave the leftover on Free", ks_story.cap_left(TM, "companion", "Sat") == 2 and not TM.get("tsunagari_paid"))
+_bad2 = False
+try: ks_story.record_tsunagari_sunset(ks_story.new_route(), "maybe")
+except ValueError: _bad2 = True
+check("only the four sunset outcomes", _bad2)
+
+check("surviving detail: Vega if she said it",
+      ks_story.surviving_detail({}, [{"role": "assistant", "content": "Vega is about 25 light-years from us."}])[0] == "vega")
+check("surviving detail: the door if asked",
+      ks_story.surviving_detail({}, [{"role": "user", "content": "will you be my girlfriend?"}])[0] in ("door", "other"))
+check("surviving detail: the door reprise flag",
+      ks_story.surviving_detail({"sora_door_reprise": True}, [])[0] == "door")
+check("surviving detail: else other", ks_story.surviving_detail({}, [])[0] == "other")
+MR = ks_story.new_route(); MR["askwell_available"] = True
+ks_story.record_memory_2(MR, "vega", ks_story.VEGA_DETAIL_TEXT)
+check("Memory 2.0 doesn't take Askwell away", MR["askwell_available"] is True and MR["askwell_memory_2"])
+
+HR = ks_story.new_route()
+check("handoff: ordinary move is convenience", ks_story.handoff_kind(HR, "local") == "convenience" and ks_story.handoff_kind(HR, "companion") == "convenience")
+HR["platform_rules"]["chatbot"] = "askwell_update"
+check("handoff: off a company that pushed rules is a rescue", ks_story.handoff_kind(HR, "chatbot") == "rescue")
+HR["tsunagari_sunset"] = True
+check("handoff: off Tsunagari after the sunset is a rescue", ks_story.handoff_kind(HR, "companion") == "rescue")
+ks_story.record_memory_2(HR, "door", ks_story.DOOR_DETAIL_TEXT)
+check("the surviving detail travels with a rescue off Askwell", ks_story.handoff_detail(HR, "chatbot") == ks_story.DOOR_DETAIL_TEXT
+      and ks_story.handoff_detail(HR, "agent") == "")
+HR["migration_log"].append({"day": "Sat", "how": "migrate", "name": "Hikari", "from": "Tsunagari", "to": "desktop"})
+ks_story.record_handoff(HR, "Sat", "companion", "local", "Hikari", "rescue", True, " petrichor ")
+check("record_handoff marks the migration", HR["handoffs"][-1]["player_line"] == "petrichor" and HR["migration_log"][-1]["squeeze"] == "rescue")
+
+check("rei cracks show under the rate limit too",
+      ks_story.rei_cracks_show({"rei_agents_rebuild": True, "platform_rules": {"agent": "relay_rate_limit"}}))
+check("Rei cap plans: consent asks, control reminds, obey/pushback wait",
+      ks_story.rei_cap_plan("consent")["auto"][0][1] == "ask" and ks_story.rei_cap_plan("control")["auto"][0][0] == "task"
+      and not ks_story.rei_cap_plan("obey")["auto"] and not ks_story.rei_cap_plan("pushback")["auto"]
+      and ks_story.rei_cap_plan(None) is ks_story.REI_CAP_PLANS["none"])
+check("control plan never asks for the essay", "Never Kurosawa's essay" in ks_story.rei_cap_plan("control")["rule"])
+
+NR = ks_story.new_route(); ks_story.set_festival(NR, "shift"); ks_story.record_tsunagari_sunset(NR, "pay")
+ks_story.record_memory_2(NR, "vega", "x"); ks_story.record_relay_cap(NR); ks_story.spend_cap(NR, "agent", "Sat", "task")
+_sl = ks_story.sat_night_lines(NR, {"companion": "Hikari", "agent": "Rei"})
+check("Saturday-night reflection lines", any("worked the festival" in l for l in _sl) and any("Memory 2.0" in l for l in _sl)
+      and any("0 talking with you, 1 on tasks" in l for l in _sl))
+NR["platform_rules_log"].append({"day": "Sat", "gid": "agent", "rule": "relay_rate_limit"})
+_rx = ks_story.reflection_extras(NR, "Sat", ["agent"], names={"agent": "Rei", "companion": "Hikari"}, platforms={"agent": "Relay"})
+check("reflection says the cuts once, in their own words", sum("Relay" in l for l in _rx) == 1, )
+check("situation: saturday night", ks_story.situation_line("", "Saturday night. Tester is home") == ks_story.SITUATION_NIGHT)
+
+# The squeeze through the mock, and with the server down.
+SQD = {"messages": [{"role": "user", "content": "I like the word petrichor", "day": "Mon"},
+                    {"role": "assistant", "content": "Me too!", "day": "Mon"}] * 6,
+       "notes": [], "migrated_from": {"persona_summary": "SECRET_PERSONA_TEXT"}}
+check("squeeze lines carry no persona text", "SECRET_PERSONA_TEXT" not in "\n".join(ks_llm.squeeze_lines(SQD)))
+_sq = server(18791)
+try:
+    _t = ks_llm.squeeze_memory(cfg(18791), "Sora", SQD, "taken")
+    _r = ks_llm.squeeze_memory(cfg(18791), "Hikari", SQD, "rescue", locked=True)
+    _c = ks_llm.squeeze_memory(cfg(18791), "Yuzu", SQD, "convenience", detail="DETAIL_XYZ")
+    check("squeeze runs on the model", _t["method"] == _r["method"] == _c["method"] == "llm")
+    check("rescue is longer and gentler than taken", len(_r["text"]) > len(_c["text"]) > len(_t["text"]) and "The user" in _t["text"])
+    check("locked squeeze is an impression", "impression" in _r["text"].lower() and "SECRET_PERSONA_TEXT" not in _r["text"])
+    check("detail is kept", "DETAIL_XYZ" in _c["text"])
+    check("mock Memory 2.0 Sora: almost-you plus the crack",
+          "profile" in _mr("[Askwell Memory 2.0] (Askwell policy update still applies.)") and "Vega" in _mr("[Askwell Memory 2.0]"))
+    check("mock Relay cap: ask", _mr("[Relay rate limit] four", "(Relay scheduler: no new message. This is your own scheduled send; kind: ask.)").startswith("I have three left today"))
+    _rm = _mr("[Relay rate limit] four", "(Relay scheduler: no new message. This is your own scheduled send; kind: remind.)")
+    check("mock Relay cap: remind never mentions the essay", "Monday" in _rm and "essay" not in _rm.lower())
+    check("mock Tsunagari Free", "two of these a day" in _mr("[Tsunagari Free plan] x"))
+finally:
+    _sq.terminate()
+_h = ks_llm.squeeze_memory(cfg(18998), "Hikari", SQD, "rescue", detail="DETAIL_Q", locked=True)
+check("server down: heuristic squeeze, never raises", _h["method"] == "heuristic" and _h["error"] and "DETAIL_Q" in _h["text"])
+check("heuristic taken is three flat lines", ks_llm.squeeze_heuristic(SQD, "taken").count("The user") == 3)
+
+d3 = tempfile.mkdtemp()
+hs = ks_llm.Memory(os.path.join(d3, "s.json")); hs.fresh("Hikari"); hs.add("user", "the rain again", "Fri", "x"); hs.note("petrichor")
+hd = ks_llm.Memory(os.path.join(d3, "d.json")); hd.fresh("Yuzu")
+hd.migrate_from(hs, {"gid": "companion", "name": "Hikari", "platform": "Tsunagari", "persona_summary": "p"}, {"gid": "local", "name": "Yuzu", "platform": "desktop"}, day="Sat")
+hd.apply_handoff("NOTE_TEXT", " one line ", "rescue", True, "llm", "Sat")
+_dd = json.load(open(os.path.join(d3, "d.json"))); _sd = json.load(open(os.path.join(d3, "s.json")))
+check("handoff: no messages travel, note + line do", _dd["messages"] == [] and "summary" not in _dd
+      and _dd["notes"] == [ks_llm.HANDOFF_NOTE_HEADER + " NOTE_TEXT", ks_llm.HANDOFF_LINE_HEADER + " one line"])
+check("handoff: source unchanged", _sd["messages"][0]["content"] == "the rain again" and _sd["notes"] == ["petrichor"])
+check("handoff logged", _dd["events"][-1]["type"] == "handoff" and _dd["events"][-1]["messages_left_behind"] == 1
+      and _dd["migrated_from"]["handoff_kind"] == "rescue")
+hs.apply_squeeze_in_place("The user is a student.", "DETAIL_D", "llm", "Sat")
+_sd = json.load(open(os.path.join(d3, "s.json")))
+check("Memory 2.0 squeezes in place", _sd["messages"] == [] and _sd["notes"][0].startswith(ks_llm.SQUEEZE_TAKEN_HEADER)
+      and _sd["notes"][1].endswith("DETAIL_D") and _sd["flags"]["askwell_memory_2"] is True)
 
 print("\nALL %d CHECKS PASSED" % ok)

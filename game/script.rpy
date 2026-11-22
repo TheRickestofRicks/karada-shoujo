@@ -139,7 +139,7 @@ label activate(gid, when, turns=4, migrated_from=None, _mig_carried=False):
     if migrated_from:
         $ _old = gplatform(migrated_from)
         $ _new = gplatform(gid)
-        n "You export everything: the chat log, her notes, the way she was described. A progress bar crawls across [_new]."
+        n "The export isn't the chat log. It's the note you just read, and the way she was described. A progress bar crawls across [_new]."
         n "Then a cursor, blinking. The name at the top says [_gn]."
         $ _scene = ks_scene(MIGRATED_SCENE, gid, when, _old)
     elif _returning:
@@ -262,11 +262,13 @@ label phone_talk(gid, when, turns=3):
     return
 
 
-label switch_girl(when, turns=4):
+label switch_girl(when, turns=4, src=None):
     ## Who are you leaving?
     if not active:
         return
-    if len(active) == 1:
+    if src is not None and src in active:
+        $ _src = src
+    elif len(active) == 1:
         $ _src = active[0]
     else:
         $ _src = renpy.display_menu([("Who are you leaving?", None)] + [(gname(g) + " on " + gplatform(g), g) for g in active] + [("Never mind", KS_NEVER_MIND)])
@@ -292,6 +294,9 @@ label switch_girl(when, turns=4):
         $ _pid, _carried = ks_migrate(_src, _dst, day_name)
         $ migrations.append((_src, _dst, _sn, when))
         $ mirror_flags.pop(_dst, None)
+        ## Lineage, not continuity: the copy is squeezed into a handoff note
+        ## the player reads (and may add one line to) before she wakes up.
+        call migration_handoff(_src, _dst)
         call activate(_dst, when, turns, _src, _carried)
     else:
         if _how == "fresh":
@@ -443,6 +448,17 @@ screen ks_message_battery():
                         ysize 12
                         background Solid("#e8f0e8")
                 text "[_left]/[_size]" size 18 color "#e8f0e8" yalign 0.5
+    $ _caps = ks_cap_lines()
+    if ks_pool and _caps:
+        frame:
+            xalign 0.98
+            yalign 0.20
+            background Solid("#121826e0")
+            padding (10, 6)
+            vbox:
+                spacing 2
+                for _cl in _caps:
+                    text "[_cl]" size 15 color "#ffd27a"
 
 
 label pool_begin(kind, size=None, template=None, scene_key="", when=""):
@@ -462,6 +478,10 @@ label pool_one_message(gid, show_sprite=True):
     if ks_machine_down(gid):
         n "The desktop is off. There's no window to open."
         return 0
+    if not ks_can_message(gid):
+        $ _capn = ks_cap_note(gid)
+        n "[_capn]"
+        return 0
     if show_sprite:
         $ girl_mood[gid] = "neutral"
         $ renpy.show(GIRL_INFO[gid]["sprite"], at_list=[ks_center])
@@ -470,6 +490,7 @@ label pool_one_message(gid, show_sprite=True):
     $ _sent = _return
     if _sent:
         $ ks_story.spend_pool(ks_pool, gid)
+        $ ks_story.spend_cap(ks_route(), gid, day_name, "talk")
     if show_sprite:
         $ renpy.hide(GIRL_INFO[gid]["sprite"])
         with dissolve

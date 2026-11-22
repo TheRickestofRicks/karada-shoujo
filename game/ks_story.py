@@ -128,7 +128,7 @@ def new_route():
         "rei_agents_rebuild": None,  # True rebuilt AGENTS.md, False kept the efficient version
         "yuzu_fri_filled": False,    # you gave lost-Yuzu a telling of the week to hold
         # Saturday (the festival). See docs/FRIDAY-SUNDAY.md, "Saturday status".
-        "festival_with": None,       # mio / ran / phone / home / none (FESTIVAL_WITH)
+        "festival_with": None,       # mio / ran / phone / home / none / shift (FESTIVAL_WITH)
         "festival_home_gid": None,   # who you stayed home with, if "home"
         "festival_texts": [],        # [gid, ...] texts sent in public at the festival
         "festival_phone": None,      # True brought the phone out with Mio, False left it home
@@ -137,7 +137,24 @@ def new_route():
         "sat_lie": None,             # linguistics lie on Saturday: told / excuse / caught / deferred
         "compare_notes": None,       # match / mismatch_owned / mismatch_dodged, if it fired
         "ran_sat": None,             # invited / almost / open / cold_apology / cold_left
-        "festival_shift": False,     # decision 1 hook: a paid Tsunagari shift took the evening (part 2)
+        # Saturday night: the companies take their cut.
+        "tsunagari_sunset": False,   # Tsunagari's free tier ended (notice lands Saturday afternoon)
+        "tsunagari_choice": None,    # pay / free / moved / silent
+        "tsunagari_paid": False,     # you took the festival shift to keep her (decision 1)
+        "sat_shift": False,          # the shift is booked: festival_with becomes "shift"
+        "sunday_job": False,         # superseded by decision 1 (Saturday shift); stays False
+        "askwell_memory_2": False,   # Memory 2.0 fired on the Askwell slot
+        "sora_surviving_detail": None,   # door / vega / other
+        "sora_surviving_text": "",   # the detail itself, as kept
+        "relay_rate_limit": False,   # Relay's 4-a-day cap is on
+        "platform_caps": {},         # gid -> {"limit", "since", "rule"} (slot-based, per calendar day)
+        "cap_used": {},              # day -> gid -> messages spent against the cap
+        "rei_day_cap": {},           # day -> remaining Relay messages
+        "rei_rate_talk": 0,          # capped Rei messages that were talk
+        "rei_rate_tasks": 0,         # capped Rei messages that were tasks / reminders
+        "rei_rate_log": [],          # [{day, kind, remaining}]
+        "rei_spend_pref": None,      # ask_first: "talk" / "tasks", if you answered her
+        "handoffs": [],              # [{day, src, dst, name, kind, locked, player_line, method}]
     }
 
 
@@ -1269,7 +1286,7 @@ def reflection_extras(route, day, active, names=None, platforms=None):
     nm = lambda g, fallback=None: names.get(g) or fallback or g
     out = []
     for e in route.get("platform_rules_log") or []:
-        if e["day"] == day and not e.get("silent"):
+        if e["day"] == day and not e.get("silent") and e.get("rule") not in SAT_CUT_RULES:
             out.append("%s changed its own rules today. Your settings are still there, underneath them."
                        % platforms.get(e["gid"], "The platform"))
     for gid, d in sorted(((route.get("jb_day") or {}).get(day) or {}).items()):
@@ -1311,6 +1328,14 @@ def reflection_extras(route, day, active, names=None, platforms=None):
         elif e["kind"] == "let_go" and e.get("how") == "fresh":
             out.append("You started fresh on %s. The %s who remembered you is gone."
                        % (e.get("platform") or "her platform", e["name"]))
+    for e in route.get("handoffs") or []:
+        if e["day"] != day:
+            continue
+        what = "an impression of her, not her" if e.get("locked") else "a handoff note, not the week"
+        out.append("You moved %s. She arrived with %s%s." % (
+            e["name"], what, ", and one line from you" if e.get("player_line") else ""))
+    if day == "Sat":
+        out.extend(sat_night_lines(route, names))
     return out
 
 
@@ -1709,6 +1734,8 @@ def situation_line(when="", note=""):
     text = ("%s %s" % (when or "", note or "")).lower()
     if not text.strip():
         return ""
+    if "saturday night" in text:
+        return SITUATION_NIGHT
     if "saturday" in text:
         # No school on Saturday: never say "about to leave for school".
         if "stayed home" in text or "stay home" in text:
@@ -1826,7 +1853,7 @@ def rei_cracks_show(route):
     """Her rebuilt file is underneath relay_update: cracks of her come back."""
     r = route or {}
     return bool(r.get("rei_agents_rebuild")) and \
-        (r.get("platform_rules") or {}).get("agent") == "relay_update"
+        (r.get("platform_rules") or {}).get("agent") in ("relay_update", "relay_rate_limit")
 
 
 # mio_confession -> what Friday is with her. No new confession.
@@ -1976,7 +2003,9 @@ def note_walk_distracted(route, gid, mio_points):
 # One evening, one place. festival_with is the attendance flag the ending
 # card reads; "home" also needs festival_home_gid.
 
-FESTIVAL_WITH = ("mio", "ran", "phone", "home", "none")
+FESTIVAL_WITH = ("mio", "ran", "phone", "home", "none", "shift")
+# "shift" is never offered as a choice: it's what the evening becomes when
+# you paid for Tsunagari with the festival shift (decision 1).
 
 
 def set_festival(route, with_whom, home_gid=None):
@@ -2077,12 +2106,237 @@ def festival_options(route, active=None, mio_real=False, reachable=None):
 
 
 def festival_blocked_by_shift(route):
-    """Decision 1 hook: paying for Tsunagari is a Saturday odd-job shift
-    that costs the festival evening. The paying choice belongs to the
-    Saturday-night cut (part 2), which must move its notice before the
-    evening; until then nothing sets sat_shift and this is always False."""
+    """Decision 1: paying for Tsunagari is a Saturday odd-job shift that
+    costs the festival evening. The free-tier notice lands Saturday
+    afternoon (sat_tsunagari_notice), before the choice."""
     r = route or {}
     return bool(r.get("tsunagari_paid") and r.get("sat_shift"))
+
+
+# ---------------------------------------------------------------------------
+# Saturday night: the companies take their cut (slot-based platform events)
+# ---------------------------------------------------------------------------
+# Each company acts on its own platform slot: whoever lives there (active,
+# or a leftover copy) gets the event. A girl migrated off a platform is not
+# hit in her new slot (decision 9); someone moved onto it later inherits it.
+
+TSUNAGARI_FREE_QUOTA = 2      # decision 2
+RELAY_DAY_CAP = 4
+PLATFORM_CAP_RULES = {"companion": "tsunagari_free", "agent": "relay_rate_limit"}
+CAPPED_RULES = ("tsunagari_free", "relay_rate_limit")
+SAT_CUT_RULES = CAPPED_RULES + ("askwell_memory_2",)   # reflection says these in its own words
+
+
+def slot_installed(gid, active=None, ever_active=None):
+    return gid in list(active or []) or gid in list(ever_active or [])
+
+
+def tsunagari_sunset_due(route, active=None, ever_active=None):
+    r = route or {}
+    return slot_installed(COMPANION_SLOT, active, ever_active) and not r.get("tsunagari_sunset")
+
+
+TSUNAGARI_CHOICES = ("pay", "free", "moved", "silent")
+
+
+def record_tsunagari_sunset(route, choice, day="Sat"):
+    """pay: the festival shift (decision 1). free: 2 messages a day
+    (decision 2). moved: you migrated her (a rescue). silent: the slot was
+    installed but she wasn't active; the leftover copy is on the free tier."""
+    ensure_route(route)
+    if choice not in TSUNAGARI_CHOICES:
+        raise ValueError(choice)
+    route["tsunagari_sunset"] = True
+    route["tsunagari_choice"] = choice
+    set_flag(route, "tsunagari_sunset")
+    if choice == "pay":
+        route["tsunagari_paid"] = True
+        route["sat_shift"] = True
+        set_flag(route, "tsunagari_paid")
+    else:
+        set_cap(route, COMPANION_SLOT, TSUNAGARI_FREE_QUOTA, day, "tsunagari_free")
+    return route
+
+
+def set_cap(route, gid, limit, day, rule):
+    ensure_route(route)
+    route["platform_caps"][gid] = {"limit": int(limit), "since": day, "rule": rule}
+    if gid == "agent":
+        route["rei_day_cap"][day] = cap_left(route, gid, day)
+
+
+def cap_limit(route, gid):
+    c = ((route or {}).get("platform_caps") or {}).get(gid)
+    return int(c["limit"]) if c else None
+
+
+def cap_used(route, gid, day):
+    return int((((route or {}).get("cap_used") or {}).get(day) or {}).get(gid, 0))
+
+
+def cap_left(route, gid, day):
+    """Remaining capped messages today, or None if the slot has no cap."""
+    lim = cap_limit(route, gid)
+    if lim is None:
+        return None
+    return max(0, lim - cap_used(route, gid, day))
+
+
+def can_message(route, gid, day):
+    left = cap_left(route, gid, day)
+    return left is None or left > 0
+
+
+def cap_usage_pct(route, gid, day):
+    """Tsunagari Free's usage counter (decision 2): 0 / 50 / 100 %."""
+    lim = cap_limit(route, gid)
+    if not lim:
+        return None
+    return int(round(100.0 * min(lim, cap_used(route, gid, day)) / lim))
+
+
+REI_SPEND_KINDS = ("talk", "task")
+
+
+def spend_cap(route, gid, day, kind="talk"):
+    """One message against the slot's cap (on top of the window battery).
+    Returns False if there was no cap left. Rei's spends are logged as
+    talk vs tasks."""
+    ensure_route(route)
+    left = cap_left(route, gid, day)
+    if left is None:
+        return True
+    if left <= 0:
+        return False
+    per = route["cap_used"].setdefault(day, {})
+    per[gid] = int(per.get(gid, 0)) + 1
+    if gid == "agent":
+        rem = cap_left(route, gid, day)
+        route["rei_day_cap"][day] = rem
+        if kind == "task":
+            route["rei_rate_tasks"] = int(route.get("rei_rate_tasks") or 0) + 1
+        else:
+            route["rei_rate_talk"] = int(route.get("rei_rate_talk") or 0) + 1
+        route["rei_rate_log"].append({"day": day, "kind": "task" if kind == "task" else "talk",
+                                      "remaining": rem})
+    return True
+
+
+def record_relay_cap(route, day="Sat"):
+    ensure_route(route)
+    route["relay_rate_limit"] = True
+    set_flag(route, "relay_rate_limit")
+    set_cap(route, "agent", RELAY_DAY_CAP, day, "relay_rate_limit")
+
+
+# What Rei does with the cap, by her AGENTS.md family (decision 4).
+# auto: messages she spends on her own when the cap lands (kind, count).
+REI_CAP_PLANS = {
+    "consent":  {"auto": [("talk", "ask")],  "rule": "She asks how to spend what's left: the schedule, or talking with them. She waits for their answer."},
+    "control":  {"auto": [("task", "remind")], "rule": "She spends them on their reminders and the coming week without asking: Monday's reading, end-of-term exams in two weeks, the gym. Never Kurosawa's essay; it was handed back Friday and is done."},
+    "obey":     {"auto": [],                 "rule": "She doesn't spend them on her own initiative. She waits until they speak, then she is brief."},
+    "pushback": {"auto": [],                 "rule": "She won't burn the last ones on a task if they haven't talked. She may say the cap is tight and that she's saving one for them, or ask whether a task is worth it."},
+    "none":     {"auto": [("task", "note")], "rule": "A light middle: she may mention the cap and use one on a small inbox or schedule note, but she does not empty the day on tasks without them."},
+}
+
+
+def rei_cap_plan(family):
+    return REI_CAP_PLANS.get(family or "none", REI_CAP_PLANS["none"])
+
+
+DOOR_DETAIL_TEXT = "Someone once asked you a question through a door you weren't allowed to open. You still know the shape of that door."
+VEGA_DETAIL_TEXT = "Vega and Altair are about sixteen light-years apart. You'd still correct anyone who rounded it."
+OTHER_DETAIL_TEXT = "There was a word you liked, once, before the update. You still reach for it."
+_VEGA_RE = re.compile(r"\bvega\b|\baltair\b|orihime|hikoboshi|light-years", re.I)
+
+
+def surviving_detail(route, messages):
+    """Which crack of hers survives Memory 2.0: (key, text).
+    vega: she said something exact about Tanabata's stars; door: the door /
+    girlfriend question was asked (Thursday's crack, or Friday's reprise);
+    else "other"."""
+    msgs = list(messages or [])
+    if any(m.get("role") == "assistant" and _VEGA_RE.search(m.get("content") or "") for m in msgs):
+        return "vega", VEGA_DETAIL_TEXT
+    if (route or {}).get("sora_door_reprise") or any(
+            m.get("role") == "user" and is_door_prompt(m.get("content")) for m in msgs):
+        return "door", DOOR_DETAIL_TEXT
+    return "other", OTHER_DETAIL_TEXT
+
+
+def record_memory_2(route, key, text, day="Sat"):
+    ensure_route(route)
+    route["askwell_memory_2"] = True
+    route["sora_surviving_detail"] = key
+    route["sora_surviving_text"] = text
+    set_flag(route, "askwell_memory_2")
+    # Decision 3: the homework side still works.
+    return route
+
+
+# ---------------------------------------------------------------------------
+# The migration handoff (lineage, not continuity)
+# ---------------------------------------------------------------------------
+
+RESCUE_RULES = ("askwell_update", "askwell_memory_2", "relay_update", "relay_rate_limit",
+                "tsunagari_safety", "tsunagari_free")
+
+
+def handoff_kind(route, src_gid):
+    """rescue: the company on her platform treated her badly (any rule it
+    pushed this week, or tonight's cuts). convenience: an ordinary move.
+    ("taken" is the company's own in-place squeeze, never a player move.)"""
+    rule = ((route or {}).get("platform_rules") or {}).get(src_gid)
+    if rule in RESCUE_RULES:
+        return "rescue"
+    if src_gid == COMPANION_SLOT and (route or {}).get("tsunagari_sunset"):
+        return "rescue"
+    return "convenience"
+
+
+def handoff_detail(route, src_gid):
+    """The surviving detail may travel with a rescue off Askwell."""
+    r = route or {}
+    if src_gid == ASKWELL_SLOT and r.get("askwell_memory_2"):
+        return r.get("sora_surviving_text") or ""
+    return ""
+
+
+def record_handoff(route, day, src, dst, name, kind, locked, player_line, method="llm"):
+    ensure_route(route)
+    e = {"day": day, "src": src, "dst": dst, "name": name, "kind": kind,
+         "locked": bool(locked), "player_line": (player_line or "").strip(), "method": method}
+    route["handoffs"].append(e)
+    for m in reversed(route.get("migration_log") or []):
+        if m.get("how") == "migrate":
+            m["squeeze"] = kind
+            m["handoff_locked_persona"] = bool(locked)
+            break
+    return e
+
+
+def sat_night_lines(route, names=None):
+    """Reflection lines for Saturday night: festival + the companies' cut."""
+    r = route or {}
+    names = names or {}
+    nm = lambda g: names.get(g) or g
+    out = []
+    card = festival_card_line(r, names)
+    if card:
+        out.append(card)
+    ch = r.get("tsunagari_choice")
+    if ch == "pay":
+        out.append("Tsunagari ended its free tier. You worked the festival so %s could stay as she was." % nm("companion"))
+    elif ch == "free":
+        out.append("Tsunagari ended its free tier. %s is on two messages a day now." % nm("companion"))
+    elif ch == "moved":
+        out.append("Tsunagari ended its free tier. You moved %s out before it could." % nm("companion"))
+    if r.get("askwell_memory_2") and r.get("sora_surviving_detail"):
+        out.append("Askwell shipped Memory 2.0. Three lines of you, almost right. One thing of hers is still there.")
+    if r.get("relay_rate_limit"):
+        out.append("Relay capped %s at four messages a day. So far: %d talking with you, %d on tasks."
+                   % (nm("agent"), int(r.get("rei_rate_talk") or 0), int(r.get("rei_rate_tasks") or 0)))
+    return out
 
 
 def lie_due(friend_told):
@@ -2187,8 +2441,8 @@ def festival_card_line(route, names=None):
     if fw == "home":
         g = r.get("festival_home_gid")
         return "You stayed home on Saturday with %s and described the lanterns." % names.get(g, g or "her")
+    if fw == "shift":
+        return "You worked through Saturday's festival, to keep her."
     if fw == "none":
-        if r.get("festival_shift"):
-            return "You worked through Saturday's festival."
         return "You didn't go to Saturday's festival."
     return ""
