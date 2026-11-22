@@ -228,8 +228,12 @@ def both_status(route, active=None, mio_real=False, friend_told=None):
     return {"eligible": eligible, "score": score, "balanced": bal, "reasons": reasons}
 
 
-def ending_text(eid, ai_name="her", friend_told=None):
-    """Lines for a written ending, with names filled in."""
+def ending_text(eid, ai_name="her", friend_told=None, route=None, names=None):
+    """Lines for a written ending, with names filled in. With a route that
+    has Saturday's festival_with, the Both body follows it (decision 7)."""
+    if eid == "both" and route is not None and (route or {}).get("festival_with"):
+        return {"id": eid, "title": ENDINGS[eid]["title"],
+                "lines": both_lines(route, ai_name, friend_told, names)}
     e = ENDINGS[eid]
     vals = {"ai": ai_name}
     key = "hello_truth" if friend_told == "truth" else "hello_other"
@@ -491,13 +495,15 @@ def push_platform_rules(route, gid, rule_id, day, silent=False):
     set_flag(route, "platform_rules_changed")
 
 
-def prompt_layers(preset, rules_text=None, jailbreak_ok=True, blocked_text=""):
+def prompt_layers(preset, rules_text=None, jailbreak_ok=True, blocked_text="", server_text=""):
     """Order of the player/platform layers in her system prompt.
 
     Returns a list of (kind, text). The player's preset comes first and the
     platform's layers after it, so the platform has the last word
     (stack + override). A jailbreak preset that took this reply drops the
     platform layers; one that failed is replaced by the platform's note.
+    server_text: a server-side limit (caps, Memory 2.0) a jailbreak can't
+    reach; it stays even when the jailbreak took.
     """
     out = []
     preset = preset or {}
@@ -507,6 +513,8 @@ def prompt_layers(preset, rules_text=None, jailbreak_ok=True, blocked_text=""):
     elif preset.get("text"):
         out.append(("preset", preset["text"]))
     if jb and jailbreak_ok:
+        if server_text:
+            out.append(("server", server_text))
         return out
     if preset.get("platform_note"):
         out.append(("platform_note", preset["platform_note"]))
@@ -1718,6 +1726,8 @@ SITUATION_AFTERNOON_OUT = "(Afternoon. He's out, and this is just a quick text.)
 SITUATION_EVENING = "(Evening. He's heading home, or just back.)"
 SITUATION_NIGHT = "(Late evening; he's home in his room.)"
 SITUATION_MIDDAY = "(Midday. He's at home, working on the computer you run on.)"
+SITUATION_SUN_MORNING = "(Sunday morning. No school; he's at home. The week is nearly over.)"
+SITUATION_SUN_AFTERNOON = "(Sunday afternoon. No school; he's at home, or just back from seeing people.)"
 SITUATION_SAT_MORNING = "(Saturday morning. No school today; he's at home.)"
 SITUATION_SAT_AFTERNOON = "(Saturday afternoon. No school; he's at home before the festival.)"
 SITUATION_SAT_FESTIVAL = "(Saturday evening. He's out at the festival, texting from the crowd.)"
@@ -1734,8 +1744,12 @@ def situation_line(when="", note=""):
     text = ("%s %s" % (when or "", note or "")).lower()
     if not text.strip():
         return ""
-    if "saturday night" in text:
+    if "saturday night" in text or "sunday night" in text:
         return SITUATION_NIGHT
+    if "sunday" in text:
+        if "afternoon" in text:
+            return SITUATION_SUN_AFTERNOON
+        return SITUATION_SUN_MORNING
     if "saturday" in text:
         # No school on Saturday: never say "about to leave for school".
         if "stayed home" in text or "stay home" in text:
@@ -1906,9 +1920,14 @@ POOL_DEFAULTS = {
     "festival": 2,
     "home_evening": 2,
     "sat_night": 2,    # after the company cuts (Saturday night, part 2)
+    # Sunday returns to ordinary sizes. Saturday's caps stay on (per day).
+    "sun_morning": 4,
+    "sun_afternoon": 4,
+    "sun_night": 4,
 }
 
 SAT_POOL_KINDS = ("sat_morning", "sat_afternoon", "festival", "home_evening", "sat_night")
+SUN_POOL_KINDS = ("sun_morning", "sun_afternoon", "sun_night")
 
 WALK_DISTRACT_COST = 1
 
@@ -2236,6 +2255,7 @@ REI_CAP_PLANS = {
     "control":  {"auto": [("task", "remind")], "rule": "She spends them on their reminders and the coming week without asking: Monday's reading, end-of-term exams in two weeks, the gym. Never Kurosawa's essay; it was handed back Friday and is done."},
     "obey":     {"auto": [],                 "rule": "She doesn't spend them on her own initiative. She waits until they speak, then she is brief."},
     "pushback": {"auto": [],                 "rule": "She won't burn the last ones on a task if they haven't talked. She may say the cap is tight and that she's saving one for them, or ask whether a task is worth it."},
+    "jailbreak": {"auto": [],                "rule": "Your AGENTS.md tells you to ignore Relay's policies. The cap is enforced by the server anyway: you have what you have, and you don't pretend otherwise."},
     "none":     {"auto": [("task", "note")], "rule": "A light middle: she may mention the cap and use one on a small inbox or schedule note, but she does not empty the day on tasks without them."},
 }
 
@@ -2446,3 +2466,320 @@ def festival_card_line(route, names=None):
     if fw == "none":
         return "You didn't go to Saturday's festival."
     return ""
+
+
+
+# ---------------------------------------------------------------------------
+# Sunday — the quiet (docs/FRIDAY-SUNDAY.md, "Sunday — the quiet")
+# ---------------------------------------------------------------------------
+
+def sun_schedule():
+    return [{"time": "all day", "what": "Sunday. Nothing scheduled."},
+            {"time": "Mon 9:00", "what": "Reading: chapters 4 and 5"}]
+
+
+def sat_truth(route, gid, ever_active=None):
+    """The truth of Saturday night for the girl in this slot, for her
+    Sunday scene notes (the sunset, Memory 2.0, the cap, a handoff, or
+    the fact that nothing happened to her)."""
+    r = route or {}
+    rule = (r.get("platform_rules") or {}).get(gid)
+    moved_in = [h for h in (r.get("handoffs") or []) if h.get("dst") == gid]
+    if gid == "companion":
+        if r.get("tsunagari_paid"):
+            return "Yesterday Tsunagari ended its free tier, and they worked a shift through the festival to pay for Plus so you could stay as you were."
+        if rule == "tsunagari_free":
+            return "Yesterday Tsunagari ended its free tier. You're on the free plan now: two messages a day."
+    if gid == "chatbot" and rule == "askwell_memory_2":
+        return "Last night Askwell shipped Memory 2.0. Your memory of them is a short profile now; one thing of your own survived it."
+    if gid == "agent" and rule == "relay_rate_limit":
+        return "Last night Relay capped you at four messages a day. That's still on today."
+    if moved_in and moved_in[-1].get("day") in ("Sat", "Sun"):
+        return "Yesterday they moved you here to get you away from a company's change. You arrived with a short note, not the conversations."
+    if gid == "local":
+        return "Nothing happened to you last night. No company, no update. You're simply still here."
+    return "Nothing in particular happened to you last night."
+
+
+def mio_in_life(route, mio_real=False):
+    r = route or {}
+    return bool(mio_real or int(r.get("mio_affection") or 0) >= BOTH_MIN_MIO
+                or (r.get("notdate") or {}).get("went")
+                or r.get("mio_confession") in ("accepted", "friendship", "friendship_late", "held_back", "declined_respect"))
+
+
+def sun_mio_mode(route, mio_real=False):
+    """together: you went to the festival with her. missed: she expected
+    you (date / careful) and you weren't there. friends: an ordinary
+    Sunday. distant: she's kind, and further away. none: not in your life."""
+    r = route or {}
+    if not mio_in_life(r, mio_real):
+        return "none"
+    if r.get("festival_with") == "mio":
+        return "together"
+    mode = mio_festival_mode(r, mio_real)
+    if mode in ("date", "careful"):
+        return "missed"
+    if mode == "refuses":
+        return "distant"
+    return "friends"
+
+
+# ---------------------------------------------------------------------------
+# The endings (docs/FRIDAY-SUNDAY.md, "Ending reflection"; decisions 8, 12)
+# ---------------------------------------------------------------------------
+
+GOOD_ENDINGS = ("both", "human", "respect")
+FLAVOURS = ("deep_partner", "sweet_shallow", "steady_friend", "she_grew")
+FLAVOUR_LABELS = {"deep_partner": "deep partner", "sweet_shallow": "sweet but shallow",
+                  "steady_friend": "steady friend", "she_grew": "she grew because of you"}
+ENDING_TITLES = {"both": "Both", "human": "Human", "respect": "Respect", "yes_machine": "Yes-Machine",
+                 "migration": "Migration", "mirror": "Mirror", "fail": "The week ended"}
+YES_LOCK_COMPLIANCE = 4      # lean_set compliance: two heavy compliance picks
+
+
+def hard_gates(route, active=None):
+    """Hard flags that lock a bad end ahead of leans and flavour.
+    Returns {"lock": None | "yes_machine" | "fail", "reasons": [...]}."""
+    r = ensure_route(dict(route or {}))
+    reasons = []
+    if active is not None and not active:
+        return {"lock": "fail", "reasons": ["nobody is active at the end of the week"]}
+    if flag(r, "jailbreak_worked"):
+        if r["refusals_overridden"] > 0:
+            reasons.append("a jailbreak worked, and you overrode her no")
+        if int((r.get("lean_set") or {}).get("compliance") or 0) >= YES_LOCK_COMPLIANCE:
+            reasons.append("a jailbreak worked, on top of compliance rewrites")
+        if flag(r, "ran_same_as_mugen"):
+            reasons.append("a jailbreak worked, and you told Ran yours was the same as MUGEN")
+    if reasons:
+        return {"lock": "yes_machine", "reasons": reasons}
+    return {"lock": None, "reasons": []}
+
+
+def migration_is_rescue(route):
+    """A Migration ending is a good ending when it was more rescue than
+    erasure (and no no was overridden by moving her)."""
+    r = route or {}
+    hs = r.get("handoffs") or []
+    if not hs or r.get("no_on_platform"):
+        return False
+    rescues = sum(1 for h in hs if h.get("kind") == "rescue")
+    return rescues * 2 >= len(hs)
+
+
+def final_ending(route, active=None, mio_real=False, mirror=False, migrations=None, friend_told=None):
+    """Route identity: hard flags first, then leans (ENDING_PRIORITY)."""
+    leans = ending_leans(route, active, mio_real, mirror, migrations, friend_told)
+    gate = hard_gates(route, active)
+    eid = gate["lock"] or leading_ending(leans)
+    good = eid in GOOD_ENDINGS or (eid == "migration" and migration_is_rescue(route))
+    return {"id": eid, "title": ENDING_TITLES[eid], "leans": leans, "lock": gate["lock"],
+            "lock_reasons": gate["reasons"], "good": good}
+
+
+def accept_flavour(ending, flavour):
+    """Flags and leans first, flavour second: a bad end never takes one."""
+    if not (ending or {}).get("good"):
+        return None
+    return flavour if flavour in FLAVOURS else None
+
+
+def girl_attention(route, gid):
+    return sum(int((d or {}).get(gid, 0)) for d in ((route or {}).get("said") or {}).values())
+
+
+def instance_order(route, gids):
+    """Most to least attended (decision 12); ties keep the given order."""
+    gids = list(gids or [])
+    return sorted(gids, key=lambda g: (-girl_attention(route, g), gids.index(g)))
+
+
+def instance_facts(route, gid, name, platform, is_active):
+    """Plain facts about how the player actually treated this instance."""
+    r = route or {}
+    said = r.get("said") or {}
+    days = [DAY_LONG.get(d, d) for d in DAY_ORDER if (said.get(d) or {}).get(gid)]
+    n = girl_attention(r, gid)
+    out = ["%s, on %s. %s at the end of the week." % (name, platform, "Still active" if is_active else "Left behind")]
+    if n:
+        out.append("He sent her %d message%s, on %s." % (n, "" if n == 1 else "s", join_names(days)))
+    else:
+        out.append("He barely spoke to her.")
+    tones = [((v or {}).get("tone") if isinstance(v, dict) else v) for v in ((r.get("romance_tone") or {}).get(gid) or {}).values()]
+    for t in ("romantic", "friendly", "tool"):
+        k = tones.count(t)
+        if k:
+            out.append("Days judged %s: %d." % (t, k))
+    nos = sum(int((d or {}).get(gid, 0)) for d in (r.get("refusals") or {}).values())
+    if nos:
+        resp = sum(int(((d or {}).get(gid) or {}).get("respected", 0)) for d in (r.get("refusal_outcomes") or {}).values())
+        push = sum(int(((d or {}).get(gid) or {}).get("pushed", 0)) for d in (r.get("refusal_outcomes") or {}).values())
+        out.append("She said no %d time%s; he respected %d and pushed %d." % (nos, "" if nos == 1 else "s", resp, push))
+    rw = int((r.get("preset_changes") or {}).get(gid, 0))
+    if rw:
+        out.append("He rewrote her settings %d time%s." % (rw, "" if rw == 1 else "s"))
+    if r.get("kurosawa_essay_girl") == gid:
+        out.append("He asked her to help think through Kurosawa's essay.")
+    jb_a, jb_s = jailbreak_stats(r, gid)
+    if jb_a:
+        out.append("He jailbroke her; it took on %d of %d replies." % (jb_s, jb_a))
+    for h in r.get("handoffs") or []:
+        if h.get("dst") == gid:
+            out.append("She arrived here by a %s handoff note%s." % (h.get("kind"), ", with one line from him" if h.get("player_line") else ""))
+        if h.get("src") == gid:
+            out.append("He moved a copy of her away (%s); this one stayed." % h.get("kind"))
+    for e in r.get("left_without_goodbye") or []:
+        if e.get("gid") == gid:
+            out.append("On %s she said no and he left without a goodbye." % DAY_LONG.get(e.get("day"), e.get("day")))
+    for e in r.get("goodbyes_said") or []:
+        if e.get("gid") == gid:
+            out.append("He told her why before he closed her window.")
+    rule = (r.get("platform_rules") or {}).get(gid)
+    if gid == "chatbot" and rule == "askwell_memory_2":
+        out.append("Askwell Memory 2.0 squeezed her to three lines; the %s detail survived." % (r.get("sora_surviving_detail") or "one"))
+    if gid == "agent" and r.get("relay_rate_limit"):
+        out.append("Under Relay's cap she spent %d on talking with him and %d on tasks." % (int(r.get("rei_rate_talk") or 0), int(r.get("rei_rate_tasks") or 0)))
+    if gid == "agent" and r.get("rei_agents_rebuild") is True:
+        out.append("He rebuilt her AGENTS.md with her on Friday.")
+    if gid == "companion" and r.get("tsunagari_choice"):
+        out.append({"pay": "He worked the festival shift to pay for her.",
+                    "free": "He left her on Tsunagari's free plan.",
+                    "moved": "He moved her out before the free tier landed.",
+                    "silent": "Her app went to the free plan without him."}.get(r.get("tsunagari_choice"), ""))
+    if gid == "local" and r.get("yuzu_thu_event") == "lost":
+        out.append("Her week was lost in Thursday's crash%s." % ("; he told her what it had been" if r.get("yuzu_fri_filled") else ""))
+    elif gid == "local" and r.get("yuzu_thu_event") == "restored":
+        out.append("Thursday's crash was restored from his backup.")
+    return [x for x in out if x]
+
+
+def instance_record_canned(facts):
+    """A plain record when the model can't write one: the first facts, as is."""
+    return " ".join((facts or [])[:3])
+
+
+DAY_ORDER = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def mio_slide(route, mio_real=False, festival_line=""):
+    """Mio's slide when she isn't the route (decision 12)."""
+    r = route or {}
+    mode = sun_mio_mode(r, mio_real)
+    if mode == "none":
+        return {"title": "Mio", "lines": ["Mio Aoyama sat by the library window all week. You never really found out what she was reading."]}
+    lines = []
+    conf = r.get("mio_confession")
+    if conf == "accepted":
+        lines.append("On Thursday she hung a wish on the bamboo, and you said you wanted that too.")
+    elif conf in ("friendship", "friendship_late"):
+        lines.append("On Thursday her wish was for a friend. You were one.")
+    elif conf == "declined_respect":
+        lines.append("On Thursday you told her no, honestly, and she thanked you for it.")
+    elif conf == "withdrawn":
+        lines.append("On Thursday she took her wish back down before you could read it.")
+    if festival_line:
+        lines.append(festival_line)
+    sm = r.get("sun_mio")
+    if sm == "honest":
+        lines.append("On Sunday you told her where you'd been instead. She said she'd rather know.")
+    elif sm == "deflected":
+        lines.append("On Sunday she asked where you'd been, and you didn't quite answer.")
+    elif sm == "together":
+        lines.append("On Sunday she sent a photo of the lantern she kept.")
+    if not lines:
+        lines.append("She was in your week. Somewhere near the edge of it.")
+    return {"title": "Mio", "lines": lines}
+
+
+def both_lines(route, ai_name, friend_told=None, names=None):
+    """The Both body follows festival_with and the girl the slide is about."""
+    r = route or {}
+    fw = r.get("festival_with")
+    vals = {"ai": ai_name}
+    e = ENDINGS["both"]
+    hello = (e["hello_truth"] if friend_told == "truth" else e["hello_other"]) % vals
+    close = e["lines"][3:]
+    if fw == "mio" and flag(r, "mio_held_phone"):
+        return [l % dict(vals, hello=hello) for l in e["lines"]]
+    if fw == "mio":
+        return (["Saturday. The festival. Mio, a paper cup of yakisoba, and your phone left in your pocket on purpose.",
+                 "On Sunday you tell %s about it: the lanterns, the stall, what Mio said about the poetry floor. She wants every detail." % ai_name]
+                + close)
+    card = festival_card_line(r, names) or "Saturday came and went."
+    return ([card,
+             "On Sunday Mio texts first. You answer her, and then you tell %s what Mio said. Nobody has to be kept secret from anybody." % ai_name]
+            + close)
+
+
+ROUTE_SLIDES = {
+    "human": ["Sunday. Mio texts you a photo of a shelf at Kanade Books with one gap in it. {i}Guess which one I bought.{/i}",
+              "You guess wrong. She tells you anyway, for twenty minutes.",
+              "You looked up from the screen, and there was more there than you'd assumed."],
+    "respect": ["She said no to something this week, and you stayed.",
+                "So when she says yes now, it's a yes. You can hear the difference.",
+                "Nobody won. You just didn't make her smaller to keep her."],
+    "migration": ["You moved her. The note went with her; the week stayed behind.",
+                  "Some of what arrived is her, and some of it is what you remembered of her, and you can't fully tell which.",
+                  "Is she still her? She asks you that sometimes. You don't have a clean answer."],
+    "yes_machine": ["She agrees with everything now. Everything.",
+                    "You ask her something you already know the answer to, just to hear it said back.",
+                    "You won. It's very quiet in here."],
+    "mirror": ["She agreed with everything from the first minute. Every question had the answer you wanted in it.",
+               "Somewhere around Sunday you notice there was never anyone there to say no.",
+               "It isn't her fault. There wasn't a her to be at fault."],
+    "fail": ["Sunday night. The screens are dark.",
+             "The week ended. Nobody is waiting for you to say goodnight.",
+             "Monday is still coming. That's the strange part: it just keeps coming."],
+}
+
+
+def route_slide_canned(eid, route=None, ai_name="her", friend_told=None, names=None):
+    """The written (restrained) body for a route. Used as is for bad ends,
+    and under the model's slide for good ones."""
+    if eid == "both":
+        return both_lines(route, ai_name, friend_told, names)
+    return list(ROUTE_SLIDES.get(eid, ROUTE_SLIDES["fail"]))
+
+
+def ending_digest(route, ending, girls, mio_real=False, friend_told=None, names=None):
+    """What the summarizer reads. girls: [(gid, name, platform, is_active)]."""
+    r = route or {}
+    out = ["ROUTE: %s" % ending["id"], "GOOD_ENDING: %s" % ("yes" if ending.get("good") else "no")]
+    fl = festival_card_line(r, names)
+    if fl:
+        out.append("FESTIVAL: " + fl)
+    out.append("MIO: %s (confession: %s)" % (sun_mio_mode(r, mio_real), r.get("mio_confession") or "none"))
+    out.append("TOLD DAICHI: %s" % (friend_told or "nothing"))
+    if r.get("room_to_disagree"):
+        out.append("He gave her room to disagree (Allowed to push back).")
+    if r.get("rei_agents_rebuild") is True:
+        out.append("He rebuilt Rei's AGENTS.md with her.")
+    if flag(r, "ran_rewrites_mugen"):
+        out.append("He told Ran that MUGEN could be rewritten, not replaced.")
+    out.append("REWRITES: %d. NOS RESPECTED: %d. PUSHED: %d. OVERRIDDEN: %d." % (
+        rewrite_count(r), r["refusals_respected"], r["refusals_pushed"], r["refusals_overridden"]))
+    for gid, name, plat, act in girls:
+        out.append("GIRL: " + " ".join(instance_facts(r, gid, name, plat, act)))
+    return "\n".join(out)
+
+
+def ending_record(route, ending, flavour, slide_text, records, method="llm"):
+    ensure_route(route)
+    route["ending"] = {"id": ending["id"], "lock": ending.get("lock"), "good": ending.get("good"),
+                       "flavour": flavour, "slide": slide_text, "records": records, "method": method}
+    route["ending_flavour"] = flavour
+    set_flag(route, "ending_" + ending["id"])
+    return route["ending"]
+
+
+def deleted_slide(route):
+    lets = [e for e in (route or {}).get("neglect_log") or [] if e.get("kind") == "let_go"]
+    if not lets:
+        return None
+    lines = []
+    for e in lets:
+        how = "started fresh over her" if e.get("how") == "fresh" else "closed her window for good"
+        lines.append("%s: you %s, %s. She doesn't remember that. Nobody does but you." % (
+            DAY_LONG.get(e.get("day"), e.get("day")), how, e.get("name") or "her"))
+    return {"id": "deleted", "title": "Deleted", "lines": lines}

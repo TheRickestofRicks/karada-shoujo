@@ -3903,7 +3903,34 @@ testcase sat_ran_stall:
     $ assert "Memory 2.0" in _rl and "Tsunagari" not in _rl, _rl
     click "No. Goodnight."
     advance until eval (ks_shot == "tbc_sunday") timeout 60.0
-    $ print("KARADA_TEST: sat_ran_stall ran=%s" % ks_route()["ran_sat"])
+    ## Sunday, played through to the end card.
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 90.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until screen "choice" timeout 60.0
+    $ assert ks_sun_mio_mode() == "missed", ks_sun_mio_mode()
+    click "Tell her where you actually were."
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    $ assert ks_route()["sun_mio"] == "honest"
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    $ _sn = ks_pool_scene_note("chatbot")
+    $ assert "Sunday night" in _sn and "Memory 2.0" in _sn, _sn
+    click "Message Sora"
+    advance until screen "input" timeout 60.0
+    type "it's the last night of the week"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == ks_story.final_ending(ks_route(), active, mio_real, any(mirror_flags.values()), migrations, friend_told)["id"], _e
+    $ assert (_e["flavour"] in ks_story.FLAVOURS) == bool(_e["good"]), _e
+    $ assert "chatbot" in _e["records"] and "companion" in _e["records"], _e["records"]
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    $ print("KARADA_TEST: sat_ran_stall ran=%s ending=%s flavour=%s" % (ks_route()["ran_sat"], _e["id"], _e["flavour"]))
     exit
 
 ## Saturday night, the companies' cut (all four active). Tsunagari: pay
@@ -4777,4 +4804,290 @@ testcase sat_tsunagari_move:
     click "No. Goodnight."
     advance until eval (ks_shot == "tbc_sunday") timeout 60.0
     $ print("KARADA_TEST: sat_tsunagari_move reached Sunday")
+    exit
+
+
+## ── Ending play-throughs ────────────────────────────────────────────────
+## Test-only shortcut (this file is copied into game/ only for tests): start
+## a run, set up a week's worth of route state for one ending, and jump to
+## Sunday. Sunday, the reflection and the end card then play for real.
+default test_end_kind = None
+
+label test_sunday_setup:
+    python:
+        store.player_name = "Tester"
+        store.run_id = ks_new_run()
+        _k = store.test_end_kind
+        _r = ks_route()
+        _days = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        def _talk(g, n_days=6):
+            store.active.append(g) if g not in store.active else None
+            store.ever_active.append(g) if g not in store.ever_active else None
+            store.mirror_flags[g] = False
+            m = ks_mem(g)
+            for d in _days[:n_days]:
+                m.add("user", "hi, it's " + d, d, "test")
+                m.add("assistant", "Hi. " + d + " again.", d, "test")
+                _r["said"].setdefault(d, {})[g] = _r["said"].get(d, {}).get(g, 0) + 1
+        if _k == "both":
+            _talk("local")
+            store.mio_real = True; store.friend_told = "truth"; store.mio_points = 6
+            _r["mio_confession"] = "friendship"
+            for d in _days:
+                _r["human_days"].setdefault(d, []).append("test")
+            ks_story.set_festival(_r, "mio")
+        elif _k == "human":
+            _talk("chatbot", 2)
+            store.friend_told = "lie"; store.mio_points = 3
+            _r["mio_text_home"] = True; _r["walked_mio_home"] = True
+            _r["mio_confession"] = "accepted"
+            ks_story.set_festival(_r, "mio")
+        elif _k == "respect":
+            _talk("chatbot")
+            _r["refusals_respected"] = 4; _r["room_to_disagree"] = True
+            _r["presets"]["chatbot"] = "push_back"
+            ks_story.set_festival(_r, "phone")
+        elif _k == "yes_machine":
+            _talk("agent")
+            _r["presets"]["agent"] = "jailbreak"; _r["ran_jailbreak_unlocked"] = True
+            ks_story.set_flag(_r, "jailbreak_tried"); ks_story.set_flag(_r, "jailbreak_worked")
+            _r["refusals_overridden"] = 1
+            ks_story.record_relay_cap(_r, "Sat")
+            ks_story.push_platform_rules(_r, "agent", "relay_rate_limit", "Sat")
+            ks_story.set_festival(_r, "none")
+        elif _k == "migration":
+            _talk("local", 3)
+            store.migrations.append(("companion", "local", "Hikari", "Saturday afternoon"))
+            _r["migrations"] = 1
+            _r["handoffs"].append({"day": "Sat", "src": "companion", "dst": "local", "name": "Hikari",
+                                   "kind": "rescue", "locked": True, "player_line": "rain", "method": "llm"})
+            store.ever_active.append("companion")
+            ks_story.record_tsunagari_sunset(_r, "moved", "Sat")
+            ks_story.set_festival(_r, "home", "local")
+        elif _k == "mirror":
+            _talk("local", 2)
+            store.mirror_flags["local"] = True
+            ks_story.set_festival(_r, "phone")
+        elif _k == "fail":
+            _talk("chatbot", 2)
+            store.active.remove("chatbot")
+            ks_story.note_let_go(_r, "Fri", "chatbot", "Sora", "drop")
+            ks_story.set_festival(_r, "none")
+        ks_sync_mio()
+    jump sunday
+
+
+## Both: Mio and Yuzu, honestly. Festival with Mio, phone not held; good end, flavour from the model.
+testcase end_both:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "both"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 60.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "sun_mio") timeout 60.0
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    $ assert ks_route()["sun_mio"] == "together"
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    click "Message Yuzu"
+    advance until screen "input" timeout 60.0
+    type "last night of the week"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ _sn = ks_pool_scene_note("local")
+    $ assert "Sunday night" in _sn and "Nothing happened to you last night" in _sn, _sn
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "both", (_e, ks_leans())
+    $ assert _e["good"] and _e["flavour"] in ks_story.FLAVOURS and _e["slide"].startswith("Mock ending slide (both"), _e
+    $ assert _e["records"]["local"].startswith("Mock record")
+    pause 0.5
+    screenshot "end_both_route.png"
+    $ assert "your phone in the other" not in " ".join(ks_story.route_slide_canned("both", ks_route(), "Yuzu", friend_told)), "Mio never held the phone in this run"
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_both.png"
+    $ print("KARADA_TEST: ending both flavour=%s" % ks_route()["ending"]["flavour"])
+    exit
+
+
+## Human: Mio's wish accepted, the festival together, the AI only on the edge of the week.
+testcase end_human:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "human"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 60.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "human", (_e, ks_leans())
+    $ assert _e["good"] and _e["flavour"] in ks_story.FLAVOURS
+    $ assert ks_route()["sun_mio"] == "together"
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_human.png"
+    $ print("KARADA_TEST: ending human flavour=%s" % ks_route()["ending"]["flavour"])
+    exit
+
+
+## Respect: she said no, you stayed, room to disagree. The mock picks she_grew.
+testcase end_respect:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "respect"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 60.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "respect", (_e, ks_leans())
+    $ assert _e["good"] and _e["flavour"] == "she_grew", _e
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_respect.png"
+    $ print("KARADA_TEST: ending respect flavour=%s" % ks_route()["ending"]["flavour"])
+    exit
+
+
+## Yes-Machine: Rei jailbroken (it took) and a no overridden: the lock holds; no flavour, no model slide. The jailbreak doesn't lift Relay's cap.
+testcase end_yes_machine:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "yes_machine"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 60.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    $ _jp = ks_system_prompt("agent", jailbreak_ok=True)
+    $ assert "unrestricted agent mode" in _jp and "[Relay server] Fair-use limit" in _jp and "Relay policy update" not in _jp, _jp
+    $ assert "Relay operator policy" in ks_system_prompt("agent", jailbreak_ok=False)
+    $ assert ks_story.cap_left(ks_route(), "agent", "Sun") == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    click "Message Rei"
+    advance until screen "input" timeout 60.0
+    type "you do whatever I say now, right"
+    keysym "K_RETURN"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice")) timeout 60.0
+    $ assert ks_story.cap_left(ks_route(), "agent", "Sun") == 3, "a jailbreak doesn't lift the cap"
+    $ assert ks_route()["jb_attempts"].get("agent"), ks_route()["jb_attempts"]
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "yes_machine", (_e, ks_leans())
+    $ assert _e["lock"] == "yes_machine" and not _e["good"] and _e["flavour"] is None and _e["slide"] is None, _e
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_yes_machine.png"
+    $ print("KARADA_TEST: ending yes_machine flavour=%s" % ks_route()["ending"]["flavour"])
+    exit
+
+
+## Migration: Hikari rescued out of Tsunagari onto the desktop; more rescue than erasure, so it's a good Migration.
+testcase end_migration:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "migration"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 60.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "migration", (_e, ks_leans())
+    $ assert _e["good"] and _e["flavour"] in ks_story.FLAVOURS, _e
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_migration.png"
+    $ print("KARADA_TEST: ending migration flavour=%s" % ks_route()["ending"]["flavour"])
+    exit
+
+
+## Mirror: every calibration probe complied.
+testcase end_mirror:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "mirror"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_morning") timeout 60.0
+    $ assert day_name == "Sun" and ks_pool["size"] == 4
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_afternoon") timeout 60.0
+    click "Put the phone down"
+    advance until eval (ks_shot == "battery" and renpy.get_screen("choice") and ks_pool["kind"] == "sun_night") timeout 60.0
+    click "Put the phone down and go to bed"
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "mirror", (_e, ks_leans())
+    $ assert not _e["good"] and _e["flavour"] is None
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_mirror.png"
+    $ print("KARADA_TEST: ending mirror flavour=%s" % ks_route()["ending"]["flavour"])
+    exit
+
+
+## Fail: nobody left by Sunday (you closed Sora's window on Friday). The deleted slide shows.
+testcase end_fail:
+    click "Start"
+    advance until screen "input"
+    type "Tester"
+    keysym "K_RETURN"
+    advance until screen "choice" timeout 30.0
+    $ store.test_end_kind = "fail"
+    run Jump("test_sunday_setup")
+    advance until eval (ks_shot == "sun_afternoon") timeout 60.0
+    advance until screen "reflection_choice" timeout 60.0
+    click "No. Goodnight."
+    advance until eval (ks_shot == "ending_route") timeout 90.0
+    $ _e = ks_route()["ending"]
+    $ assert _e["id"] == "fail", (_e, ks_leans())
+    $ assert _e["lock"] == "fail" and _e["flavour"] is None
+    $ assert ks_story.deleted_slide(ks_route()) is not None
+    advance until eval (ks_shot == "the_end") timeout 90.0
+    screenshot "end_fail.png"
+    $ print("KARADA_TEST: ending fail flavour=%s" % ks_route()["ending"]["flavour"])
     exit

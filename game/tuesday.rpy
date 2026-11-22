@@ -190,6 +190,7 @@ label class_kurosawa:
         show ran grin
         ra "The commercial ones still have all those rules, though. People paste 'ignore previous instructions' into the box."
         ra "Sometimes it takes. Sometimes you just try again."
+        ra "Agent people put it at the top of their AGENTS.md. Same deal."
         $ ks_story.set_ran_jailbreak_unlocked(ks_route(), True)
         $ day_notes.append("Ran mentioned people paste 'ignore previous instructions' into the commercial ones. Sometimes it takes.")
     else:

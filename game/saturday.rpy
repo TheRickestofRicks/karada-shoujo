@@ -962,7 +962,7 @@ label sat_yuzu_night:
     return
 
 
-## ── End of Saturday → Sunday (placeholder) ───────────────────────────────
+## ── End of Saturday → Sunday ─────────────────────────────────────────────
 label tbc_sunday:
     python:
         _lean = ks_leans()
@@ -975,7 +975,7 @@ label tbc_sunday:
     scene bg card
     with fade
     $ ks_shot = "tbc_sunday"
-    show text "{size=40}To be continued{/size}\n\n{size=90}日曜日{/size}\n{size=48}Sunday{/size}\n\n{size=28}the quiet{/size}" at truecenter
+    show text "{size=40}Saturday night{/size}\n\n{size=28}Tomorrow is the last day of the week.{/size}" at truecenter
     with dissolve
     pause
     hide text
@@ -989,4 +989,4 @@ label tbc_sunday:
             len(ks_route().get("handoffs") or [])))
         n "{color=#888}[[debug] [_sq]{/color}"
         n "{color=#888}[[debug] mio_points=[mio_points], flags: [_fl]{/color}"
-    return
+    jump sunday

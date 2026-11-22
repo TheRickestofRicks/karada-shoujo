@@ -401,7 +401,7 @@ init python:
     def ks_both_ending():
         names = dict((g, gname(g)) for g in GIRL_IDS)
         ai = ks_story.both_ai_name(ks_route(), store.active, names, "her")
-        return ks_story.ending_text("both", ai, store.friend_told)
+        return ks_story.ending_text("both", ai, store.friend_told, ks_route(), names)
 
     def ks_leans():
         return ks_story.ending_leans(ks_route(), store.active, store.mio_real,

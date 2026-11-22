@@ -279,7 +279,7 @@ Menu (`tuesday.rpy:158`) sets `ran_reaction` and `route["ran_reaction"]`:
 | "So it's a yes-machine. That's kind of sad." | `"judged"` | **Harsh option.** Ran puts her headphones on. `ks_story.ran_good_terms` is False, so on Wednesday she will **not** invite you to the protest. `ran_jailbreak_unlocked` is set to False (blocked / revoked): the Jailbreak preset stays hidden. |
 | "Cool." | `"shrug"` | Good terms. |
 
-If the reaction was anything but `"judged"`, Ran adds a dry tip before the festival line: people paste "ignore previous instructions" into the commercial ones; sometimes it takes, sometimes you just try again. That sets `route["ran_jailbreak_unlocked"] = True` and adds a day note. The Jailbreak preset (Sora / Hikari) is hidden from every picker until then.
+If the reaction was anything but `"judged"`, Ran adds a dry tip before the festival line: people paste "ignore previous instructions" into the commercial ones; sometimes it takes, sometimes you just try again; agent people put it at the top of their AGENTS.md. That sets `route["ran_jailbreak_unlocked"] = True` and adds a day note. The Jailbreak preset (Sora / Hikari / Rei) is hidden from every picker until then.
 
 Then `route["ran_festival_setup"] = True` (she mentions Saturday's stall). A day note is added from `teacher_answer`.
 

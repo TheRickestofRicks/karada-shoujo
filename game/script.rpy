@@ -388,6 +388,8 @@ init python:
         tmpl = store.ks_pool_template
         if kind in ks_story.SAT_POOL_KINDS:
             return ks_sat_pool_scene(kind, gid)
+        if kind in ks_story.SUN_POOL_KINDS:
+            return ks_sun_pool_scene(kind, gid)
         if kind == "morning":
             if store.day_name == "Tue":
                 return ks_tue_morning_scene(gid)
@@ -519,7 +521,7 @@ label message_pool(pool_kind, lead="", template=None, scene_key="", when="", sho
     ## display_menu treats a None value as a caption, not a button, so the
     ## put-away action has to be a real sentinel (otherwise testers and
     ## players could never actually put the phone down).
-    $ _put_away = "Put the phone down and go to bed" if pool_kind in ("night", "sat_night") else ("Put the phone away" if pool_kind in ("walk", "festival") else "Put the phone down")
+    $ _put_away = "Put the phone down and go to bed" if pool_kind in ("night", "sat_night", "sun_night") else ("Put the phone away" if pool_kind in ("walk", "festival") else "Put the phone down")
     $ _PUT_DOWN = "__put_down__"
     while ks_pool_can_talk() and not _pool_stop:
         $ ks_shot = "battery"
@@ -552,6 +554,10 @@ label message_pool(pool_kind, lead="", template=None, scene_key="", when="", sho
             n "The little battery goes dark. You put the phone away and look up. The lanterns are still there."
         elif pool_kind in ("sat_morning", "sat_afternoon", "home_evening"):
             n "The little battery goes dark. Saturday doesn't give you much."
+        elif pool_kind in ("sun_morning", "sun_afternoon"):
+            n "The little battery goes dark."
+        elif pool_kind == "sun_night":
+            n "The last bar goes dark. That was the week's last message. You put the phone down."
     if keep_open:
         ## Caller (a following phone break) may still want the icon; we already closed.
         pass

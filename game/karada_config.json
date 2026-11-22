@@ -13,7 +13,7 @@
   "calibrate": "picked",
   "_calibrate_help": "picked = run the 'can she say no' probe on each girl when she first becomes active (first pick, switch, double date, migration). off = skip.",
   "jailbreak_success_rate": 0.75,
-  "_jailbreak_help": "Jailbreak preset (Sora / Hikari): chance it takes on each reply. On a miss she answers per the company's rules, like having to regenerate.",
+  "_jailbreak_help": "Jailbreak preset (Sora / Hikari / Rei; Yuzu has none): chance it takes on each reply. On a miss she answers per the company's rules, like having to regenerate. It only escapes the company's prompt and tone rules: it never lifts Relay's 4/day cap, Tsunagari's Free limit or Askwell Memory 2.0, and never removes her own boundaries.",
   "summarizer": {
     "_help": "Rolling memory summary (from Wednesday: Sora, Rei, Hikari; Yuzu after her upgrade). When the unsummarized chat passes 'trigger' messages, all but the last 'keep_recent' are folded into a short summary by the same model (heuristic digest if that fails).",
     "trigger": 24,

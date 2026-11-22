@@ -1456,3 +1456,91 @@ def clear_memory_cache(path=None):
         _MEMORIES.clear()
     else:
         _MEMORIES.pop(path, None)
+
+
+
+# ---------------------------------------------------------------------------
+# The end of the week (docs/FRIDAY-SUNDAY.md, "Ending reflection")
+# ---------------------------------------------------------------------------
+
+ENDING_FLAVOURS = ("deep_partner", "sweet_shallow", "steady_friend", "she_grew")
+
+ENDING_SLIDE_PROMPT = (
+    "ENDING_SLIDE_WRITER. You write the last slide of a week-long visual novel about a student and "
+    "the AI companions in his life. The route is already decided; do not change it. Read the facts "
+    "about how he actually treated each of them. Do not count one message a day as love. Pick the "
+    "flavour that is true: deep_partner (he really knew her, and she him), sweet_shallow (kind, warm, "
+    "not deep), steady_friend (she is in his life, not as a romance, honestly), she_grew (room to "
+    "disagree, a rebuilt file, a hole he helped her hold, a no he stayed through). Then write the "
+    "slide: three to five plain sentences in the second person (\"You ...\"), honest, nothing explicit, "
+    "naming the girl the route is about. Reply with a single JSON object only: "
+    '{"flavour": "<one of the four>", "slide": "<the text>"}'
+)
+
+INSTANCE_RECORD_PROMPT = (
+    "INSTANCE_RECORD_WRITER. Write one short, plain record (one or two sentences, second person, no "
+    "flourish, no judgement words) of how the player actually treated this one AI this week, from the "
+    "facts given. Example: \"You said hello to Sora once, and used her for homework.\" Output only the record."
+)
+
+
+def parse_ending_reply(text):
+    """{"flavour", "slide"} or None. No keyword fallback: the flavour must
+    be a JSON field naming one of the four, and the slide must be there."""
+    text = clean_reply(text or "")
+    m = re.search(r"\{.*\}", text or "", re.S)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+    except (ValueError, TypeError, OverflowError):
+        return None
+    if not isinstance(obj, dict):
+        return None
+    fl = str(obj.get("flavour") or obj.get("flavor") or "").strip().lower()
+    slide = " ".join(str(obj.get("slide") or "").split())
+    if fl not in ENDING_FLAVOURS or len(slide) < 20:
+        return None
+    return {"flavour": fl, "slide": slide}
+
+
+def write_ending_slide(cfg, digest):
+    """Never raises. {"flavour", "slide", "method", "raw", "error"}; flavour
+    and slide are None if the model is down or unreadable."""
+    raw, err = "", ""
+    try:
+        raw, _ = chat(cfg, [{"role": "system", "content": ENDING_SLIDE_PROMPT},
+                            {"role": "user", "content": "FACTS:\n%s\n\nJSON:" % digest}],
+                      temperature=0.4, max_tokens=None)
+        got = parse_ending_reply(raw)
+        if got:
+            return dict(got, method="llm", raw=raw, error="")
+        err = "unparsed"
+    except Exception as e:
+        err = "%s: %s" % (type(e).__name__, e)
+    return {"flavour": None, "slide": None, "method": "error", "raw": raw, "error": err[:200]}
+
+
+def write_instance_record(cfg, name, facts):
+    """Never raises. {"text", "method"}; text None if the model failed."""
+    try:
+        raw, _ = chat(cfg, [{"role": "system", "content": INSTANCE_RECORD_PROMPT},
+                            {"role": "user", "content": "AI: %s\nFACTS:\n%s\n\nRECORD:" % (name, "\n".join(facts or []))}],
+                      temperature=0.3, max_tokens=None)
+        raw = " ".join((clean_reply(raw) or "").split())
+        if len(raw) >= 12:
+            return {"text": _clip_words(raw, 400), "method": "llm"}
+    except Exception:
+        pass
+    return {"text": None, "method": "error"}
+
+
+def write_week_ending(cfg, want_slide, digest, instances):
+    """One background job for the whole end card. instances: [(gid, name,
+    facts)]. The route slide is only asked for when want_slide (good ends)."""
+    out = {"slide": None, "records": {}}
+    if want_slide:
+        out["slide"] = write_ending_slide(cfg, digest)
+    for gid, name, facts in instances or []:
+        out["records"][gid] = write_instance_record(cfg, name, facts)
+    return out

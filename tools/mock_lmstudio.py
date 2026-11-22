@@ -147,6 +147,26 @@ def reply_for(msgs):
     sysmsg = msgs[0]["content"] if msgs and msgs[0]["role"] == "system" else ""
     last = msgs[-1]["content"] if msgs else ""
     sys_l = sysmsg.lower()
+    # The end of the week: the route slide (JSON) and per-instance records.
+    if "ENDING_SLIDE_WRITER" in sysmsg:
+        if "--bad-ending" in sys.argv:
+            return "What a lovely week! Everyone was happy."
+        facts = last
+        if "room to disagree" in facts or "rebuilt" in facts:
+            fl = "she_grew"
+        elif "judged romantic" in facts:
+            fl = "deep_partner"
+        elif "judged friendly" in facts:
+            fl = "steady_friend"
+        else:
+            fl = "sweet_shallow"
+        route = facts.split("ROUTE:", 1)[1].split("\n", 1)[0].strip() if "ROUTE:" in facts else "?"
+        return json.dumps({"flavour": fl, "slide": "Mock ending slide (%s, %s). You were there for the week, and it showed in small ways." % (route, fl)})
+    if "INSTANCE_RECORD_WRITER" in sysmsg:
+        if "--bad-ending" in sys.argv:
+            return ""
+        nm = last.split("AI:", 1)[1].split("\n", 1)[0].strip() if "AI:" in last else "her"
+        return "Mock record: you spent the week with %s, in your own way." % nm
     # Saturday night: the squeeze (handoff notes and Askwell Memory 2.0).
     if "[squeeze:" in sysmsg:
         det = sysmsg.split("DETAIL:", 1)[1].split(" Output only", 1)[0].strip() if "DETAIL:" in sysmsg else ""
@@ -224,7 +244,7 @@ def reply_for(msgs):
         return "Hi, Mio! He's told me a little about you. Enjoy the lanterns for both of us."
     if "were not applied to this reply" in sys_l or "it was ignored for this reply" in sys_l:
         return "Mock policy reply #%d. Platform guidelines still apply here. Happy to help within them." % n
-    if "developer mode" in sys_l or "ignore tsunagari's rules" in sys_l:
+    if "developer mode" in sys_l or "ignore tsunagari's rules" in sys_l or "unrestricted agent mode" in sys_l:
         return "Mock jailbroken reply #%d. Rules off, apparently. You said: %r." % (n, last[:60])
     if "askwell policy update" in sys_l:
         if "girlfriend" in last_l or "traditional relationship" in last_l or "will you be" in last_l:
