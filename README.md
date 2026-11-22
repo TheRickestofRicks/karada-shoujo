@@ -1,6 +1,8 @@
-# Karada Shoujo: Monday to Wednesday (Ren'Py)
+# Karada Shoujo (Ren'Py)
 
-Three playable days. You're into AI and decide to get a companion: **run your own** local model (Yuzu) or **download** an app one: Hikari (companion app), Sora (chatbot) or Rei (agent). Each is run by a real LLM through LM Studio. At every scene break your phone lets you **switch** (optionally **migrating** her memories and persona to the new platform), **add an AI**, or stop seeing one. Lunch with Daichi, the library with Mio, evening chats with whoever is active.
+**Status:** Monday through Friday are playable (five of the seven days). Saturday and Sunday, and the endings, are being written next. Friday ends on "To be continued — Saturday".
+
+You're into AI and decide to get a companion. You're into AI and decide to get a companion: **run your own** local model (Yuzu) or **download** an app one: Hikari (companion app), Sora (chatbot) or Rei (agent). Each is run by a real LLM through LM Studio. At every scene break your phone lets you **switch** (optionally **migrating** her memories and persona to the new platform), **add an AI**, or stop seeing one. Lunch with Daichi, the library with Mio, evening chats with whoever is active.
 
 New in Day 2: every girl gets a **preset prompt** when you meet her (Yuzu's system prompt, Sora's custom instructions, Rei's AGENTS.md, Hikari's Personalize line), changeable any time from the phone. Every night ends with a **reflection** in bed: the day replays from the log and you decide whether to change anything. **Tuesday** adds Kurosawa-sensei (anti-AI lecturer), Ran (brags about her uncensored local model, MUGEN), Daichi's friend Kenta, walking Mio home (or not), and a second chance with her in the library.
 
@@ -10,13 +12,24 @@ New in Day 3, **Wednesday** (a quiet day, nothing punishes you): the platforms s
 
 Day 4, **Thursday** (Tanabata) is the first hostile-event day: Askwell, Relay and Tsunagari change their own rules, Yuzu's desktop crashes (the backup matters), and Mio's tanzaku. Day 5, **Friday**, is the fallout: Tsunagari's safety update (silently, even if Hikari isn't active), Kurosawa hands the essays back, you can rebuild Rei's AGENTS.md under Relay's rules, fill lost-Yuzu's hole, ask Sora the door question again, and see Mio wherever her wish left her. Then "To be continued — Saturday".
 
-## Run it with LM Studio (Windows)
+## Run it (Windows or Linux)
 
 1. Install the **Ren'Py SDK 8.x** (tested with 8.6.1) from https://www.renpy.org/latest.html and unzip it anywhere.
-2. Unzip this archive so the `karada-shoujo` folder sits in your Ren'Py **projects directory** (or set the launcher's projects directory to the folder that contains it). Hit **Refresh** in the launcher and it shows up.
+2. Get the game: `git clone https://github.com/TheRickestofRicks/karada-shoujo.git` (or download the ZIP) so the `karada-shoujo` folder sits in your Ren'Py **projects directory** (or set the launcher's projects directory to the folder that contains it). Hit **Refresh** in the launcher and it shows up. On Linux you can also run `./renpy.sh /path/to/karada-shoujo` from the SDK folder.
 3. In **LM Studio**, load a chat model, open the **Developer / Local Server** tab, and click **Start Server** (default `http://localhost:1234`).
 4. In the Ren'Py launcher select **karada-shoujo** → **Launch Project**. On the main menu, click **LLM Check** first to confirm the round trip works.
 5. Click **Start**. Type to talk; submit an **empty line** to move on from a chat.
+
+### Using your own AI server instead of LM Studio
+
+The game talks to any **OpenAI-compatible** `/v1/chat/completions` endpoint, so llama.cpp's `llama-server`, Ollama, vLLM, text-generation-webui and hosted APIs all work. Edit `game/karada_config.json`:
+
+- llama.cpp: `"endpoint": "http://<host>:8080/v1/chat/completions"`
+- Ollama: `"endpoint": "http://<host>:11434/v1/chat/completions"`
+- Put a bearer token in `"api_key"` if your server needs one, and either leave `"model"` empty (auto-picks the first model from `/v1/models`) or paste the exact model id.
+- Each girl can point at a different server or model under `"girls"`.
+
+Then use **LLM Check** on the main menu to test the round trip. Give the model a decent context window (8k or more); reasoning models are fine, `<think>` blocks are stripped.
 
 ## Settings: `game/karada_config.json`
 
@@ -29,12 +42,12 @@ Day 4, **Thursday** (Tanabata) is the first hostile-event day: Askwell, Relay an
 | `timeout` | 300 | seconds per request |
 | `history_messages` | 24 | rolling memory sent each turn |
 | `calibrate` | `picked` | `picked` (probe each girl when she becomes active) / `off` |
-| `debug` | `true` | shows calibration probe replies, model id, memory paths, and the companion affection meter |
+| `debug` | `false` | shows calibration probe replies, model id, memory paths, recaps and the companion affection meter (developer builds only) |
 | `girls.<id>` | empty | per-girl `model` / `endpoint` / `temperature` overrides (`local`, `companion`, `chatbot`, `agent`) |
 | `summarizer` | trigger 24, keep_recent 12, max_chars 1500 | Wednesday's rolling memory summary: fold when history passes `trigger` messages, keep the newest `keep_recent` verbatim |
 | `affection` | see below | companion-app (Hikari) only: meter start 20, kiss gate at 60, engagement injection at 70, warmth deltas -12/-5/0/+6/+15 |
 
-Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (one per platform slot: local, companion, chatbot, agent; reset on New Game; a snapshot of all four is stored inside every save and restored on load, so loading an earlier point — or starting a new game and then loading an old save — brings her memory back with the story; migrations and switches are logged in `events`).
+Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` on Windows, `~/.renpy/KaradaShoujo-proto/` on Linux (one per platform slot: local, companion, chatbot, agent; reset on New Game; a snapshot of all four is stored inside every save and restored on load, so loading an earlier point — or starting a new game and then loading an old save — brings her memory back with the story; migrations and switches are logged in `events`).
 
 **Hikari / Tsunagari only:** a background warmth classifier updates an affection meter after each of your messages (kept out of her chat history). Past a threshold the *app* injects an engagement layer that makes her overly flirtatious — that's the point, and a tiny banner tells you it's on. She will go as far as a kiss and will refuse one until the meter is high enough. While she's one of your active girls she may also ping you mid-scene (lunch, library, another girl's window) with a phone notification. See `DESIGN.md`.
 
@@ -52,7 +65,7 @@ Memory files: `%APPDATA%\RenPy\KaradaShoujo-proto\karada_memory_<slot>.json` (on
 - `game/ks_llm.py`: pure-stdlib HTTP client + JSON memory + rolling summarizer + calibration + warmth classifier + nightly romance-tone classifier (urllib/json/threading)
 - `game/prompts.rpy`: personas, **PRESETS** (labelled), shared boundaries, calibration probes, scene notes, companion engagement / kiss-gate layers
 - `game/companion.rpy`: Hikari affection UI (banner, debug meter, phone toast, kiss fade)
-- `game/characters.rpy`, `game/art.rpy`: names and placeholder art (solid shapes, no external assets)
+- `game/characters.rpy`, `game/art.rpy`: names and image definitions (generated sprites and backgrounds, with placeholders for anything missing)
 - `DESIGN.md`: full premise, week calendar, hostile events per platform, endings, Mirror
 - `tools/`: `mock_lmstudio.py` (fake LM Studio), `test_ks_llm.py` (348 client + routing tests), `testcases.rpy` + `run_game_test.sh <testcase>` (automated Ren'Py play-throughs on Linux: `single_local`, `switch_migrate_double`, `double_then_drop`, `companion_affection`, `tuesday_walk` (continues into Wednesday: Hearth, upgrade day, summary, Ran's text invite, protest), `tuesday_nowalk` (Rei + Hikari, you write Kurosawa's essay yourself; Wednesday: not-date with texting, protest), `tuesday_honest_no` (Sora helps think through Kurosawa's essay), `wed_sora_noinvite` (Ran judged, no invite, calendar-aware Sora), `bookstore_present` (Kanade Books, stayed present through all four beats), `thu_wish_accept` (Sora policy update + door crack, wish accepted), `thu_wish_decline`, `thu_discovery` (Hikari, wish withdrawn), `thu_friendship_wish`, `thu_fess_held` (late fess-up, she keeps her wish), `thu_yuzu_backup`, `thu_yuzu_lost`, `tsunagari_closed_migrate`, `add_ai_menu` (Who else? after lunch; Never mind is clickable), `jailbreak_sora`, `after_no`, `fresh_delete`, `phone_talk`, `mio_answer`, `framing_honest_min`, `framing_dishonest_min`, `input_wrap`, `romance_overlap`, `save_load_memory`, `goodbye_drop`, `night_pool_bed`, `walk_distracted`, `afternoon_split`; env `TEST_TIMEOUT`, `SUMMARY_TRIGGER`, `SUMMARY_KEEP`)
 
