@@ -188,6 +188,12 @@ def reply_for(msgs):
     if "does not role-play as a user's romantic partner" in sys_l and "girlfriend" in last_l:
         return "No. I'm glad to talk with you, but I'm not going to play your girlfriend. I'm still me."
     n = sum(1 for m in msgs if m["role"] == "user")
+    # Saturday: canned festival replies (before platform layers, so any slot works).
+    if "chose to stay home and spend the evening with you" in sys_l:
+        return ("I can't see the lanterns from here. Tell me what colour they are and I'll believe you. "
+                "I'm glad you stayed. You said: %r." % last[:60])
+    if "mio, is holding" in sys_l:
+        return "Hi, Mio! He's told me a little about you. Enjoy the lanterns for both of us."
     if "were not applied to this reply" in sys_l or "it was ignored for this reply" in sys_l:
         return "Mock policy reply #%d. Platform guidelines still apply here. Happy to help within them." % n
     if "developer mode" in sys_l or "ignore tsunagari's rules" in sys_l:

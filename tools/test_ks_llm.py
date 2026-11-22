@@ -1446,4 +1446,143 @@ check("mock Friday Yuzu: restored vs lost vs filled",
       and "hole" in _mr("Friday morning, the day after the crash. There was no backup.")
       and "holding onto it" in _mr("Friday morning, the day after the crash. There was no backup. You only have their word"))
 
+# ---------------------------------------------------------------------------
+# Saturday: the festival (part 1)
+# ---------------------------------------------------------------------------
+check("Saturday batteries are 2/2/2/2 (+ home evening 2)",
+      [ks_story.pool_size(k) for k in ("sat_morning", "sat_afternoon", "festival", "home_evening", "sat_night")] == [2, 2, 2, 2, 2])
+check("Saturday pool sizes are overridable",
+      ks_story.pool_size("festival", {"message_pool": {"festival": 3}}) == 3)
+SP = ks_story.new_pool("festival")
+ks_story.spend_pool(SP, "chatbot"); ks_story.spend_pool(SP, "agent")
+check("festival battery is empty after two", not ks_story.pool_can_spend(SP))
+
+FR = ks_story.new_route()
+for _fw in ks_story.FESTIVAL_WITH:
+    if _fw == "home":
+        continue
+    ks_story.set_festival(FR, _fw)
+    check("festival_with %s is valid" % _fw, ks_story.festival_valid(FR) and FR["festival_home_gid"] is None)
+try:
+    ks_story.set_festival(FR, "home"); _bad = False
+except ValueError:
+    _bad = True
+check("home without a girl is rejected", _bad)
+try:
+    ks_story.set_festival(FR, "bamboo"); _bad = False
+except ValueError:
+    _bad = True
+check("only the five festival values", _bad and tuple(ks_story.FESTIVAL_WITH) == ("mio", "ran", "phone", "home", "none"))
+ks_story.set_festival(FR, "home", "local")
+check("home records who", FR["festival_with"] == "home" and FR["festival_home_gid"] == "local" and ks_story.festival_valid(FR))
+check("home is not 'together'", not ks_story.festival_together(FR)
+      and "together" not in ks_story.festival_card_line(FR, {"local": "Yuzu"})
+      and "Yuzu" in ks_story.festival_card_line(FR, {"local": "Yuzu"}))
+check("broken home state is invalid", not ks_story.festival_valid({"festival_with": "home"}))
+ks_story.set_festival(FR, "mio")
+check("going with Mio is together, and clears the home girl",
+      ks_story.festival_together(FR) and FR["festival_home_gid"] is None
+      and "together" in ks_story.festival_card_line(FR))
+check("old saves gain the Saturday keys",
+      all(k in ks_story.ensure_route({"flags": {}}) for k in
+          ("festival_with", "festival_home_gid", "festival_texts", "mio_held_phone", "sat_lie", "compare_notes", "ran_sat")))
+
+for _c, _mode in (("accepted", "date"), ("declined_respect", "friends"), ("friendship", "friends"),
+                  ("friendship_late", "friends"), ("held_back", "careful"), ("none", "friends")):
+    MR = ks_story.new_route(); MR["mio_confession"] = _c
+    check("Sat Mio mode for %s" % _c, ks_story.mio_festival_mode(MR) == _mode)
+MR = ks_story.new_route(); MR["mio_confession"] = "withdrawn"
+check("withdrawn and no Friday approach: not tonight", ks_story.mio_festival_mode(MR) == "refuses"
+      and "mio_ask" in ks_story.festival_options(MR, ["local"]) and "mio" not in ks_story.festival_options(MR, ["local"]))
+MR["fri_mio_beat"] = True
+check("withdrawn but you went over carefully Friday: careful", ks_story.mio_festival_mode(MR) == "careful")
+MR2 = ks_story.new_route(); MR2["mio_confession"] = "withdrawn"; MR2["sat_mio_refused"] = True
+check("after a no, the ask is gone", ks_story.festival_options(MR2, ["local"]) == ["ran", "phone", "home", "none"])
+check("Mio not in your life: no Mio option, no phone/home without an AI",
+      ks_story.mio_festival_mode(ks_story.new_route()) is None
+      and ks_story.festival_options(ks_story.new_route(), []) == ["ran", "none"])
+check("home needs someone reachable",
+      "home" not in ks_story.festival_options(ks_story.new_route(), ["local"], reachable=[]))
+
+RR = ks_story.new_route()
+check("Ran open by default", ks_story.ran_stall_mode(RR) == "open")
+RR["ran_safety_net"] = "kurosawa"
+check("Ran almost didn't come (safety net)", ks_story.ran_stall_mode(RR) == "almost")
+ks_story.record_ran_payoff(RR, "means_something", True)
+check("Ran invited wins", ks_story.ran_stall_mode(RR) == "invited")
+RJ = ks_story.new_route(); RJ["ran_reaction"] = "judged"; RJ["wed_plan"] = {"protest": False}; RJ["ran_safety_net"] = "both"
+check("judged, no protest, no invite: cold", ks_story.ran_stall_mode(RJ) == "cold")
+RJ["wed_plan"] = {"protest": True}
+check("judged but went to the protest: not cold", ks_story.ran_stall_mode(RJ) == "almost")
+
+check("lie due only while it stands", ks_story.lie_due("lie") and not ks_story.lie_due("truth") and not ks_story.lie_due(None))
+check("lie outcomes", ks_story.lie_outcome("truth") == "told" and ks_story.lie_outcome("excuse") == "excuse"
+      and ks_story.lie_outcome("excuse", mio_knows=True) == "caught"
+      and ks_story.lie_outcome("excuse", phone_visible=True) == "caught")
+
+CN = ks_story.new_route()
+check("compare notes absent if Mio was never answered", ks_story.compare_notes(CN, "truth", None) is None)
+check("compare notes match", ks_story.compare_notes(CN, "truth", "truth")["kind"] == "match")
+check("compare notes mismatch (lie vs truth)", ks_story.compare_notes(CN, "lie", "truth")["kind"] == "mismatch")
+CN["mio_thu_truth"] = True
+check("Thursday's confession counts as Mio hearing the truth",
+      ks_story.compare_notes(CN, "truth", "lie")["kind"] == "match"
+      and ks_story.compare_notes(CN, "deflect", "lie")["kind"] == "mismatch")
+CF = ks_story.new_route()
+ks_story.set_daichi_ai_framing(CF, "ai_only"); ks_story.set_mio_ai_framing(CF, "downplay")
+check("framings compared first", ks_story.compare_notes(CF, "truth", "truth")["kind"] == "mismatch")
+
+TX = ks_story.new_route()
+_p, _l = ks_story.note_festival_text(TX, "mio", "chatbot", 5)
+check("a text in front of Mio costs a point and she says so", _p == 4 and TX["mio_affection"] == 4 and "texting" in _l)
+_p, _l = ks_story.note_festival_text(TX, "mio", "chatbot", 0)
+check("never below zero", _p == 0)
+_p, _l = ks_story.note_festival_text(TX, "mio", "chatbot", 3, mio_holding=True)
+check("her own hello doesn't cost", _p == 3 and _l == "")
+_p, _l = ks_story.note_festival_text(TX, "ran", "agent", 3)
+check("Ran sees it, no cost", _p == 3 and _l)
+_p, _l = ks_story.note_festival_text(TX, "phone", "agent", 3)
+check("alone: nobody beside you", _p == 3 and _l == "" and len(TX["festival_texts"]) == 5)
+IG = ks_story.new_route(); IP = ks_story.new_pool("festival")
+ks_story.note_festival_text(IG, "mio", "local", 3)
+check("one text is not ignoring her", not ks_story.note_ignored_company(IG, IP))
+ks_story.note_festival_text(IG, "mio", "local", 3)
+check("the whole battery is", ks_story.note_ignored_company(IG, IP) and ks_story.flag(IG, "festival_ignored_company"))
+
+check("decision 1 hook off until part 2", not ks_story.festival_blocked_by_shift(ks_story.new_route())
+      and ks_story.festival_blocked_by_shift({"tsunagari_paid": True, "sat_shift": True}))
+
+# Leans: Mio after an accepted wish is follow-through; Ran's stall is a small Respect.
+LA = ks_story.new_route(); LA["mio_confession"] = "accepted"
+_h0 = ks_story.mio_romance_score(LA)
+ks_story.set_festival(LA, "mio")
+check("festival with Mio after accepted adds Human follow-through", ks_story.mio_romance_score(LA) == _h0 + 2)
+ks_story.set_flag(LA, "festival_ignored_company")
+check("...not if you ignored her for the phone", ks_story.mio_romance_score(LA) == _h0)
+LF = ks_story.new_route(); LF["mio_confession"] = "friendship"; LF["mio_affection"] = 4
+_b0 = ks_story.both_status(LF, ["local"])["score"]
+ks_story.set_festival(LF, "mio")
+check("friendship festival is a Both-lean, not a Human spike",
+      ks_story.both_status(LF, ["local"])["score"] == _b0 + 1 and ks_story.mio_romance_score(LF) == 0)
+LH = ks_story.new_route(); LH["mio_affection"] = 4
+_b1 = ks_story.both_status(LH, ["local"])["score"]
+ks_story.set_festival(LH, "home", "local")
+check("staying home adds no festival-together Both point", ks_story.both_status(LH, ["local"])["score"] == _b1)
+LR = ks_story.new_route()
+_r0 = ks_story.ending_leans(LR, ["local"])["respect"]
+ks_story.set_flag(LR, "ran_stall_kept")
+check("keeping the Ran check-in is a small Respect", ks_story.ending_leans(LR, ["local"])["respect"] == _r0 + 1)
+
+check("Saturday situations never send him to school",
+      "school" not in ks_story.situation_line("", "Saturday morning, 9 July. No school today.").lower().replace("no school", "")
+      and ks_story.situation_line("", "Saturday evening. He is out at the festival") == ks_story.SITUATION_SAT_FESTIVAL
+      and ks_story.situation_line("", "Saturday evening, but Tester chose to stay home") == ks_story.SITUATION_SAT_HOME_EVENING
+      and ks_story.situation_line("", "Saturday afternoon, 9 July.") == ks_story.SITUATION_SAT_AFTERNOON)
+check("weekday situations unchanged", ks_story.situation_line("Monday morning") == ks_story.SITUATION_MORNING)
+
+check("mock Saturday: lanterns she cannot see",
+      "can't see the lanterns" in _mr("Saturday evening. Tester chose to stay home and spend the evening with you instead.", "they're orange"))
+check("mock Saturday: Mio says hi through the phone",
+      "Hi, Mio" in _mr("Tester's friend from school, Mio, is holding Tester's phone right now"))
+
 print("\nALL %d CHECKS PASSED" % ok)

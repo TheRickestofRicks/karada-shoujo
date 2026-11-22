@@ -127,6 +127,17 @@ def new_route():
         "sora_door_reprise": False,  # you asked the door / girlfriend question again on Friday
         "rei_agents_rebuild": None,  # True rebuilt AGENTS.md, False kept the efficient version
         "yuzu_fri_filled": False,    # you gave lost-Yuzu a telling of the week to hold
+        # Saturday (the festival). See docs/FRIDAY-SUNDAY.md, "Saturday status".
+        "festival_with": None,       # mio / ran / phone / home / none (FESTIVAL_WITH)
+        "festival_home_gid": None,   # who you stayed home with, if "home"
+        "festival_texts": [],        # [gid, ...] texts sent in public at the festival
+        "festival_phone": None,      # True brought the phone out with Mio, False left it home
+        "mio_held_phone": False,     # Mio held your phone (only with her, and only if brought)
+        "sat_mio_refused": False,    # she said "not tonight" when you asked carefully
+        "sat_lie": None,             # linguistics lie on Saturday: told / excuse / caught / deferred
+        "compare_notes": None,       # match / mismatch_owned / mismatch_dodged, if it fired
+        "ran_sat": None,             # invited / almost / open / cold_apology / cold_left
+        "festival_shift": False,     # decision 1 hook: a paid Tsunagari shift took the evening (part 2)
     }
 
 
@@ -195,6 +206,7 @@ def both_status(route, active=None, mio_real=False, friend_told=None):
         score = (2 * len(bal) + (2 if mio_real else 0)
                  + (2 if friend_told == "truth" else 0)
                  + (1 if nd.get("went") else 0)
+                 + (1 if r.get("festival_with") == "mio" else 0)
                  + friendship // 2)
     return {"eligible": eligible, "score": score, "balanced": bal, "reasons": reasons}
 
@@ -1576,6 +1588,9 @@ def mio_romance_score(route):
         score += 2 + int(nd.get("present") or 0)
     if r.get("mio_confession") == "accepted":
         score += 4
+        # Saturday: showing up after an accepted wish is the follow-through.
+        if r.get("festival_with") == "mio" and not flag(r, "festival_ignored_company"):
+            score += 2
     return score
 
 
@@ -1628,6 +1643,7 @@ def ending_leans(route, active=None, mio_real=False, mirror=False, migrations=No
                    + (1 if r["room_to_disagree"] else 0) - 2 * goodbye - unspoken
                    + (1 if flag(r, "ran_rewrites_mugen") else 0)
                    + (1 if r.get("mio_confession") == "declined_respect" else 0)
+                   + (1 if flag(r, "ran_stall_kept") else 0)
                    + len(r.get("goodbyes_said") or []),
         "migration": 2 * nmig,
         "human": human_score(r, active, mio_real),
@@ -1677,6 +1693,10 @@ SITUATION_AFTERNOON_OUT = "(Afternoon. He's out, and this is just a quick text.)
 SITUATION_EVENING = "(Evening. He's heading home, or just back.)"
 SITUATION_NIGHT = "(Late evening; he's home in his room.)"
 SITUATION_MIDDAY = "(Midday. He's at home, working on the computer you run on.)"
+SITUATION_SAT_MORNING = "(Saturday morning. No school today; he's at home.)"
+SITUATION_SAT_AFTERNOON = "(Saturday afternoon. No school; he's at home before the festival.)"
+SITUATION_SAT_FESTIVAL = "(Saturday evening. He's out at the festival, texting from the crowd.)"
+SITUATION_SAT_HOME_EVENING = "(Saturday evening. He stayed home tonight; he's in his room, not at the festival.)"
 
 
 def situation_line(when="", note=""):
@@ -1689,6 +1709,16 @@ def situation_line(when="", note=""):
     text = ("%s %s" % (when or "", note or "")).lower()
     if not text.strip():
         return ""
+    if "saturday" in text:
+        # No school on Saturday: never say "about to leave for school".
+        if "stayed home" in text or "stay home" in text:
+            return SITUATION_SAT_HOME_EVENING
+        if "at the festival" in text or "from the crowd" in text:
+            return SITUATION_SAT_FESTIVAL
+        if "afternoon" in text:
+            return SITUATION_SAT_AFTERNOON
+        if "morning" in text:
+            return SITUATION_SAT_MORNING
     if "quick text" in text or "out somewhere" in text:
         return SITUATION_AFTERNOON_OUT
     if "around noon" in text or "skipped classes" in text or "upgrade the computer" in text:
@@ -1842,7 +1872,16 @@ POOL_DEFAULTS = {
     "walk": 2,
     "afternoon": 4,
     "night": 4,
+    # Saturday, the smallest of the week (decision 6: 2/2/2/2). The public
+    # festival pool and the home-evening pool replace each other.
+    "sat_morning": 2,
+    "sat_afternoon": 2,
+    "festival": 2,
+    "home_evening": 2,
+    "sat_night": 2,    # after the company cuts (Saturday night, part 2)
 }
+
+SAT_POOL_KINDS = ("sat_morning", "sat_afternoon", "festival", "home_evening", "sat_night")
 
 WALK_DISTRACT_COST = 1
 
@@ -1929,3 +1968,227 @@ def note_walk_distracted(route, gid, mio_points):
     lines = WALK_DISTRACT_LINES
     idx = min(int(route["mio_walk_distracted"]) - 1, len(lines) - 1)
     return new_points, lines[idx]
+
+
+# ---------------------------------------------------------------------------
+# Saturday: the festival (docs/FRIDAY-SUNDAY.md, "Saturday — the festival")
+# ---------------------------------------------------------------------------
+# One evening, one place. festival_with is the attendance flag the ending
+# card reads; "home" also needs festival_home_gid.
+
+FESTIVAL_WITH = ("mio", "ran", "phone", "home", "none")
+
+
+def set_festival(route, with_whom, home_gid=None):
+    """Record where Saturday evening went. Raises ValueError on anything
+    that isn't one of FESTIVAL_WITH, or "home" without a girl."""
+    ensure_route(route)
+    if with_whom not in FESTIVAL_WITH:
+        raise ValueError("festival_with must be one of %r, not %r" % (FESTIVAL_WITH, with_whom))
+    if with_whom == "home" and not home_gid:
+        raise ValueError('festival_with "home" needs festival_home_gid')
+    route["festival_with"] = with_whom
+    route["festival_home_gid"] = home_gid if with_whom == "home" else None
+    set_flag(route, "festival_" + with_whom)
+    return route
+
+
+def festival_valid(route):
+    """festival_with is set to one of the five, and "home" names who."""
+    r = route or {}
+    fw = r.get("festival_with")
+    if fw not in FESTIVAL_WITH:
+        return False
+    return fw != "home" or bool(r.get("festival_home_gid"))
+
+
+def festival_together(route):
+    """You went to the festival together with Mio (the Both card's echo of
+    the bamboo). Staying home with a girl is never "together" at the
+    festival, and neither is Ran's stall."""
+    return (route or {}).get("festival_with") == "mio"
+
+
+# mio_confession -> what the festival is with her. No second confession.
+SAT_MIO_MODES = {
+    "accepted": "date",
+    "declined_respect": "friends",
+    "friendship": "friends",
+    "friendship_late": "friends",
+    "none": "friends",
+    "held_back": "careful",
+    "withdrawn": "careful",   # only if you went over on Friday; else "refuses"
+}
+
+
+def mio_festival_mode(route, mio_real=False):
+    """date / friends / careful / refuses, or None if Mio isn't in your life.
+
+    After "withdrawn" she lets you come only if you went over carefully on
+    Friday (fri_mio_beat True); otherwise it's "not tonight". After you
+    already asked and she said no, she is still "refuses"."""
+    r = route or {}
+    conf = r.get("mio_confession")
+    if conf == "withdrawn" and r.get("fri_mio_beat") is not True:
+        return "refuses"
+    if r.get("sat_mio_refused"):
+        return "refuses"
+    if conf in SAT_MIO_MODES:
+        return SAT_MIO_MODES[conf]
+    if fri_mio_beat(r, mio_real) is not None:
+        return "friends"
+    return None
+
+
+def ran_stall_mode(route):
+    """invited / almost / open / cold.
+
+    invited: you said you'd notice if she skipped (ran_festival_invited).
+    almost: someone checked on her Thursday (ran_safety_net); she came, or
+    almost didn't. cold: you judged her Tuesday, never went to the protest,
+    and never invited her; she may not want you at the stall."""
+    r = route or {}
+    if flag(r, "ran_festival_invited"):
+        return "invited"
+    if r.get("ran_reaction") == "judged" and not (r.get("wed_plan") or {}).get("protest"):
+        return "cold"
+    if r.get("ran_safety_net"):
+        return "almost"
+    return "open"
+
+
+def festival_options(route, active=None, mio_real=False, reachable=None):
+    """Where Saturday evening can go, in menu order. reachable: girls you
+    could actually stay home with (defaults to active)."""
+    r = route or {}
+    out = []
+    mode = mio_festival_mode(r, mio_real)
+    if mode in ("date", "friends", "careful"):
+        out.append("mio")
+    elif mode == "refuses" and not r.get("sat_mio_refused"):
+        out.append("mio_ask")
+    out.append("ran")
+    if active:
+        out.append("phone")
+    if list(reachable if reachable is not None else (active or [])):
+        out.append("home")
+    out.append("none")
+    return out
+
+
+def festival_blocked_by_shift(route):
+    """Decision 1 hook: paying for Tsunagari is a Saturday odd-job shift
+    that costs the festival evening. The paying choice belongs to the
+    Saturday-night cut (part 2), which must move its notice before the
+    evening; until then nothing sets sat_shift and this is always False."""
+    r = route or {}
+    return bool(r.get("tsunagari_paid") and r.get("sat_shift"))
+
+
+def lie_due(friend_told):
+    """The linguistics girl comes due in public if the lie is still standing."""
+    return friend_told == "lie"
+
+
+def lie_outcome(choice, mio_knows=False, phone_visible=False):
+    """told / excuse / caught. An excuse in front of someone who already
+    knows (Mio heard the truth) or with the chat open on screen gets caught."""
+    if choice == "truth":
+        return "told"
+    if mio_knows or phone_visible:
+        return "caught"
+    return "excuse"
+
+
+def compare_notes(route, friend_told=None, mio_told=None):
+    """Mio and Daichi compare notes at the festival.
+
+    Returns None if there is nothing to compare (you never answered Mio),
+    else {"kind": "match"/"mismatch", "mio_heard", "daichi_heard",
+    "trust_risk"}. Thursday's confession to Mio (mio_thu_truth) counts as
+    her having heard the truth; Daichi's side is friend_told as it stands
+    tonight (a come-clean on Thursday counts)."""
+    r = ensure_route(dict(route or {}))
+    mio_heard = "truth" if r.get("mio_thu_truth") else mio_told
+    if mio_heard is None and not r.get("mio_ai_framing"):
+        return None
+    if r.get("mio_thu_truth"):
+        consistent = friend_told == "truth"
+    else:
+        consistent = mio_daichi_consistent(friend_told, mio_heard,
+                                           r.get("daichi_ai_framing"), r.get("mio_ai_framing"))
+    return {"kind": "match" if consistent else "mismatch",
+            "mio_heard": mio_heard, "daichi_heard": friend_told,
+            "trust_risk": bool(flag(r, "framing_trust_risk"))}
+
+
+FESTIVAL_MIO_TEXT_COST = 1
+
+# Mio notices each text in front of her. Index 0 first, last repeats.
+FESTIVAL_MIO_LINES = (
+    "You're texting someone. That's okay. The yakisoba's getting cold, though.",
+    "I'm going to look at the goldfish for a minute. You can catch up.",
+)
+FESTIVAL_RAN_LINES = (
+    "Same. MUGEN wants a photo of the stall. I said no.",
+    "You know you can just be here, right? I'm saying that to me too.",
+)
+
+
+def note_festival_text(route, with_whom, gid, mio_points=0, mio_holding=False):
+    """A text sent in public. Returns (new_mio_points, line).
+
+    With Mio: costs FESTIVAL_MIO_TEXT_COST per text (not below 0) unless
+    she is the one holding the phone. With Ran: she sees it, says so, and
+    it costs nothing. Alone: nobody's beside you to notice."""
+    ensure_route(route)
+    route.setdefault("festival_texts", []).append(gid)
+    n = len(route["festival_texts"])
+    if with_whom == "mio":
+        if mio_holding:
+            return int(mio_points or 0), ""
+        new_points = max(0, int(mio_points or 0) - FESTIVAL_MIO_TEXT_COST)
+        route["mio_affection"] = new_points
+        return new_points, FESTIVAL_MIO_LINES[min(n - 1, len(FESTIVAL_MIO_LINES) - 1)]
+    if with_whom == "ran":
+        return int(mio_points or 0), FESTIVAL_RAN_LINES[min(n - 1, len(FESTIVAL_RAN_LINES) - 1)]
+    return int(mio_points or 0), ""
+
+
+def note_ignored_company(route, pool):
+    """You came with someone and spent the whole public battery texting.
+    (Mio's own hello, when she holds the phone, doesn't count.) Logged,
+    not a lecture; Fail and neglect still judge the ordinary way."""
+    size = int((pool or {}).get("size") or 0)
+    texts = len((route or {}).get("festival_texts") or [])
+    if size > 0 and texts >= size:
+        set_flag(route, "festival_ignored_company")
+        return True
+    return False
+
+
+def sat_schedule():
+    return [("Saturday", "No school"), ("Saturday", "School festival (from 17:00)")]
+
+
+def festival_card_line(route, names=None):
+    """A truthful line for the ending card about Saturday evening."""
+    r = route or {}
+    names = names or {}
+    fw = r.get("festival_with")
+    if fw == "mio":
+        return "You went to Saturday's festival together."
+    if fw == "ran":
+        if r.get("ran_sat") == "invited":
+            return "You stood at Ran's stall on Saturday, because you said you would."
+        return "You spent Saturday's festival at Ran's stall."
+    if fw == "phone":
+        return "You went to Saturday's festival alone, with your phone."
+    if fw == "home":
+        g = r.get("festival_home_gid")
+        return "You stayed home on Saturday with %s and described the lanterns." % names.get(g, g or "her")
+    if fw == "none":
+        if r.get("festival_shift"):
+            return "You worked through Saturday's festival."
+        return "You didn't go to Saturday's festival."
+    return ""

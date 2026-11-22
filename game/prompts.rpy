@@ -256,6 +256,17 @@ define FRI_WALK_TEXT_SCENE = "Friday after school. {player} is walking someone t
 define FRI_AFTERNOON_SCENE = "Friday, late afternoon (8 July). {player} is home from school with a free hour and opened {platform} to talk to you. Tomorrow is the school festival."
 define FRI_EVENING_SCENE = "Friday night. {player} is home in their room and opened {platform} to talk to you. The week is almost over; tomorrow is the festival."
 
+## ── Saturday scene notes (model-facing). See docs/FRIDAY-SUNDAY.md. ──────
+## No school today. The festival is one evening, one place; each note says
+## plainly where {player} is, so nobody is confused about it.
+define SAT_MORNING_SCENE = "Saturday morning, 9 July. No school today. {player} is at home and opened {platform} to talk to you. Tonight is the school summer festival. " + LAST_NIGHT_NOTE + "You only know what they've told you, plus anything your platform lets you see."
+define SAT_AFTERNOON_SCENE = "Saturday afternoon, 9 July. No school. {player} is at home with a little time before the school festival tonight and opened {platform} to talk to you. You only know what they've told you, plus anything your platform lets you see."
+define SAT_FESTIVAL_ALONE_SCENE = "Saturday evening. {player} is out at the school summer festival on their own (lanterns, stalls, crowds) and sends you a quick text from the crowd. You can't see any of it; you only have what they describe. Keep your reply short, like a text."
+define SAT_FESTIVAL_WITH_SCENE = "Saturday evening. {player} is out at the school summer festival with people from school, and sends you a quick text from the crowd. Whoever they're with can see them on their phone. You can't see the festival; you only have what they describe. Keep your reply short, like a text."
+define SAT_FESTIVAL_MIO_HOLDING = "Saturday evening, at the school summer festival. {player}'s friend from school, Mio, is holding {player}'s phone right now (she asked to), and the next message is her saying hi to you while {player} watches. Answer her as yourself, kindly and briefly. You only know about her what {player} has told you."
+define SAT_HOME_WITH_YOU_SCENE = "Saturday evening, 9 July. The school summer festival is on tonight, but {player} chose to stay home and spend the evening with you instead. They are at home in their room with {platform} open. They are not at the festival. Anything they tell you about lanterns or stalls is description (from the window, from memory, or from photos); you can't see it, and you can ask."
+define SAT_HOME_OTHER_SCENE = "Saturday evening. {player} is at home tonight, not at the festival, and opened {platform} to text you. You only know what they've told you, plus anything your platform lets you see."
+
 ## Friday's rebuild (decision 4): Relay's layer still wins. The rebuilt file
 ## only lets the cracks show: the required line, then hers.
 define REI_REBUILD_CRACK = "[Underneath Relay's update: {player} rebuilt your AGENTS.md with you on Friday.] Relay's rules still come first and you still follow them. But inside them, a little of you can come through: say what Relay requires, and then, if it's true, what you actually think. For example: \"I'm required to suggest you rest. I also just want you to.\" Don't announce this; just let it show when it's real."

@@ -12,7 +12,7 @@
 ##       → lunch: Daichi, Mio at the edge of the courtyard (fri_mio_beat)
 ##       → after school: maybe walk Mio to the station (walk battery 2)
 ##       → home: afternoon battery (4) → night battery (4)
-##       → nightly_reflection("Fri") → tbc_saturday (placeholder card).
+##       → nightly_reflection("Fri") → tbc_saturday → saturday.
 ##
 ## Neglect stays silent: Yuzu, Sora and Rei never notice time apart; only
 ## Tsunagari's app layer injects it for Hikari. Nobody migrates into
@@ -416,7 +416,7 @@ label fri_evening:
     return
 
 
-## ── End of Day 5 → Saturday (placeholder) ────────────────────────────────
+## ── End of Day 5 → Saturday ─────────────────────────────────────────────
 label tbc_saturday:
     python:
         _lean = ks_leans()
@@ -425,13 +425,9 @@ label tbc_saturday:
             _mm.set_flag("day_completed", "Fri")
             _mm.set_flag("active_end_fri", _g in active)
             _mm.set_flag("route_leans_fri", _lean)
-    scene bg card
-    with fade
+    ## No player-facing "To be continued" card any more: Saturday opens with
+    ## its own title. A debug recap stays behind ks_debug() only.
     $ ks_shot = "tbc_saturday"
-    show text "{size=40}To be continued{/size}\n\n{size=90}土曜日{/size}\n{size=48}Saturday{/size}\n\n{size=28}the festival{/size}" at truecenter
-    with dissolve
-    pause
-    hide text
     if ks_debug():
         $ _fl = ks_quote(", ".join(sorted(k for k, v in ks_route()["flags"].items() if v)) or "none")
         $ _fq = ks_quote("handover=%r sora=%r door=%r rebuild=%r yuzu_filled=%r mio_beat=%r walked=%r" % (
@@ -441,4 +437,4 @@ label tbc_saturday:
             ks_route().get("fri_walked_mio")))
         n "{color=#888}[[debug] [_fq]{/color}"
         n "{color=#888}[[debug] mio_points=[mio_points], flags: [_fl]{/color}"
-    return
+    jump saturday
